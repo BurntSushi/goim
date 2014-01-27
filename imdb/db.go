@@ -13,7 +13,7 @@ import (
 
 var sf = fmt.Sprintf
 
-// DB represents a database containing information from the International
+// DB represents a database containing information from the Internet
 // Movie DataBase. The underlying database connection is exposed so that
 // clients may run their own queries.
 type DB struct {
