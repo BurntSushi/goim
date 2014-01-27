@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"text/template"
 
 	"github.com/BurntSushi/toml"
 )
@@ -31,6 +32,7 @@ type command struct {
 	flags           *flag.FlagSet
 	addFlags        func(*command)
 	run             func(*command)
+	tpls            *template.Template
 }
 
 func (c *command) showUsage() {
@@ -112,6 +114,25 @@ func (c *command) config() (conf config, err error) {
 			conf.Driver, conf.DataSource)
 	}
 	return
+}
+
+func (c *command) tpl(name string) *template.Template {
+	if c.tpls == nil {
+		fpath, err := xdgPaths.ConfigFile("format.tpl")
+		if err == nil {
+			c.tpls, err = template.ParseFiles(fpath)
+			if err != nil {
+				fatalf("Problem parsing template 'format.tpl': %s", err)
+			}
+		}
+	}
+	if c.tpls != nil {
+		t := c.tpls.Lookup(name)
+		if t != nil {
+			return t
+		}
+	}
+	return defaultTemplate(name)
 }
 
 func (c *command) assertNArg(n int) {

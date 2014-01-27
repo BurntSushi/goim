@@ -11,6 +11,7 @@ import (
 
 var commands = []*command{
 	cmdClean,
+	cmdInfo,
 	cmdLoad,
 	cmdWriteConfig,
 }

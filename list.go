@@ -155,6 +155,19 @@ func entityType(listName string, item []byte) entity {
 	panic("unrecognized list name " + listName)
 }
 
+func entityFromString(e string) entity {
+	switch e {
+	case "movie":
+		return entityMovie
+	case "tvshow":
+		return entityTvshow
+	case "episode":
+		return entityEpisode
+	}
+	fatalf("unrecognized entity %s", e)
+	panic("unreachable")
+}
+
 func (e entity) String() string {
 	switch e {
 	case entityMovie:
@@ -164,5 +177,6 @@ func (e entity) String() string {
 	case entityEpisode:
 		return "episode"
 	}
-	panic(sf("unrecognized entity %d", int(e)))
+	fatalf("unrecognized entity %d", e)
+	panic("unreachable")
 }

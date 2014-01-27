@@ -64,9 +64,6 @@ var migrations = map[string][]migration.Migrator{
 		func(tx migration.LimitedTx) error {
 			var err error
 			_, err = tx.Exec(`
-				CREATE DOMAIN utctime AS timestamp with time zone
-					CHECK (EXTRACT(TIMEZONE FROM VALUE) = '0');
-
 				CREATE TYPE medium AS ENUM ('movie', 'tvshow', 'episode');
 
 				CREATE TABLE atom (
@@ -109,7 +106,7 @@ var migrations = map[string][]migration.Migrator{
 					atom_id integer,
 					outlet medium,
 					country TEXT,
-					released utctime,
+					released date,
 					attrs TEXT
 				);
 				`)
