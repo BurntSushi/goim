@@ -183,7 +183,8 @@ func parseEpisodeNumbers(inBraces []byte, season *int, episode *int) int {
 		// assume season 1
 		*season = 1
 		if err := parseInt(numbers, episode); err != nil {
-			pef("Could not parse '%s' as episode number in: %s", numbers, inBraces)
+			pef("Could not parse '%s' as episode number in: %s",
+				numbers, inBraces)
 		}
 		return start // can't read'em, so ignore'em
 	}

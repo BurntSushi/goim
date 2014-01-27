@@ -92,9 +92,14 @@ type ftpRetrCloser struct {
 
 // Close closes the file download and the FTP connection.
 func (r ftpRetrCloser) Close() error {
-	if err := r.ReadCloser.Close(); err != nil {
-		return ef("Problem closing FTP reader: %s", err)
-	}
+	// BUG(burntsushi): For some reason, closing the reader here appears
+	// to stall forever. After looking at the code in jlaffaye/goftp, I cannot
+	// see any obvious reason why. But quitting the FTP connection seems to
+	// work OK.
+
+	// if err := r.ReadCloser.Close(); err != nil {
+	// return ef("Problem closing FTP reader: %s", err)
+	// }
 	if err := r.conn.Quit(); err != nil {
 		return ef("Problem quitting: %s", err)
 	}

@@ -39,7 +39,7 @@ func listReleases(db *imdb.DB, releases io.ReadCloser) {
 			ok      bool
 			country string
 			date    time.Time
-			attrs []byte
+			attrs   []byte
 		)
 
 		fields := splitListLine(line)

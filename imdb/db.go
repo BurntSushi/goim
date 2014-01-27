@@ -50,15 +50,11 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) Clean() error {
-	// XXX: Wipe data, not the schema.
-	// return csql.Safe(func() {
-	// csql.Exec(db, "TRUNCATE TABLE movie, tvshow, episode")
-	// })
+	tables := []string{"atom", "movie", "tvshow", "episode", "release"}
 	return csql.Safe(func() {
-		csql.Exec(db, `
-			DROP TABLE migration_version, atom,
-					   movie, tvshow, episode, release
-		`)
+		for _, table := range tables {
+			csql.SQLPanic(csql.Truncate(db, db.Driver, table))
+		}
 	})
 }
 

@@ -1,5 +1,5 @@
 build:
-	go build
+	go install
 
 fmt:
 	gofmt -w *.go

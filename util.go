@@ -41,6 +41,14 @@ func logf(format string, v ...interface{}) {
 	pef(format, v...)
 }
 
+func openDb(driver, dsn string) *imdb.DB {
+	db, err := imdb.Open(driver, dsn)
+	if err != nil {
+		fatalf("Could not open '%s:%s': %s", driver, dsn, err)
+	}
+	return db
+}
+
 func closeDb(db *imdb.DB) {
 	if err := db.Close(); err != nil {
 		fatalf("Could not close database: %s", err)

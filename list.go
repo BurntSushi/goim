@@ -130,7 +130,6 @@ func hasEntryYear(f []byte) bool {
 	return len(f) >= 6 && f[0] == '(' && f[len(f)-1] == ')'
 }
 
-
 type entity int
 
 const (

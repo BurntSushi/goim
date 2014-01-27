@@ -3,13 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-
-	"github.com/BurntSushi/goim/imdb"
-
 	"log"
 	"os"
 	"runtime"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 var (
@@ -17,6 +16,7 @@ var (
 	flagCpu        = runtime.NumCPU()
 	flagQuiet      = false
 	flagDb         = ""
+	flagConfig     = ""
 )
 
 func init() {
@@ -50,9 +50,14 @@ func (c *command) showHelp() {
 
 func (c *command) showFlags() {
 	c.flags.VisitAll(func(fl *flag.Flag) {
+		if fl.Name == "cpu-prof" { // don't show this to users
+			return
+		}
 		var def string
 		if len(fl.DefValue) > 0 {
 			def = fmt.Sprintf(" (default: %s)", fl.DefValue)
+		} else {
+			def = " (default: \"\")"
 		}
 		usage := strings.Replace(fl.Usage, "\n", "\n    ", -1)
 		log.Printf("-%s%s\n", fl.Name, def)
@@ -63,27 +68,50 @@ func (c *command) showFlags() {
 func (c *command) setCommonFlags() {
 	c.flags.StringVar(&flagDb, "db", flagDb,
 		"Overrides the database to be used. It should be a string of the "+
-			"form 'driver:dsn'.")
+			"form 'driver:dsn'.\nSee the config file for more details.")
+	c.flags.StringVar(&flagConfig, "config", flagConfig,
+		"If set, the configuration is loaded from the file given.")
 	c.flags.StringVar(&flagCpuProfile, "cpu-prof", flagCpuProfile,
 		"When set, a CPU profile will be written to the file path provided.")
 	c.flags.IntVar(&flagCpu, "cpu", flagCpu,
 		"Sets the maximum number of CPUs that can be executing simultaneously.")
 	c.flags.BoolVar(&flagQuiet, "quiet", flagQuiet,
 		"When set, status messages about the progress of a command will be "+
-			"omitted.")
+			"omitted.\n"+
+			"For example, this will hide messages that say an ID could not\n"+
+			"be found for entires in the release-dates list.")
 }
 
-func (c *command) db() *imdb.DB {
-	if len(flagDb) == 0 {
-		fatalf("Configuration not yet supported.")
+func (c *command) dbinfo() (driver, dsn string) {
+	if len(flagDb) > 0 {
+		dbInfo := strings.Split(flagDb, ":")
+		driver, dsn = dbInfo[0], dbInfo[1]
+	} else {
+		conf, err := c.config()
+		if err != nil {
+			fatalf("If '-db' is not specified, then a configuration file\n"+
+				"must exist in $XDG_CONFIG_HOME/goim/config.toml or be\n"+
+				"specified with '-config'.\n\n"+
+				"Got this error when trying to read config: %s", err)
+		}
+		driver, dsn = conf.Driver, conf.DataSource
 	}
-	dbInfo := strings.Split(flagDb, ":")
-	driver, dsn := dbInfo[0], dbInfo[1]
-	db, err := imdb.Open(driver, dsn)
-	if err != nil {
-		fatalf("Could not open '%s': %s", flagDb, err)
+	return
+}
+
+func (c *command) config() (conf config, err error) {
+	var fpath string
+	if len(flagConfig) > 0 {
+		fpath = flagConfig
+	} else {
+		fpath, err = xdgPaths.ConfigFile("config.toml")
 	}
-	return db
+	_, err = toml.DecodeFile(fpath, &conf)
+	if len(conf.Driver) == 0 || len(conf.DataSource) == 0 {
+		err = ef("Database driver '%s' or data source '%s' cannot be empty.",
+			conf.Driver, conf.DataSource)
+	}
+	return
 }
 
 func (c *command) assertNArg(n int) {

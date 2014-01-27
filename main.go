@@ -11,7 +11,8 @@ import (
 
 var commands = []*command{
 	cmdClean,
-	cmdCreate,
+	cmdLoad,
+	cmdWriteConfig,
 }
 
 func usage() {
