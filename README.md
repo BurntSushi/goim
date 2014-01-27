@@ -1,6 +1,6 @@
 goim is a command line utility for maintaining and querying the [Internet Movie 
 Database (IMDb)](http://www.imdb.com). Goim automatically downloads IMDb's data 
-from [in plain text format](http://www.imdb.com/interfaces) and loads it into a 
+[in plain text format](http://www.imdb.com/interfaces) and loads it into a 
 relational database. Goim can then interact with the data in the database in 
 various ways, including general purpose searching, fuzzy matching, naming 
 TV series episode files, etc.
