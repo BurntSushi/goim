@@ -16,6 +16,12 @@ var (
 	pef    = func(f string, v ...interface{}) {
 		fmt.Fprintf(os.Stderr, f+"\n", v...)
 	}
+	logf = func(format string, v ...interface{}) {
+		if flagQuiet {
+			return
+		}
+		pef(format, v...)
+	}
 )
 
 func createFile(fpath string) *os.File {
@@ -32,13 +38,6 @@ func openFile(fpath string) *os.File {
 		fatalf(err.Error())
 	}
 	return f
-}
-
-func logf(format string, v ...interface{}) {
-	if flagQuiet {
-		return
-	}
-	pef(format, v...)
 }
 
 func openDb(driver, dsn string) *imdb.DB {

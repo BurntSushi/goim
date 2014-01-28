@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"sort"
 	"strings"
 	"text/template"
@@ -49,13 +50,29 @@ data_source = "goim.sqlite"
 // The default templates to write to the configuration directory.
 // Note that each template has '{{define "..."}}...{{end}}' automatically
 // added based on its name in the map.
-// All leading and trailing whitespace is stripped from the templates provided
-// here.
+// The first new line of each template is trimmed.
 var defaultTpls = map[string]string{
 	"info_movie": `
-{{.Title}} ({{.Year}})
+{{ $full := .Full }}
+{{ .E.Title }} ({{ .E.Year }})
 
-ID: {{.Id}}
+{{ $dates := .E.ReleaseDates }}
+{{ if gt (len $dates) 0 }}
+	Release dates
+	=============
+	{{ range $i, $date := $dates }}
+		{{ if or $full (lt $i 5) }}
+			{{ $date }}\
+		{{ end }}
+	{{ end }}
+{{ end }}
+`,
+	"search_result": `
+{{ printf "%3d" .Index }}. 
+{{ printf "%-9s" .Entity }} {{.Title}} ({{.Year}})
+{{ if .Attrs }}
+	{{ .Attrs }}
+{{ end }}
 `,
 }
 
@@ -132,11 +149,12 @@ func writeConfig(c *command) {
 	sort.Strings(tplNames)
 	define, prefix := `%s{{ define "%s" }}%s{{ end }}`, ""
 	for _, name := range tplNames {
-		t := strings.TrimSpace(defaultTpls[name])
+		t := trimTemplate(defaultTpls[name])
 		_, err := fmt.Fprintf(tpl, define, prefix, name, t)
 		if err != nil {
 			fatalf("Could not write '%s': %s", tplPath, err)
 		}
+		prefix = "\n\n"
 	}
 }
 
@@ -145,11 +163,27 @@ func defaultTemplate(name string) *template.Template {
 	if !ok {
 		fatalf("BUG: No template with name '%s' exists.", name)
 	}
-	tpl = strings.TrimSpace(tpl)
+	tpl = trimTemplate(tpl)
 	text := sf(`{{ define "%s" }}%s{{ end }}`, name, tpl)
 	t, err := template.New(name).Parse(text)
 	if err != nil {
 		fatalf("BUG: Could not parse template '%s': %s", name, err)
 	}
 	return t
+}
+
+var (
+	stripNewLines     = regexp.MustCompile("}}\n")
+	stripLeadingSpace = regexp.MustCompile("(?m)^(\t| )+")
+)
+
+func trimTemplate(s string) string {
+	if len(s) >= 1 && s[0] == '\n' {
+		s = s[1:]
+	}
+	// Order is important here.
+	s = stripLeadingSpace.ReplaceAllString(s, "")
+	s = stripNewLines.ReplaceAllString(s, "}}")
+	s = strings.Replace(s, "}}\\", "}}", -1)
+	return s
 }

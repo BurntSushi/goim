@@ -45,7 +45,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 		fields := splitListLine(line)
 		item, value := fields[0], fields[1]
 		switch ent := entityType("movies", item); ent {
-		case entityMovie:
+		case imdb.EntityMovie:
 			m := imdb.Movie{}
 			if existed, err := parseId(atoms, item, &m.Id); existed {
 				return true
@@ -61,7 +61,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 				csql.SQLPanic(ef("Could not add movie '%s': %s", m, err))
 			}
 			addedMovies++
-		case entityTvshow:
+		case imdb.EntityTvshow:
 			tv := imdb.Tvshow{}
 			if existed, err := parseId(atoms, item, &tv.Id); existed {
 				return true
@@ -81,7 +81,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 				csql.SQLPanic(ef("Could not add tvshow '%s': %s", tv, err))
 			}
 			addedTvshows++
-		case entityEpisode:
+		case imdb.EntityEpisode:
 			ep := imdb.Episode{}
 			if existed, err := parseId(atoms, item, &ep.Id); existed {
 				return true

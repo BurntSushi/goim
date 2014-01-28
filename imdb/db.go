@@ -3,6 +3,7 @@ package imdb
 import (
 	"database/sql"
 	"fmt"
+	"os"
 
 	_ "code.google.com/p/go-sqlite/go1/sqlite3"
 	_ "github.com/lib/pq"
@@ -11,7 +12,18 @@ import (
 	"github.com/BurntSushi/migration"
 )
 
-var sf = fmt.Sprintf
+var (
+	sf     = fmt.Sprintf
+	ef     = fmt.Errorf
+	pf     = fmt.Printf
+	fatalf = func(f string, v ...interface{}) { pef(f, v...); os.Exit(1) }
+	pef    = func(f string, v ...interface{}) {
+		fmt.Fprintf(os.Stderr, f+"\n", v...)
+	}
+	logf = func(format string, v ...interface{}) {
+		pef(format, v...)
+	}
+)
 
 // DB represents a database containing information from the Internet
 // Movie DataBase. The underlying database connection is exposed so that
@@ -112,69 +124,4 @@ func (tx *Tx) Rollback() error {
 	}
 	tx.closed = true
 	return tx.Tx.Rollback()
-}
-
-type Movie struct {
-	Id       Atom
-	Title    string
-	Year     int
-	Sequence string
-	Tv       bool
-	Video    bool
-}
-
-func ScanMovie(rs *sql.Rows) (Movie, error) {
-	m := Movie{}
-	err := rs.Scan(&m.Id, &m.Title, &m.Year, &m.Sequence, &m.Tv, &m.Video)
-	return m, err
-}
-
-func (m Movie) String() string {
-	return sf("%s (%d)", m.Title, m.Year)
-}
-
-type Tvshow struct {
-	Id                 Atom
-	Title              string
-	Year               int
-	Sequence           string
-	YearStart, YearEnd int
-}
-
-func ScanTvshow(rs *sql.Rows) (Tvshow, error) {
-	t := Tvshow{}
-	err := rs.Scan(&t.Id, &t.Title, &t.Year, &t.Sequence,
-		&t.YearStart, &t.YearEnd)
-	return t, err
-}
-
-func (t Tvshow) String() string {
-	return sf("%s (%d)", t.Title, t.Year)
-}
-
-type Episode struct {
-	Id              Atom
-	TvshowId        Atom
-	Title           string
-	Year            int
-	Season, Episode int
-}
-
-func ScanEpisode(rs *sql.Rows) (Episode, error) {
-	e := Episode{}
-	err := rs.Scan(&e.Id, &e.TvshowId, &e.Title, &e.Year, &e.Season, &e.Episode)
-	return e, err
-}
-
-func (e Episode) Tvshow(db csql.Queryer) (tv Tvshow, err error) {
-	r := db.QueryRow(`
-		SELECT id, title, year, sequence, year_start, year_end
-		FROM tvshow
-		WHERE id = $1`, e.TvshowId)
-	err = r.Scan(&tv)
-	return
-}
-
-func (e Episode) String() string {
-	return sf("%s %d", e.Title, e.Year)
 }

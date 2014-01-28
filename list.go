@@ -130,53 +130,19 @@ func hasEntryYear(f []byte) bool {
 	return len(f) >= 6 && f[0] == '(' && f[len(f)-1] == ')'
 }
 
-type entity int
-
-const (
-	entityMovie = iota
-	entityTvshow
-	entityEpisode
-)
-
-func entityType(listName string, item []byte) entity {
+func entityType(listName string, item []byte) imdb.Entity {
 	switch listName {
 	case "movies", "release-dates":
 		switch {
 		case item[0] == '"':
 			if item[len(item)-1] == '}' {
-				return entityEpisode
+				return imdb.EntityEpisode
 			} else {
-				return entityTvshow
+				return imdb.EntityTvshow
 			}
 		default:
-			return entityMovie
+			return imdb.EntityMovie
 		}
 	}
-	panic("unrecognized list name " + listName)
-}
-
-func entityFromString(e string) entity {
-	switch e {
-	case "movie":
-		return entityMovie
-	case "tvshow":
-		return entityTvshow
-	case "episode":
-		return entityEpisode
-	}
-	fatalf("unrecognized entity %s", e)
-	panic("unreachable")
-}
-
-func (e entity) String() string {
-	switch e {
-	case entityMovie:
-		return "movie"
-	case entityTvshow:
-		return "tvshow"
-	case entityEpisode:
-		return "episode"
-	}
-	fatalf("unrecognized entity %d", e)
-	panic("unreachable")
+	panic("BUG: unrecognized list name " + listName)
 }

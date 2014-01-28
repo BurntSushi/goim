@@ -116,6 +116,12 @@ func (c *command) config() (conf config, err error) {
 	return
 }
 
+func (c *command) tplExec(template *template.Template, data interface{}) {
+	if err := template.Execute(os.Stdout, data); err != nil {
+		fatalf("Could not execute template '%s': %s", template.Name(), err)
+	}
+}
+
 func (c *command) tpl(name string) *template.Template {
 	if c.tpls == nil {
 		fpath, err := xdgPaths.ConfigFile("format.tpl")
