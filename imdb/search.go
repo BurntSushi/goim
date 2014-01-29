@@ -9,17 +9,22 @@ import (
 )
 
 var DefaultSearch = SearchOptions{
-	NoCase:   false,
-	Limit:    100,
-	Order:    []SearchOrder{{"year", "DESC"}},
-	Entities: nil,
+	NoCase:    false,
+	Fuzzy:     false,
+	Limit:     100,
+	Order:     []SearchOrder{{"year", "DESC"}},
+	Entities:  nil,
+	YearStart: 0,
+	YearEnd:   3000,
 }
 
 type SearchOptions struct {
-	NoCase   bool
-	Limit    int
-	Order    []SearchOrder
-	Entities []Entity
+	NoCase             bool
+	Fuzzy              bool
+	Limit              int
+	Order              []SearchOrder
+	Entities           []Entity
+	YearStart, YearEnd int
 }
 
 type SearchOrder struct {
@@ -43,7 +48,8 @@ type SearchResult struct {
 	// Arbitrary additional data specific to an entity.
 	// e.g., Whether a movie is straight to video or made for TV.
 	// e.g., The season and episode number of a TV episode.
-	Attrs string
+	Attrs    string
+	Distance int
 }
 
 func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
@@ -52,27 +58,20 @@ func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
 		less := func(e1, e2 Entity) bool { return int(e1) < int(e2) }
 		entities = fun.QuickSort(less, fun.Values(Entities)).([]Entity)
 	}
-	repeatedQuery := make([]interface{}, len(entities))
 	subs, prefix := "", " "
 	for i, entity := range entities {
-		repeatedQuery[i] = query
 		subs += prefix + opts.searchSub(db, query, entity, i+1) + " "
 		prefix = " UNION "
 	}
 
 	var results []SearchResult
-	cols := fun.Map(srColQualified, SearchResultColumns).([]string)
-	q := sf(`
-		SELECT %s
-		FROM (%s) AS s
-		%s
-		LIMIT %d`, strings.Join(cols, ", "), subs, opts.orderBy(), opts.Limit)
+	repeatedQuery := opts.repeatedSearch(query, len(entities))
 	err := csql.Safe(func() {
-		rs := csql.Query(db, q, repeatedQuery...)
+		rs := csql.Query(db, opts.parentSelect(subs), repeatedQuery...)
 		csql.SQLPanic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var r SearchResult
 			var ent string
-			csql.Scan(s, &ent, &r.Id, &r.Title, &r.Year, &r.Attrs)
+			csql.Scan(s, &ent, &r.Id, &r.Title, &r.Year, &r.Attrs, &r.Distance)
 			r.Entity = Entities[ent]
 			results = append(results, r)
 		}))
@@ -86,7 +85,6 @@ func (opts SearchOptions) searchSub(
 	entity Entity,
 	index int,
 ) string {
-	cmp := opts.cmp(db, query)
 	switch entity {
 	case EntityMovie:
 		return sf(`
@@ -94,9 +92,15 @@ func (opts SearchOptions) searchSub(
 				'%s' AS entity, id, title, year,
 				trim(CASE WHEN tv THEN '(TV) ' ELSE '' END
 					|| CASE WHEN video THEN '(V)' ELSE '' END)
-					AS attrs
+					AS attrs,
+				%s
 			FROM movie
-			WHERE title %s $%d`, entity.String(), cmp, index)
+			WHERE %s AND %s`,
+			entity.String(),
+			opts.distanceColumn("title", index),
+			opts.years("year"),
+			opts.cmp(db, "title", query, index),
+		)
 	case EntityTvshow:
 		return sf(`
 			SELECT
@@ -108,9 +112,15 @@ func (opts SearchOptions) searchSub(
 					|| CASE WHEN year_end > 0
 						THEN cast(year_end AS text)
 						ELSE '????' END
-					AS attrs
+					AS attrs,
+				%s
 			FROM tvshow
-			WHERE title %s $%d`, entity.String(), cmp, index)
+			WHERE %s AND %s`,
+			entity.String(),
+			opts.distanceColumn("title", index),
+			opts.years("year"),
+			opts.cmp(db, "title", query, index),
+		)
 	case EntityEpisode:
 		return sf(`
 			SELECT
@@ -121,27 +131,59 @@ func (opts SearchOptions) searchSub(
 								|| '.' || cast(episode AS text)
 							ELSE '' END
 					|| ')'
-					AS attrs
+					AS attrs,
+				%s
 			FROM episode
 			LEFT JOIN tvshow ON tvshow.id = episode.tvshow_id
-			WHERE episode.title %s $%d`, entity.String(), cmp, index)
+			WHERE %s AND %s`,
+			entity.String(),
+			opts.distanceColumn("episode.title", index),
+			opts.years("episode.year"),
+			opts.cmp(db, "episode.title", query, index),
+		)
 	}
 	panic(sf("BUG: unrecognized entity %s", entity))
 }
 
-func (opts SearchOptions) cmp(db *DB, query string) string {
-	cmp := "="
-	if opts.NoCase || strings.ContainsAny(query, "%_") {
-		if db.Driver == "postgres" && opts.NoCase {
-			cmp = "ILIKE"
-		} else {
-			cmp = "LIKE"
-		}
+func (opts SearchOptions) years(column string) string {
+	return sf("%s >= %d AND %s <= %d",
+		column, opts.YearStart, column, opts.YearEnd)
+}
+
+func (opts SearchOptions) distanceColumn(column string, index int) string {
+	if opts.Fuzzy {
+		return sf("%s AS distance", opts.leven(column, index))
+	} else {
+		return "-1 AS distance"
 	}
-	return cmp
+}
+
+func (opts SearchOptions) cmp(db *DB, column, query string, index int) string {
+	if opts.Fuzzy {
+		return sf("%s < 50", opts.leven(column, index))
+	} else {
+		cmp := "="
+		if opts.NoCase || strings.ContainsAny(query, "%_") {
+			if db.Driver == "postgres" && opts.NoCase {
+				cmp = "ILIKE"
+			} else {
+				cmp = "LIKE"
+			}
+		}
+		return sf("%s %s $%d", column, cmp, index)
+	}
+}
+
+func (opts SearchOptions) leven(column string, index int) string {
+	return sf(`CASE WHEN length(%s) < 100
+					THEN levenshtein(%s, $%d)
+					ELSE 1000000 END`, column, column, index)
 }
 
 func (opts SearchOptions) orderBy() string {
+	if opts.Fuzzy {
+		opts.Order = append([]SearchOrder{{"distance", "ASC"}}, opts.Order...)
+	}
 	if len(opts.Order) == 0 {
 		return ""
 	}
@@ -154,7 +196,28 @@ func (opts SearchOptions) orderBy() string {
 	return q
 }
 
-var SearchResultColumns = []string{"entity", "id", "title", "year", "attrs"}
+func (opts SearchOptions) parentSelect(subQueries string) string {
+	cols := fun.Map(srColQualified, SearchResultColumns).([]string)
+	q := sf(`
+		SELECT %s
+		FROM (%s) AS s
+		%s
+		LIMIT %d`,
+		strings.Join(cols, ", "), subQueries, opts.orderBy(), opts.Limit)
+	return q
+}
+
+func (opts SearchOptions) repeatedSearch(q string, nents int) []interface{} {
+	repeated := make([]interface{}, nents)
+	for i := 0; i < nents; i++ {
+		repeated[i] = q
+	}
+	return repeated
+}
+
+var SearchResultColumns = []string{
+	"entity", "id", "title", "year", "attrs", "distance",
+}
 
 func srColQualified(name string) string {
 	lname := strings.ToLower(name)

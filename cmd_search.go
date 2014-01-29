@@ -25,6 +25,8 @@ var (
 	flagSearchLimit    = 50
 	flagSearchSort     = "year"
 	flagSearchOrder    = "desc"
+	flagSearchFuzzy    = false
+	flagSearchYear     = ""
 )
 
 var cmdSearch = &command{
@@ -48,6 +50,15 @@ var cmdSearch = &command{
 			"Sort by one of "+strings.Join(imdb.SearchResultColumns, ", "))
 		c.flags.StringVar(&flagSearchOrder, "order", flagSearchOrder,
 			"Order results by 'desc' (descending) or 'asc' (ascending).")
+		c.flags.BoolVar(&flagSearchFuzzy, "fuzzy", flagSearchFuzzy,
+			"When set, a fuzzy search is performed by returning results\n"+
+				"closest to the query by edit (Levenshtein) distance.\n"+
+				"Note that this probably only works with a Postgres database.")
+		c.flags.StringVar(&flagSearchYear, "year", flagSearchYear,
+			"Specify a year or an inclusive range of years to filter the\n"+
+				"search. For example '1999' only returns results that were\n"+
+				"released/born in 1999. Or, for a range, '1990-1999' will\n"+
+				"only return results from the 1990s.")
 
 		c.flags.BoolVar(&flagFormatFull, "full", flagFormatFull,
 			"When set, as much information will be shown as possible.")

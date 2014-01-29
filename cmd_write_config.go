@@ -68,11 +68,10 @@ var defaultTpls = map[string]string{
 {{ end }}
 `,
 	"search_result": `
-{{ printf "%3d" .Index }}. 
-{{ printf "%-9s" .Entity }} {{.Title}} ({{.Year}})
+{{ printf "%3d. %-9s %s %d" .Index .Entity .Title .Year }}
 {{ if .Attrs }}
-	{{ .Attrs }}
-{{ end }}
+	{{ " " }}{{ .Attrs }}
+{{ end }}\
 `,
 }
 

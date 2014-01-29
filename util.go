@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/BurntSushi/goim/imdb"
+	"github.com/BurntSushi/ty/fun"
 
 	"os"
 )
@@ -52,4 +55,35 @@ func closeDb(db *imdb.DB) {
 	if err := db.Close(); err != nil {
 		fatalf("Could not close database: %s", err)
 	}
+}
+
+func intRange(s string, min, max int) (int, int) {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return min, max
+	}
+	if !strings.Contains(s, "-") {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			fatalf("Could not parse '%s' as integer: %s", s, err)
+		}
+		return n, n
+	}
+	pieces := fun.Map(strings.TrimSpace, strings.SplitN(s, "-", 2)).([]string)
+
+	start, end := min, max
+	var err error
+	if len(pieces[0]) > 0 {
+		start, err = strconv.Atoi(pieces[0])
+		if err != nil {
+			fatalf("Could not parse '%s' as integer: %s", pieces[0], err)
+		}
+	}
+	if len(pieces[1]) > 0 {
+		end, err = strconv.Atoi(pieces[1])
+		if err != nil {
+			fatalf("Could not parse '%s' as integer: %s", pieces[1], err)
+		}
+	}
+	return start, end
 }

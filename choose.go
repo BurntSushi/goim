@@ -34,6 +34,10 @@ func (c *command) choose(db *imdb.DB, query string) *imdb.SearchResult {
 	opts.NoCase = flagSearchNoCase
 	opts.Limit = flagSearchLimit
 	opts.Order = []imdb.SearchOrder{{flagSearchSort, flagSearchOrder}}
+	opts.Fuzzy = flagSearchFuzzy
+
+	ystart, yend := intRange(flagSearchYear, opts.YearStart, opts.YearEnd)
+	opts.YearStart, opts.YearEnd = ystart, yend
 
 	template := c.tpl("search_result")
 	results, err := opts.Search(db, query)
