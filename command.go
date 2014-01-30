@@ -3,13 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/BurntSushi/goim/tpl"
 )
 
 var (
@@ -31,7 +35,7 @@ type command struct {
 	help            string
 	flags           *flag.FlagSet
 	addFlags        func(*command)
-	run             func(*command)
+	run             func(*command) bool
 	tpls            *template.Template
 }
 
@@ -118,27 +122,56 @@ func (c *command) config() (conf config, err error) {
 
 func (c *command) tplExec(template *template.Template, data interface{}) {
 	if err := template.Execute(os.Stdout, data); err != nil {
-		fatalf("Could not execute template '%s': %s", template.Name(), err)
+		fatalf(err.Error())
 	}
 }
 
 func (c *command) tpl(name string) *template.Template {
 	if c.tpls == nil {
+		var tplText string
 		fpath, err := xdgPaths.ConfigFile("format.tpl")
 		if err == nil {
-			c.tpls, err = template.ParseFiles(fpath)
+			tplBytes, err := ioutil.ReadFile(fpath)
 			if err != nil {
-				fatalf("Problem parsing template 'format.tpl': %s", err)
+				fatalf("Problem reading template 'format.tpl': %s", err)
 			}
+			tplText = string(tplBytes)
+		} else {
+			tplText = tpl.Defaults
+		}
+
+		// Try to parse the templates before mangling them, so that error
+		// messages retain meaningful line numbers.
+		_, err = template.New("format.tpl").Funcs(tpl.Helpers).Parse(tplText)
+		if err != nil {
+			fatalf("Problem parsing template: %s", err)
+		}
+
+		// Okay, now do it for real.
+		c.tpls = template.New("format.tpl")
+		c.tpls.Funcs(tpl.Helpers)
+		if _, err := c.tpls.Parse(trimTemplate(tplText)); err != nil {
+			fatalf("BUG: Problem parsing template: %s", err)
 		}
 	}
-	if c.tpls != nil {
-		t := c.tpls.Lookup(name)
-		if t != nil {
-			return t
-		}
+	t := c.tpls.Lookup(name)
+	if t == nil {
+		fatalf("Could not find template with name '%s'.", name)
 	}
-	return defaultTemplate(name)
+	return t
+}
+
+var (
+	stripNewLines     = regexp.MustCompile("}}\n")
+	stripLeadingSpace = regexp.MustCompile("(?m)^(\t| )+")
+)
+
+func trimTemplate(s string) string {
+	// Order is important here.
+	s = stripLeadingSpace.ReplaceAllString(s, "")
+	s = stripNewLines.ReplaceAllString(s, "}}")
+	s = strings.Replace(s, "}}\\", "}}", -1)
+	return s
 }
 
 func (c *command) assertNArg(n int) {

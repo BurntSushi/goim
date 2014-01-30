@@ -59,11 +59,11 @@ type Tvshow struct {
 }
 
 type Episode struct {
-	Id              Atom
-	TvshowId        Atom
-	Title           string
-	Year            int
-	Season, Episode int
+	Id                 Atom
+	TvshowId           Atom
+	Title              string
+	Year               int
+	Season, EpisodeNum int
 }
 
 func (m Movie) String() string {
@@ -93,7 +93,8 @@ func ScanTvshow(rs csql.RowScanner) (Tvshow, error) {
 
 func ScanEpisode(rs csql.RowScanner) (Episode, error) {
 	e := Episode{}
-	err := rs.Scan(&e.Id, &e.TvshowId, &e.Title, &e.Year, &e.Season, &e.Episode)
+	err := rs.Scan(&e.Id, &e.TvshowId, &e.Title,
+		&e.Year, &e.Season, &e.EpisodeNum)
 	return e, err
 }
 
@@ -111,7 +112,7 @@ func AtomToTvshow(db csql.Queryer, id Atom) (Tvshow, error) {
 
 func AtomToEpisode(db csql.Queryer, id Atom) (Episode, error) {
 	return ScanEpisode(db.QueryRow(`
-		SELECT id, tvshow_id, title, year, season, episode
+		SELECT id, tvshow_id, title, year, season, episode_num
 		FROM episode WHERE id = $1`, id))
 }
 
@@ -173,7 +174,7 @@ func releaseDates(db csql.Queryer, id Atom, ent Entity) ([]ReleaseDate, error) {
 		`, id, ent.String())
 		csql.SQLPanic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var d ReleaseDate
-			csql.Scan(s, &d.Country, &d.Released, &d.Attrs)
+			csql.SQLPanic(s.Scan(&d.Country, &d.Released, &d.Attrs))
 			dates = append(dates, d)
 		}))
 	})

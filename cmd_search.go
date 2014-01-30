@@ -20,13 +20,12 @@ var (
 )
 
 var (
-	flagSearchEntities = ""
-	flagSearchNoCase   = false
-	flagSearchLimit    = 50
-	flagSearchSort     = "year"
-	flagSearchOrder    = "desc"
-	flagSearchFuzzy    = false
-	flagSearchYear     = ""
+	flagSearchTypes  = ""
+	flagSearchNoCase = false
+	flagSearchLimit  = 20
+	flagSearchSort   = "year"
+	flagSearchOrder  = "desc"
+	flagSearchYear   = ""
 )
 
 var cmdSearch = &command{
@@ -37,7 +36,7 @@ var cmdSearch = &command{
 	flags:           flag.NewFlagSet("search", flag.ExitOnError),
 	run:             search,
 	addFlags: func(c *command) {
-		c.flags.StringVar(&flagSearchEntities, "ents", flagSearchEntities,
+		c.flags.StringVar(&flagSearchTypes, "types", flagSearchTypes,
 			"A comma separated list of entity names that filters search\n"+
 				"results to only entities in this list. There should be no\n"+
 				"whitespace. By default, all entities are searched.\n"+
@@ -50,10 +49,6 @@ var cmdSearch = &command{
 			"Sort by one of "+strings.Join(imdb.SearchResultColumns, ", "))
 		c.flags.StringVar(&flagSearchOrder, "order", flagSearchOrder,
 			"Order results by 'desc' (descending) or 'asc' (ascending).")
-		c.flags.BoolVar(&flagSearchFuzzy, "fuzzy", flagSearchFuzzy,
-			"When set, a fuzzy search is performed by returning results\n"+
-				"closest to the query by edit (Levenshtein) distance.\n"+
-				"Note that this probably only works with a Postgres database.")
 		c.flags.StringVar(&flagSearchYear, "year", flagSearchYear,
 			"Specify a year or an inclusive range of years to filter the\n"+
 				"search. For example '1999' only returns results that were\n"+
@@ -65,24 +60,21 @@ var cmdSearch = &command{
 	},
 }
 
-func search(c *command) {
+func search(c *command) bool {
 	c.assertLeastNArg(1)
 	db := openDb(c.dbinfo())
 	defer closeDb(db)
 
-	res := c.choose(db, strings.Join(c.flags.Args(), " "))
+	res := c.choose(db, false, strings.Join(c.flags.Args(), " "))
 	if res == nil {
 		pef("No choices found or selected.")
-		return
+		return true
 	}
 
-	type formatted struct {
-		E    interface{}
-		Full bool
-	}
-	fmtd := formatted{
-		E:    tpl.FromSearchResult(db, *res),
-		Full: flagFormatFull,
+	fmtd := tpl.Formatted{
+		O: tpl.FromSearchResult(db, *res),
+		A: tpl.Attrs{"Full": flagFormatFull},
 	}
 	c.tplExec(c.tpl(sf("info_%s", res.Entity)), fmtd)
+	return true
 }

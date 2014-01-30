@@ -56,7 +56,7 @@ the 'clean' command and then running 'load'.
 	},
 }
 
-func load(c *command) {
+func load(c *command) bool {
 	driver, dsn := c.dbinfo()
 
 	getFrom := c.flags.Arg(0)
@@ -64,6 +64,9 @@ func load(c *command) {
 		getFrom = "berlin"
 	}
 	fetch := saver{newFetcher(getFrom), flagLoadDownload}
+	if fetch.fetcher == nil {
+		return false
+	}
 	loaders := map[string]listHandler{
 		"movies": listMovies, "release-dates": listReleases,
 	}
@@ -79,16 +82,22 @@ func load(c *command) {
 			continue
 		}
 		if ld := loaders[name]; ld != nil {
-			func() {
+			ok := func() bool {
 				db := openDb(driver, dsn)
 				defer closeDb(db)
 
 				if err := listLoad(db, list, ld); err != nil {
-					fatalf("Could not store %s list: %s", name, err)
+					pef("Could not store %s list: %s", name, err)
+					return false
 				}
+				return true
 			}()
+			if !ok {
+				return false
+			}
 		}
 	}
+	return true
 }
 
 func loaderIn(name, commaSep string) bool {

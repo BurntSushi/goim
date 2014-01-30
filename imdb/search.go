@@ -11,7 +11,7 @@ import (
 var DefaultSearch = SearchOptions{
 	NoCase:    false,
 	Fuzzy:     false,
-	Limit:     100,
+	Limit:     20,
 	Order:     []SearchOrder{{"year", "DESC"}},
 	Entities:  nil,
 	YearStart: 0,
@@ -42,14 +42,14 @@ type SearchOrder struct {
 type SearchResult struct {
 	Entity Entity
 	Id     Atom
-	Title  string
+	Name   string
 	Year   int
 
 	// Arbitrary additional data specific to an entity.
 	// e.g., Whether a movie is straight to video or made for TV.
 	// e.g., The season and episode number of a TV episode.
-	Attrs    string
-	Distance int
+	Attrs      string
+	Similarity float64
 }
 
 func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
@@ -71,7 +71,7 @@ func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
 		csql.SQLPanic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var r SearchResult
 			var ent string
-			csql.Scan(s, &ent, &r.Id, &r.Title, &r.Year, &r.Attrs, &r.Distance)
+			csql.Scan(s, &ent, &r.Id, &r.Name, &r.Year, &r.Attrs, &r.Similarity)
 			r.Entity = Entities[ent]
 			results = append(results, r)
 		}))
@@ -97,7 +97,7 @@ func (opts SearchOptions) searchSub(
 			FROM movie
 			WHERE %s AND %s`,
 			entity.String(),
-			opts.distanceColumn("title", index),
+			opts.similarColumn("title", index),
 			opts.years("year"),
 			opts.cmp(db, "title", query, index),
 		)
@@ -117,7 +117,7 @@ func (opts SearchOptions) searchSub(
 			FROM tvshow
 			WHERE %s AND %s`,
 			entity.String(),
-			opts.distanceColumn("title", index),
+			opts.similarColumn("title", index),
 			opts.years("year"),
 			opts.cmp(db, "title", query, index),
 		)
@@ -125,10 +125,10 @@ func (opts SearchOptions) searchSub(
 		return sf(`
 			SELECT
 				'%s' AS entity, episode.id, episode.title, episode.year,
-				'(' || tvshow.title
-					|| CASE WHEN season > 0 AND episode > 0
+				'(TV show: ' || tvshow.title
+					|| CASE WHEN season > 0 AND episode_num > 0
 							THEN ', #' || cast(season AS text)
-								|| '.' || cast(episode AS text)
+								|| '.' || cast(episode_num AS text)
 							ELSE '' END
 					|| ')'
 					AS attrs,
@@ -137,7 +137,7 @@ func (opts SearchOptions) searchSub(
 			LEFT JOIN tvshow ON tvshow.id = episode.tvshow_id
 			WHERE %s AND %s`,
 			entity.String(),
-			opts.distanceColumn("episode.title", index),
+			opts.similarColumn("episode.title", index),
 			opts.years("episode.year"),
 			opts.cmp(db, "episode.title", query, index),
 		)
@@ -150,17 +150,17 @@ func (opts SearchOptions) years(column string) string {
 		column, opts.YearStart, column, opts.YearEnd)
 }
 
-func (opts SearchOptions) distanceColumn(column string, index int) string {
+func (opts SearchOptions) similarColumn(column string, index int) string {
 	if opts.Fuzzy {
-		return sf("%s AS distance", opts.leven(column, index))
+		return sf("%s AS similarity", opts.similarity(column, index))
 	} else {
-		return "-1 AS distance"
+		return "-1 AS similarity"
 	}
 }
 
 func (opts SearchOptions) cmp(db *DB, column, query string, index int) string {
 	if opts.Fuzzy {
-		return sf("%s < 50", opts.leven(column, index))
+		return sf("%s %% $%d", column, index)
 	} else {
 		cmp := "="
 		if opts.NoCase || strings.ContainsAny(query, "%_") {
@@ -174,15 +174,14 @@ func (opts SearchOptions) cmp(db *DB, column, query string, index int) string {
 	}
 }
 
-func (opts SearchOptions) leven(column string, index int) string {
-	return sf(`CASE WHEN length(%s) < 100
-					THEN levenshtein(%s, $%d)
-					ELSE 1000000 END`, column, column, index)
+func (opts SearchOptions) similarity(column string, index int) string {
+	return sf("similarity(%s, $%d)", column, index)
 }
 
 func (opts SearchOptions) orderBy() string {
 	if opts.Fuzzy {
-		opts.Order = append([]SearchOrder{{"distance", "ASC"}}, opts.Order...)
+		opts.Order = append(
+			[]SearchOrder{{"similarity", "DESC"}}, opts.Order...)
 	}
 	if len(opts.Order) == 0 {
 		return ""
@@ -216,7 +215,7 @@ func (opts SearchOptions) repeatedSearch(q string, nents int) []interface{} {
 }
 
 var SearchResultColumns = []string{
-	"entity", "id", "title", "year", "attrs", "distance",
+	"entity", "id", "title", "year", "attrs", "similarity",
 }
 
 func srColQualified(name string) string {

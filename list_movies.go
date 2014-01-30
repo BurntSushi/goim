@@ -14,6 +14,9 @@ var attrTv, attrVid, attrVg = []byte("(TV)"), []byte("(V)"), []byte("(VG)")
 var attrUnknownYear, attrSuspended = []byte("????"), []byte("{{SUSPENDED}}")
 
 func listMovies(db *imdb.DB, movies io.ReadCloser) {
+	defer idxs(db, "atom", "movie", "tvshow", "episode").drop().create()
+	defer func() { csql.SQLPanic(db.CloseInserters()) }()
+
 	logf("Reading movies list...")
 	addedMovies, addedTvshows, addedEpisodes := 0, 0, 0
 
@@ -36,11 +39,11 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 		"id", "title", "year", "sequence", "year_start", "year_end")
 	csql.SQLPanic(err)
 	epIns, err := db.NewInserter(tx3, batchSize, "episode",
-		"id", "tvshow_id", "title", "year", "season", "episode")
+		"id", "tvshow_id", "title", "year", "season", "episode_num")
 	csql.SQLPanic(err)
-
 	atoms, err := db.NewAtomizer(tx4)
 	csql.SQLPanic(err)
+
 	listLines(movies, func(line []byte) bool {
 		fields := splitListLine(line)
 		item, value := fields[0], fields[1]
@@ -95,7 +98,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 				return true
 			}
 			err := epIns.Exec(ep.Id, ep.TvshowId, ep.Title, ep.Year,
-				ep.Season, ep.Episode)
+				ep.Season, ep.EpisodeNum)
 			if err != nil {
 				logf("Full episode info (that failed to add): %#v", ep)
 				csql.SQLPanic(ef("Could not add episode '%s': %s", ep, err))
@@ -163,8 +166,9 @@ func parseEpisode(az imdb.Atomer, episode []byte, ep *imdb.Episode) bool {
 		return false
 	}
 
+	// The season/episode numbers are optional.
 	inBraces := episode[openBrace+1 : len(episode)-1]
-	start := parseEpisodeNumbers(inBraces, &ep.Season, &ep.Episode) // optional
+	start := parseEpisodeNumbers(inBraces, &ep.Season, &ep.EpisodeNum)
 	ep.Title = unicode(bytes.TrimSpace(inBraces[0:start]))
 	return true
 }

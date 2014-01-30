@@ -10,6 +10,9 @@ import (
 )
 
 func listReleases(db *imdb.DB, releases io.ReadCloser) {
+	defer idxs(db, "release").drop().create()
+	defer func() { csql.SQLPanic(db.CloseInserters()) }()
+
 	logf("Reading release dates list...")
 	addedDates := 0
 
@@ -48,7 +51,7 @@ func listReleases(db *imdb.DB, releases io.ReadCloser) {
 			attrs = bytes.TrimSpace(fields[2])
 		}
 		if id, ok = atoms.AtomOnlyIfExist(item); !ok {
-			logf("Could not find id for '%s'. Skipping.", item)
+			// logf("Could not find id for '%s'. Skipping.", item)
 			return true
 		}
 		if !parseReleaseDate(value, &country, &date) {

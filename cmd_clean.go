@@ -10,11 +10,13 @@ var cmdClean = &command{
 	run:       clean,
 }
 
-func clean(c *command) {
+func clean(c *command) bool {
 	db := openDb(c.dbinfo())
 	defer closeDb(db)
 
 	if err := db.Clean(); err != nil {
-		fatalf("Error cleaning database: %s", err)
+		pef("Error cleaning database: %s", err)
+		return false
 	}
+	return true
 }

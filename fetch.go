@@ -32,7 +32,8 @@ func newFetcher(uri string) fetcher {
 
 	loc, err := url.Parse(uri)
 	if err != nil {
-		fatalf("Could not parse URL '%s': %s", uri, err)
+		pef("Could not parse URL '%s': %s", uri, err)
+		return nil
 	}
 	switch loc.Scheme {
 	case "http":
@@ -50,8 +51,8 @@ func newFetcher(uri string) fetcher {
 		}
 		return ftpFetcher{loc}
 	}
-	fatalf("Unsupported URL scheme '%s' in '%s'.", loc.Scheme, uri)
-	panic("unreachable")
+	pef("Unsupported URL scheme '%s' in '%s'.", loc.Scheme, uri)
+	return nil
 }
 
 // dirFetcher satisfies the fetcher interface by reading from a local

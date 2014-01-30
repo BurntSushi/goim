@@ -71,7 +71,9 @@ func main() {
 					defer pprof.StopCPUProfile()
 				}
 
-				c.run(c)
+				if !c.run(c) {
+					os.Exit(1)
+				}
 				return
 			}
 		}

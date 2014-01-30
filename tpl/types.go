@@ -75,6 +75,35 @@ func (e Episode) Tvshow() Tvshow {
 	return fromAtom(e.db, imdb.EntityTvshow, e.TvshowId).(Tvshow)
 }
 
+func (t Tvshow) CountSeasons() int {
+	var cnt int
+	assert(csql.Safe(func() {
+		r := t.db.QueryRow(`
+			SELECT COUNT(*) AS count
+			FROM (
+				SELECT DISTINCT season
+				FROM episode
+				WHERE tvshow_id = $1 AND season > 0
+			) AS s
+		`, t.Id)
+		csql.Scan(r, &cnt)
+	}))
+	return cnt
+}
+
+func (t Tvshow) CountEpisodes() int {
+	var cnt int
+	assert(csql.Safe(func() {
+		r := t.db.QueryRow(`
+			SELECT COUNT(*) AS count
+			FROM episode
+			WHERE tvshow_id = $1 AND season > 0
+		`, t.Id)
+		csql.Scan(r, &cnt)
+	}))
+	return cnt
+}
+
 func releaseDates(
 	db *imdb.DB,
 	getDates func(csql.Queryer) ([]imdb.ReleaseDate, error),

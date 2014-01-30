@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
-	"github.com/BurntSushi/goim/imdb"
 	"github.com/BurntSushi/ty/fun"
 
-	"os"
+	"github.com/BurntSushi/csql"
+
+	"github.com/BurntSushi/goim/imdb"
 )
 
 var (
@@ -86,4 +88,25 @@ func intRange(s string, min, max int) (int, int) {
 		}
 	}
 	return start, end
+}
+
+type indices struct {
+	db     *imdb.DB
+	tables []string
+}
+
+func idxs(db *imdb.DB, tables ...string) indices {
+	return indices{db, tables}
+}
+
+func (ins indices) drop() indices {
+	logf("Dropping indices for %s...", strings.Join(ins.tables, ", "))
+	csql.SQLPanic(imdb.DropIndices(ins.db, ins.tables...))
+	return ins
+}
+
+func (ins indices) create() indices {
+	logf("Creating indices for %s...", strings.Join(ins.tables, ", "))
+	csql.SQLPanic(imdb.CreateIndices(ins.db, ins.tables...))
+	return ins
 }

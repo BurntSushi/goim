@@ -47,7 +47,7 @@ func Open(driver, dsn string) (*DB, error) {
 	return &DB{db, driver, nil}, nil
 }
 
-func (db *DB) Close() error {
+func (db *DB) CloseInserters() error {
 	for _, ins := range db.inserters {
 		if err := ins.Exec(); err != nil {
 			return err
@@ -57,6 +57,13 @@ func (db *DB) Close() error {
 		if err := ins.Close(); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (db *DB) Close() error {
+	if err := db.CloseInserters(); err != nil {
+		return err
 	}
 	return db.DB.Close()
 }
@@ -91,6 +98,14 @@ func (db *DB) Begin() (*Tx, error) {
 		return nil, err
 	}
 	return &Tx{db, false, tx}, nil
+}
+
+func (db *DB) IsFuzzyEnabled() bool {
+	_, err := db.Exec("SELECT similarity('a', 'a')")
+	if err == nil {
+		return true
+	}
+	return false
 }
 
 type Tx struct {

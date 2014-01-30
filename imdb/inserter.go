@@ -31,6 +31,13 @@ func (db *DB) NewInserter(
 	return ins, err
 }
 
+func (ins *Inserter) Exec(args ...interface{}) error {
+	if ins.tx.closed {
+		return nil
+	}
+	return ins.Inserter.Exec(args...)
+}
+
 func (ins *Inserter) Close() error {
 	if ins.tx.closed {
 		return nil
