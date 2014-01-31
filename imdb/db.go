@@ -72,7 +72,7 @@ func (db *DB) Clean() error {
 	tables := []string{"atom", "movie", "tvshow", "episode", "release"}
 	return csql.Safe(func() {
 		for _, table := range tables {
-			csql.SQLPanic(csql.Truncate(db, db.Driver, table))
+			csql.Panic(csql.Truncate(db, db.Driver, table))
 		}
 	})
 }

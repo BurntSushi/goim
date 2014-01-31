@@ -10,7 +10,7 @@ var (
 	flagLoadLists    = ""
 )
 
-var loadLists = []string{"movies", "release-dates"}
+var loadLists = []string{"movies", "release-dates", "running-times"}
 
 var namedFtp = map[string]string{
 	"berlin":  "ftp://ftp.fu-berlin.de/pub/misc/movies/database",
@@ -51,7 +51,8 @@ the 'clean' command and then running 'load'.
 		c.flags.StringVar(&flagLoadLists, "lists", flagLoadLists,
 			"Set to a comma separated list of IMDB movie lists to load, with\n"+
 				"no whitespace. Only lists named here will be loaded. If not\n"+
-				"specified, then all lists are loaded.\n"+
+				"specified, then only the 'movie' list is load.\n"+
+				"Use 'all' to load all lists.\n"+
 				"Available lists: "+strings.Join(loadLists, ", "))
 	},
 }
@@ -68,7 +69,9 @@ func load(c *command) bool {
 		return false
 	}
 	loaders := map[string]listHandler{
-		"movies": listMovies, "release-dates": listReleases,
+		"movies":        listMovies,
+		"release-dates": listReleases,
+		"running-times": listRunningTimes,
 	}
 	for _, name := range loadLists {
 		if !loaderIn(name, flagLoadLists) {
@@ -102,7 +105,7 @@ func load(c *command) bool {
 
 func loaderIn(name, commaSep string) bool {
 	commaSep = strings.TrimSpace(commaSep)
-	if len(commaSep) == 0 {
+	if len(commaSep) == 0 || commaSep == "all" {
 		return true
 	}
 	return strings.Contains(commaSep, name)

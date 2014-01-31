@@ -55,7 +55,7 @@ func listLines(list io.ReadCloser, do func([]byte) bool) {
 			break
 		}
 	}
-	csql.SQLPanic(scanner.Err())
+	csql.Panic(scanner.Err())
 }
 
 // splitListLine returns fields of the given line determined by tab characters.
@@ -130,9 +130,9 @@ func hasEntryYear(f []byte) bool {
 	return len(f) >= 6 && f[0] == '(' && f[len(f)-1] == ')'
 }
 
-func entityType(listName string, item []byte) imdb.Entity {
+func entityType(listName string, item []byte) imdb.EntityKind {
 	switch listName {
-	case "movies", "release-dates":
+	case "movies", "release-dates", "running-times":
 		switch {
 		case item[0] == '"':
 			if item[len(item)-1] == '}' {

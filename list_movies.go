@@ -15,7 +15,7 @@ var attrUnknownYear, attrSuspended = []byte("????"), []byte("{{SUSPENDED}}")
 
 func listMovies(db *imdb.DB, movies io.ReadCloser) {
 	defer idxs(db, "atom", "movie", "tvshow", "episode").drop().create()
-	defer func() { csql.SQLPanic(db.CloseInserters()) }()
+	defer func() { csql.Panic(db.CloseInserters()) }()
 
 	logf("Reading movies list...")
 	addedMovies, addedTvshows, addedEpisodes := 0, 0, 0
@@ -23,26 +23,26 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 	// Postgresql wants different transactions for each inserter.
 	// SQLite can't handle them.
 	tx1, err := db.Begin()
-	csql.SQLPanic(err)
+	csql.Panic(err)
 	tx2, err := tx1.Another()
-	csql.SQLPanic(err)
+	csql.Panic(err)
 	tx3, err := tx1.Another()
-	csql.SQLPanic(err)
+	csql.Panic(err)
 	tx4, err := tx1.Another()
-	csql.SQLPanic(err)
+	csql.Panic(err)
 
 	batchSize := 50
 	mvIns, err := db.NewInserter(tx1, batchSize, "movie",
 		"id", "title", "year", "sequence", "tv", "video")
-	csql.SQLPanic(err)
+	csql.Panic(err)
 	tvIns, err := db.NewInserter(tx2, batchSize, "tvshow",
 		"id", "title", "year", "sequence", "year_start", "year_end")
-	csql.SQLPanic(err)
+	csql.Panic(err)
 	epIns, err := db.NewInserter(tx3, batchSize, "episode",
 		"id", "tvshow_id", "title", "year", "season", "episode_num")
-	csql.SQLPanic(err)
+	csql.Panic(err)
 	atoms, err := db.NewAtomizer(tx4)
-	csql.SQLPanic(err)
+	csql.Panic(err)
 
 	listLines(movies, func(line []byte) bool {
 		fields := splitListLine(line)
@@ -53,7 +53,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 			if existed, err := parseId(atoms, item, &m.Id); existed {
 				return true
 			} else if err != nil {
-				csql.SQLPanic(err)
+				csql.Panic(err)
 			}
 			if !parseMovie(item, &m) {
 				return true
@@ -61,7 +61,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 			err := mvIns.Exec(m.Id, m.Title, m.Year, m.Sequence, m.Tv, m.Video)
 			if err != nil {
 				logf("Full movie info (that failed to add): %#v", m)
-				csql.SQLPanic(ef("Could not add movie '%s': %s", m, err))
+				csql.Panic(ef("Could not add movie '%s': %s", m, err))
 			}
 			addedMovies++
 		case imdb.EntityTvshow:
@@ -69,7 +69,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 			if existed, err := parseId(atoms, item, &tv.Id); existed {
 				return true
 			} else if err != nil {
-				csql.SQLPanic(err)
+				csql.Panic(err)
 			}
 			if !parseTvshow(item, &tv) {
 				return true
@@ -81,7 +81,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 				tv.YearStart, tv.YearEnd)
 			if err != nil {
 				logf("Full tvshow info (that failed to add): %#v", tv)
-				csql.SQLPanic(ef("Could not add tvshow '%s': %s", tv, err))
+				csql.Panic(ef("Could not add tvshow '%s': %s", tv, err))
 			}
 			addedTvshows++
 		case imdb.EntityEpisode:
@@ -89,7 +89,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 			if existed, err := parseId(atoms, item, &ep.Id); existed {
 				return true
 			} else if err != nil {
-				csql.SQLPanic(err)
+				csql.Panic(err)
 			}
 			if !parseEpisode(atoms, item, &ep) {
 				return true
@@ -101,11 +101,11 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 				ep.Season, ep.EpisodeNum)
 			if err != nil {
 				logf("Full episode info (that failed to add): %#v", ep)
-				csql.SQLPanic(ef("Could not add episode '%s': %s", ep, err))
+				csql.Panic(ef("Could not add episode '%s': %s", ep, err))
 			}
 			addedEpisodes++
 		default:
-			csql.SQLPanic(ef("Unrecognized entity %s", ent))
+			csql.Panic(ef("Unrecognized entity %s", ent))
 		}
 		return true
 	})

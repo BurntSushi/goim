@@ -23,10 +23,10 @@ func (c *command) choose(
 	pickExact bool,
 	query string,
 ) *imdb.SearchResult {
-	var entities []imdb.Entity
+	var entities []imdb.EntityKind
 	if len(flagSearchTypes) > 0 {
-		entities = fun.Map(imdb.EntityFromString,
-			strings.Split(flagSearchTypes, ",")).([]imdb.Entity)
+		entities = fun.Map(imdb.EntityKindFromString,
+			strings.Split(flagSearchTypes, ",")).([]imdb.EntityKind)
 	}
 
 	opts := imdb.DefaultSearch

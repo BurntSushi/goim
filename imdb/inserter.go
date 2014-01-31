@@ -21,11 +21,11 @@ func (db *DB) NewInserter(
 		var err error
 		if ins.tx == nil {
 			ins.tx, err = db.Begin()
-			csql.SQLPanic(err)
+			csql.Panic(err)
 		}
 		ins.Inserter, err = csql.NewInserter(ins.tx.Tx, db.Driver,
 			size, table, columns...)
-		csql.SQLPanic(err)
+		csql.Panic(err)
 		db.inserters = append(db.inserters, ins)
 	})
 	return ins, err

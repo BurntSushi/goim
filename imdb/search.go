@@ -23,7 +23,7 @@ type SearchOptions struct {
 	Fuzzy              bool
 	Limit              int
 	Order              []SearchOrder
-	Entities           []Entity
+	Entities           []EntityKind
 	YearStart, YearEnd int
 }
 
@@ -40,7 +40,7 @@ type SearchOrder struct {
 }
 
 type SearchResult struct {
-	Entity Entity
+	Entity EntityKind
 	Id     Atom
 	Name   string
 	Year   int
@@ -55,8 +55,8 @@ type SearchResult struct {
 func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
 	entities := opts.Entities
 	if entities == nil {
-		less := func(e1, e2 Entity) bool { return int(e1) < int(e2) }
-		entities = fun.QuickSort(less, fun.Values(Entities)).([]Entity)
+		less := func(e1, e2 EntityKind) bool { return int(e1) < int(e2) }
+		entities = fun.QuickSort(less, fun.Values(Entities)).([]EntityKind)
 	}
 	subs, prefix := "", " "
 	for i, entity := range entities {
@@ -68,7 +68,7 @@ func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
 	repeatedQuery := opts.repeatedSearch(query, len(entities))
 	err := csql.Safe(func() {
 		rs := csql.Query(db, opts.parentSelect(subs), repeatedQuery...)
-		csql.SQLPanic(csql.ForRow(rs, func(s csql.RowScanner) {
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var r SearchResult
 			var ent string
 			csql.Scan(s, &ent, &r.Id, &r.Name, &r.Year, &r.Attrs, &r.Similarity)
@@ -82,7 +82,7 @@ func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
 func (opts SearchOptions) searchSub(
 	db *DB,
 	query string,
-	entity Entity,
+	entity EntityKind,
 	index int,
 ) string {
 	switch entity {

@@ -58,6 +58,17 @@ var migrations = map[string][]migration.Migrator{
 					released DATE,
 					attrs TEXT
 				);
+				CREATE TABLE running_time (
+					atom_id INTEGER,
+					outlet TEXT
+						CHECK (outlet = "movie"
+							   OR outlet = "tvshow"
+							   OR outlet = "episode"
+							  ),
+					country TEXT,
+					minutes INTEGER,
+					attrs TEXT
+				);
 				`)
 			return err
 		},
@@ -110,6 +121,18 @@ var migrations = map[string][]migration.Migrator{
 				`)
 			return err
 		},
+		func(tx migration.LimitedTx) error {
+			_, err := tx.Exec(`
+				CREATE TABLE running_time (
+					atom_id INTEGER,
+					outlet medium,
+					country TEXT,
+					minutes smallint,
+					attrs TEXT
+				);
+			`)
+			return err
+		},
 	},
 }
 
@@ -133,6 +156,7 @@ var indices = []index{
 	{false, "episode", "tv", "", []string{"tvshow_id"}},
 	{false, "episode", "tvseason", "", []string{"tvshow_id", "season"}},
 	{false, "release", "entity", "", []string{"atom_id", "outlet"}},
+	{false, "running_time", "entity", "", []string{"atom_id", "outlet"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},

@@ -27,6 +27,11 @@ var (
 		}
 		pef(format, v...)
 	}
+	warnf = func(format string, v ...interface{}) {
+		if flagWarnings {
+			pef(format, v...)
+		}
+	}
 )
 
 func createFile(fpath string) *os.File {
@@ -101,12 +106,12 @@ func idxs(db *imdb.DB, tables ...string) indices {
 
 func (ins indices) drop() indices {
 	logf("Dropping indices for %s...", strings.Join(ins.tables, ", "))
-	csql.SQLPanic(imdb.DropIndices(ins.db, ins.tables...))
+	csql.Panic(imdb.DropIndices(ins.db, ins.tables...))
 	return ins
 }
 
 func (ins indices) create() indices {
 	logf("Creating indices for %s...", strings.Join(ins.tables, ", "))
-	csql.SQLPanic(imdb.CreateIndices(ins.db, ins.tables...))
+	csql.Panic(imdb.CreateIndices(ins.db, ins.tables...))
 	return ins
 }

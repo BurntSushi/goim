@@ -28,6 +28,13 @@ func assert(err error) {
 	}
 }
 
+// assertTwo will quit Goim with the specified error if it is not nil.
+// Otherwise, the first value given is returned.
+func assertTwo(v interface{}, err error) interface{} {
+	assert(err)
+	return v
+}
+
 // FromSearchResult translates a search result to an appropriate template type
 // in this package. Such values are intended to be used inside Goim templates.
 //
@@ -37,20 +44,20 @@ func FromSearchResult(db *imdb.DB, sr imdb.SearchResult) interface{} {
 	return fromAtom(db, sr.Entity, sr.Id)
 }
 
-func fromAtom(db *imdb.DB, ent imdb.Entity, id imdb.Atom) interface{} {
+func fromAtom(db *imdb.DB, ent imdb.EntityKind, id imdb.Atom) interface{} {
 	switch ent {
 	case imdb.EntityMovie:
 		m, err := imdb.AtomToMovie(db, id)
 		assert(err)
-		return Movie{db, m}
+		return Movie{db, &m}
 	case imdb.EntityTvshow:
 		t, err := imdb.AtomToTvshow(db, id)
 		assert(err)
-		return Tvshow{db, t}
+		return Tvshow{db, &t}
 	case imdb.EntityEpisode:
 		e, err := imdb.AtomToEpisode(db, id)
 		assert(err)
-		return Episode{db, e}
+		return Episode{db, &e}
 	}
 	fatalf("Unrecognized entity type: %s", ent)
 	panic("unreachable")
@@ -58,69 +65,70 @@ func fromAtom(db *imdb.DB, ent imdb.Entity, id imdb.Atom) interface{} {
 
 type Movie struct {
 	db *imdb.DB
-	imdb.Movie
+	*imdb.Movie
 }
 
 type Tvshow struct {
 	db *imdb.DB
-	imdb.Tvshow
+	*imdb.Tvshow
 }
 
 type Episode struct {
 	db *imdb.DB
-	imdb.Episode
+	*imdb.Episode
 }
 
 func (e Episode) Tvshow() Tvshow {
-	return fromAtom(e.db, imdb.EntityTvshow, e.TvshowId).(Tvshow)
+	tv, err := e.Episode.Tvshow(e.db)
+	assert(err)
+	return Tvshow{e.db, &tv}
 }
 
-func (t Tvshow) CountSeasons() int {
-	var cnt int
+func (e Tvshow) CountSeasons() (count int) {
 	assert(csql.Safe(func() {
-		r := t.db.QueryRow(`
+		count = csql.Count(e.db, `
 			SELECT COUNT(*) AS count
 			FROM (
 				SELECT DISTINCT season
 				FROM episode
 				WHERE tvshow_id = $1 AND season > 0
 			) AS s
-		`, t.Id)
-		csql.Scan(r, &cnt)
+		`, e.Id)
 	}))
-	return cnt
+	return
 }
 
-func (t Tvshow) CountEpisodes() int {
-	var cnt int
+func (e Tvshow) CountEpisodes() (count int) {
 	assert(csql.Safe(func() {
-		r := t.db.QueryRow(`
+		count = csql.Count(e.db, `
 			SELECT COUNT(*) AS count
 			FROM episode
 			WHERE tvshow_id = $1 AND season > 0
-		`, t.Id)
-		csql.Scan(r, &cnt)
+		`, e.Id)
 	}))
-	return cnt
+	return
 }
 
-func releaseDates(
-	db *imdb.DB,
-	getDates func(csql.Queryer) ([]imdb.ReleaseDate, error),
-) []imdb.ReleaseDate {
-	dates, err := getDates(db)
-	assert(err)
-	return dates
+func (e Movie) ReleaseDates() []imdb.ReleaseDate {
+	return assertTwo(imdb.ReleaseDates(e.db, e)).([]imdb.ReleaseDate)
 }
 
-func (m Movie) ReleaseDates() []imdb.ReleaseDate {
-	return releaseDates(m.db, m.Movie.ReleaseDates)
-}
-
-func (t Tvshow) ReleaseDates() []imdb.ReleaseDate {
-	return releaseDates(t.db, t.Tvshow.ReleaseDates)
+func (e Tvshow) ReleaseDates() []imdb.ReleaseDate {
+	return assertTwo(imdb.ReleaseDates(e.db, e)).([]imdb.ReleaseDate)
 }
 
 func (e Episode) ReleaseDates() []imdb.ReleaseDate {
-	return releaseDates(e.db, e.Episode.ReleaseDates)
+	return assertTwo(imdb.ReleaseDates(e.db, e)).([]imdb.ReleaseDate)
+}
+
+func (e Movie) RunningTimes() []imdb.RunningTime {
+	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
+}
+
+func (e Tvshow) RunningTimes() []imdb.RunningTime {
+	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
+}
+
+func (e Episode) RunningTimes() []imdb.RunningTime {
+	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
 }

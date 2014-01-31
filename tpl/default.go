@@ -20,9 +20,15 @@ var defaults = strings.TrimSpace(`
 	{{ if .O.Tv }}{{ printf " (made for tv)" }}{{ end }}
 	{{ if .O.Video }}{{ printf " (made for video)" }}{{ end }}
 
+	{{ template "bit_runtime" .O.RunningTimes }}
+	{{ template "bit_release_date" .O.ReleaseDates }}
 
-	{{ $dates := (Combine "full" $full "dates" .O.ReleaseDates) }}
-	{{ template "bit_release_dates" $dates }}
+	{{ if $full }}
+		{{ template "bit_runtimes" .O.RunningTimes }}
+	{{ end }}
+	{{ if $full }}
+		{{ template "bit_release_dates" .O.ReleaseDates }}
+	{{ end }}
 {{ end }}
 
 {{ define "info_tvshow" }}
@@ -42,9 +48,15 @@ var defaults = strings.TrimSpace(`
 		{{ printf " (%d season(s) with %d episodes)" $seasons $episodes }}
 	{{ end }}
 
+	{{ template "bit_runtime" .O.RunningTimes }}
+	{{ template "bit_release_date" .O.ReleaseDates }}
 
-	{{ $dates := (Combine "full" $full "dates" .O.ReleaseDates) }}
-	{{ template "bit_release_dates" $dates }}
+	{{ if $full }}
+		{{ template "bit_runtimes" .O.RunningTimes }}
+	{{ end }}
+	{{ if $full }}
+		{{ template "bit_release_dates" .O.ReleaseDates }}
+	{{ end }}
 {{ end }}
 
 {{ define "info_episode" }}
@@ -53,20 +65,49 @@ var defaults = strings.TrimSpace(`
 	{{ printf "%s (%d) (TV show: %s)" .O.Title .O.Year $tv.Title }}\
 	{{ printf "Season %d, Episode %d" .O.Season .O.EpisodeNum }}
 
+	{{ template "bit_runtime" .O.RunningTimes }}
+	{{ template "bit_release_date" .O.ReleaseDates }}
 
-	{{ $dates := (Combine "full" $full "dates" .O.ReleaseDates) }}
-	{{ template "bit_release_dates" $dates }}
+	{{ if $full }}
+		{{ template "bit_runtimes" .O.RunningTimes }}
+	{{ end }}
+	{{ if $full }}
+		{{ template "bit_release_dates" .O.ReleaseDates }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_runtime" }}
+	{{ if gt (len .) 0 }}
+
+		{{ printf "Running time: %s" (index . 0) }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_release_date" }}
+	{{ if gt (len .) 0 }}
+
+		{{ printf "Release date: %s" (index . 0) }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_runtimes" }}
+	{{ if gt (len .) 0 }}
+
+		Running times
+		=============
+		{{ range $time := . }}
+			{{ $time }}\
+		{{ end }}
+	{{ end }}
 {{ end }}
 
 {{ define "bit_release_dates" }}
-	{{ $full := .Full }}
-	{{ if gt (len .dates) 0 }}
+	{{ if gt (len .) 0 }}
+
 		Release dates
 		=============
-		{{ range $i, $date := .dates }}
-			{{ if or $full (lt $i 5) }}
-				{{ $date }}\
-			{{ end }}
+		{{ range $date := . }}
+			{{ $date }}\
 		{{ end }}
 	{{ end }}
 {{ end }}

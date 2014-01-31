@@ -20,6 +20,7 @@ var (
 	flagCpuProfile = ""
 	flagCpu        = runtime.NumCPU()
 	flagQuiet      = false
+	flagWarnings   = false
 	flagDb         = ""
 	flagConfig     = ""
 )
@@ -83,9 +84,12 @@ func (c *command) setCommonFlags() {
 		"Sets the maximum number of CPUs that can be executing simultaneously.")
 	c.flags.BoolVar(&flagQuiet, "quiet", flagQuiet,
 		"When set, status messages about the progress of a command will be "+
-			"omitted.\n"+
-			"For example, this will hide messages that say an ID could not\n"+
-			"be found for entires in the release-dates list.")
+			"omitted.")
+	c.flags.BoolVar(&flagWarnings, "warn", flagWarnings,
+		"When set, warnings messages about the data will be shown.\n"+
+			"When enabled, this can produce a lot of output saying that an\n"+
+			"could not be found for some entries. This is (likely) a result\n"+
+			"of inconsistent data in IMDb's text files.")
 }
 
 func (c *command) dbinfo() (driver, dsn string) {

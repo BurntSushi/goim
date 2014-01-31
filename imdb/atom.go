@@ -28,11 +28,11 @@ func (db *DB) NewAtomizer(tx *Tx) (*Atomizer, error) {
 		if tx != nil {
 			var err error
 			az.ins, err = db.NewInserter(tx, 50, "atom", "id", "hash")
-			csql.SQLPanic(err)
+			csql.Panic(err)
 		}
 
 		rs := csql.Query(db, "SELECT id, hash FROM atom ORDER BY id ASC")
-		csql.SQLPanic(csql.ForRow(rs, func(scanner csql.RowScanner) {
+		csql.Panic(csql.ForRow(rs, func(scanner csql.RowScanner) {
 			var id Atom
 			var hashBytes, hashBytesScan []byte
 			csql.Scan(scanner, &id, &hashBytesScan)

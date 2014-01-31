@@ -11,29 +11,29 @@ import (
 
 func listReleases(db *imdb.DB, releases io.ReadCloser) {
 	defer idxs(db, "release").drop().create()
-	defer func() { csql.SQLPanic(db.CloseInserters()) }()
+	defer func() { csql.Panic(db.CloseInserters()) }()
 
 	logf("Reading release dates list...")
 	addedDates := 0
 
 	// It's easier to just blow away the dates table and reconstruct it.
-	csql.SQLPanic(csql.Truncate(db, db.Driver, "release"))
+	csql.Panic(csql.Truncate(db, db.Driver, "release"))
 
 	txDates, err := db.Begin()
-	csql.SQLPanic(err)
+	csql.Panic(err)
 
 	dateIns, err := db.NewInserter(txDates, 50, "release",
 		"atom_id", "outlet", "country", "released", "attrs")
 
 	atoms, err := db.NewAtomizer(nil)
-	csql.SQLPanic(err)
+	csql.Panic(err)
 
 	insert := func(line []byte, id imdb.Atom, o, c, a string, date time.Time) {
 		if err := dateIns.Exec(id, o, c, date, a); err != nil {
 			logf("Full release date info (that failed to add): "+
 				"id:%d, outlet:%s, country:%s, date:%s, attrs:'%s'",
 				id, o, c, date, a)
-			csql.SQLPanic(ef("Error adding date '%s': %s", line, err))
+			csql.Panic(ef("Error adding date '%s': %s", line, err))
 		}
 	}
 	listLines(releases, func(line []byte) bool {
@@ -51,7 +51,7 @@ func listReleases(db *imdb.DB, releases io.ReadCloser) {
 			attrs = bytes.TrimSpace(fields[2])
 		}
 		if id, ok = atoms.AtomOnlyIfExist(item); !ok {
-			// logf("Could not find id for '%s'. Skipping.", item)
+			warnf("Could not find id for '%s'. Skipping.", item)
 			return true
 		}
 		if !parseReleaseDate(value, &country, &date) {
