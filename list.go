@@ -43,7 +43,7 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 //
 // The function given will called twice---for each attribute row---and will be
 // supplied with the atom ID for "Mysteries of Egypt" along with the bytes for
-// each attribute row. The full line is also included for debugging purposes
+// each attribute row. The entity name is also included for debugging purposes
 // or in case the caller needs to look for extra information.
 //
 // Note that this formatting would produce an equivalent result:
@@ -60,9 +60,10 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 func listAttrRows(
 	list io.ReadCloser,
 	atoms *imdb.Atomizer,
-	do func(id imdb.Atom, line []byte, row []byte),
+	do func(id imdb.Atom, line, entity, row []byte),
 ) {
-	var current imdb.Atom
+	var curEntity []byte
+	var curAtom imdb.Atom
 	var ok bool
 	listLines(list, func(line []byte) {
 		// Safe to ignore new lines here, since we can tell where we are by
@@ -85,20 +86,22 @@ func listAttrRows(
 				}
 				entity = bytes.TrimSpace(entity[0:sep])
 			}
-			if current, ok = atoms.AtomOnlyIfExist(entity); !ok {
+			if curAtom, ok = atoms.AtomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
-				current = 0 // indicates skipping
+				curAtom, curEntity = 0, nil // indicates skipping
+			} else {
+				curEntity = entity
 			}
 		}
 		// If no atom could be found, then we're skipping.
-		if current == 0 {
+		if curAtom == 0 {
 			return
 		}
 		// An attr row can be on a line by itself, or it can be on the same
 		// line as the entity (delimited by a tab).
 		if len(row) > 0 {
 			// line != row when row is on same line as entity.
-			do(current, line, row)
+			do(curAtom, line, curEntity, row)
 		}
 	})
 }
@@ -234,7 +237,7 @@ func entityType(listName string, item []byte) imdb.EntityKind {
 	panic("BUG: unrecognized list name " + listName)
 }
 
-type simpleList struct {
+type simpleLoad struct {
 	db *imdb.DB
 	table string
 	count int
@@ -242,7 +245,7 @@ type simpleList struct {
 	atoms *imdb.Atomizer
 }
 
-func startSimpleList(db *imdb.DB, table string, columns ...string) *simpleList {
+func startSimpleLoad(db *imdb.DB, table string, columns ...string) *simpleLoad {
 	idxs(db, table).drop()
 	logf("Reading list to populate table %s...", table)
 	csql.Panic(csql.Truncate(db, db.Driver, table))
@@ -253,15 +256,15 @@ func startSimpleList(db *imdb.DB, table string, columns ...string) *simpleList {
 	csql.Panic(err)
 	atoms, err := db.NewAtomizer(nil) // read only
 	csql.Panic(err)
-	return &simpleList{db, table, 0, ins, atoms}
+	return &simpleLoad{db, table, 0, ins, atoms}
 }
 
-func (sl *simpleList) add(line []byte, args ...interface{}) {
+func (sl *simpleLoad) add(line []byte, args ...interface{}) {
 	assertInsert(sl.ins, line, sl.table, args...)
 	sl.count++
 }
 
-func (sl *simpleList) done() {
+func (sl *simpleLoad) done() {
 	csql.Panic(sl.db.CloseInserters()) // must come first (to let idxs get lock)
 	idxs(sl.db, sl.table).create()
 	logf("Done with table %s. Inserted %d rows.", sl.table, sl.count)

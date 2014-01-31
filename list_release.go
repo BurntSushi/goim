@@ -9,15 +9,15 @@ import (
 )
 
 func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
-	simple := startSimpleList(db, "release_date",
+	table := startSimpleLoad(db, "release_date",
 		"atom_id", "outlet", "country", "released", "attrs")
-	defer simple.done()
+	defer table.done()
 
-	listAttrRows(r, simple.atoms, func(id imdb.Atom, line []byte, row []byte) {
+	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
 		var (
 			country string
 			date    time.Time
-			attrs   []byte
+			attrs   string
 		)
 
 		rowFields := splitListLine(row)
@@ -26,10 +26,10 @@ func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
 			return
 		}
 		if len(rowFields) > 1 {
-			attrs = rowFields[1]
+			attrs = unicode(rowFields[1])
 		}
-		ent := entityType("release-dates", line)
-		simple.add(line, id, ent.String(), country, date, attrs)
+		ent := entityType("release-dates", entity)
+		table.add(line, id, ent.String(), country, date, attrs)
 	})
 }
 

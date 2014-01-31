@@ -76,7 +76,7 @@ func ReleaseDates(db csql.Queryer, e Entity) ([]ReleaseDate, error) {
 	err := csql.Safe(func() {
 		rs := csql.Query(db, `
 			SELECT country, released, attrs
-			FROM release
+			FROM release_date
 			WHERE atom_id = $1 AND outlet = $2
 			ORDER BY released ASC
 		`, e.Ident(), e.Type().String())
