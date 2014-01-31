@@ -3,6 +3,7 @@ package imdb
 import (
 	"bytes"
 	"crypto/md5"
+	"database/sql"
 
 	"github.com/BurntSushi/csql"
 )
@@ -31,21 +32,23 @@ func (db *DB) NewAtomizer(tx *Tx) (*Atomizer, error) {
 			csql.Panic(err)
 		}
 
-		rs := csql.Query(db, "SELECT id, hash FROM atom ORDER BY id ASC")
-		csql.Panic(csql.ForRow(rs, func(scanner csql.RowScanner) {
-			var id Atom
-			var hashBytes, hashBytesScan []byte
-			csql.Scan(scanner, &id, &hashBytesScan)
-
-			var hash [md5.Size]byte
-			hashBytes = hash[:]
-			copy(hashBytes, hashBytesScan)
-			az.atoms[hash] = id
-			az.nextId = id
-		}))
+		rs := csql.Query(db, "SELECT id, hash FROM atom")
+		csql.Panic(csql.ForRow(rs, az.readRow))
 	})
 	az.nextId++
 	return az, err
+}
+
+func (az *Atomizer) readRow(scanner csql.RowScanner) {
+	var id Atom
+	var rawBytes sql.RawBytes
+	csql.Scan(scanner, &id, &rawBytes)
+
+	var hash [md5.Size]byte
+	hashBytes := hash[:]
+	copy(hashBytes, rawBytes)
+	az.atoms[hash] = id
+	az.nextId = id
 }
 
 func (az *Atomizer) Atom(key []byte) (Atom, bool, error) {
@@ -78,7 +81,9 @@ func (az *Atomizer) add(hash [md5.Size]byte) (Atom, error) {
 
 func (az *Atomizer) Close() error {
 	if az.ins != nil {
-		return az.ins.Close()
+		ins := az.ins
+		az.ins = nil
+		return ins.Close()
 	}
 	return nil
 }

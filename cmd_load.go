@@ -70,7 +70,7 @@ func load(c *command) bool {
 	}
 	loaders := map[string]listHandler{
 		"movies":        listMovies,
-		"release-dates": listReleases,
+		"release-dates": listReleaseDates,
 		"running-times": listRunningTimes,
 	}
 	for _, name := range loadLists {

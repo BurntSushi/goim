@@ -44,19 +44,23 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 	atoms, err := db.NewAtomizer(tx4)
 	csql.Panic(err)
 
-	listLines(movies, func(line []byte) bool {
+	listLines(movies, func(line []byte) {
+		line = bytes.TrimSpace(line)
 		fields := splitListLine(line)
+		if len(fields) <= 1 {
+			return
+		}
 		item, value := fields[0], fields[1]
 		switch ent := entityType("movies", item); ent {
 		case imdb.EntityMovie:
 			m := imdb.Movie{}
 			if existed, err := parseId(atoms, item, &m.Id); existed {
-				return true
+				return
 			} else if err != nil {
 				csql.Panic(err)
 			}
 			if !parseMovie(item, &m) {
-				return true
+				return
 			}
 			err := mvIns.Exec(m.Id, m.Title, m.Year, m.Sequence, m.Tv, m.Video)
 			if err != nil {
@@ -67,15 +71,15 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 		case imdb.EntityTvshow:
 			tv := imdb.Tvshow{}
 			if existed, err := parseId(atoms, item, &tv.Id); existed {
-				return true
+				return
 			} else if err != nil {
 				csql.Panic(err)
 			}
 			if !parseTvshow(item, &tv) {
-				return true
+				return
 			}
 			if !parseTvshowRange(value, &tv) {
-				return true
+				return
 			}
 			err := tvIns.Exec(tv.Id, tv.Title, tv.Year, tv.Sequence,
 				tv.YearStart, tv.YearEnd)
@@ -87,15 +91,15 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 		case imdb.EntityEpisode:
 			ep := imdb.Episode{}
 			if existed, err := parseId(atoms, item, &ep.Id); existed {
-				return true
+				return
 			} else if err != nil {
 				csql.Panic(err)
 			}
 			if !parseEpisode(atoms, item, &ep) {
-				return true
+				return
 			}
 			if !parseEpisodeYear(value, &ep) {
-				return true
+				return
 			}
 			err := epIns.Exec(ep.Id, ep.TvshowId, ep.Title, ep.Year,
 				ep.Season, ep.EpisodeNum)
@@ -107,7 +111,6 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 		default:
 			csql.Panic(ef("Unrecognized entity %s", ent))
 		}
-		return true
 	})
 	logf("Done. Added %d movies, %d tv shows and %d episodes.",
 		addedMovies, addedTvshows, addedEpisodes)

@@ -5,66 +5,32 @@ import (
 	"io"
 	"time"
 
-	"github.com/BurntSushi/csql"
 	"github.com/BurntSushi/goim/imdb"
 )
 
-func listReleases(db *imdb.DB, releases io.ReadCloser) {
-	defer idxs(db, "release").drop().create()
-	defer func() { csql.Panic(db.CloseInserters()) }()
-
-	logf("Reading release dates list...")
-	addedDates := 0
-
-	// It's easier to just blow away the dates table and reconstruct it.
-	csql.Panic(csql.Truncate(db, db.Driver, "release"))
-
-	txDates, err := db.Begin()
-	csql.Panic(err)
-
-	dateIns, err := db.NewInserter(txDates, 50, "release",
+func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
+	simple := startSimpleList(db, "release_date",
 		"atom_id", "outlet", "country", "released", "attrs")
+	defer simple.done()
 
-	atoms, err := db.NewAtomizer(nil)
-	csql.Panic(err)
-
-	insert := func(line []byte, id imdb.Atom, o, c, a string, date time.Time) {
-		if err := dateIns.Exec(id, o, c, date, a); err != nil {
-			logf("Full release date info (that failed to add): "+
-				"id:%d, outlet:%s, country:%s, date:%s, attrs:'%s'",
-				id, o, c, date, a)
-			csql.Panic(ef("Error adding date '%s': %s", line, err))
-		}
-	}
-	listLines(releases, func(line []byte) bool {
+	listAttrRows(r, simple.atoms, func(id imdb.Atom, line []byte, row []byte) {
 		var (
-			id      imdb.Atom
-			ok      bool
 			country string
 			date    time.Time
 			attrs   []byte
 		)
 
-		fields := splitListLine(line)
-		item, value := fields[0], fields[1]
-		if len(fields) == 3 {
-			attrs = bytes.TrimSpace(fields[2])
-		}
-		if id, ok = atoms.AtomOnlyIfExist(item); !ok {
-			warnf("Could not find id for '%s'. Skipping.", item)
-			return true
-		}
-		if !parseReleaseDate(value, &country, &date) {
+		rowFields := splitListLine(row)
+		if !parseReleaseDate(rowFields[0], &country, &date) {
 			pef("Could not extract date from '%s'. Skipping.", line)
-			return true
+			return
 		}
-
-		ent := entityType("release-dates", item)
-		insert(line, id, ent.String(), country, unicode(attrs), date)
-		addedDates++
-		return true
+		if len(rowFields) > 1 {
+			attrs = rowFields[1]
+		}
+		ent := entityType("release-dates", line)
+		simple.add(line, id, ent.String(), country, date, attrs)
 	})
-	logf("Done. Added %d release dates.", addedDates)
 }
 
 func parseReleaseDate(text []byte, country *string, released *time.Time) bool {

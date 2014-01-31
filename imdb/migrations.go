@@ -47,7 +47,7 @@ var migrations = map[string][]migration.Migrator{
 					episode_num INTEGER NOT NULL,
 					PRIMARY KEY (id)
 				);
-				CREATE TABLE release (
+				CREATE TABLE release_date (
 					atom_id INTEGER,
 					outlet TEXT
 						CHECK (outlet = "movie"
@@ -69,6 +69,16 @@ var migrations = map[string][]migration.Migrator{
 					minutes INTEGER,
 					attrs TEXT
 				);
+				CREATE TABLE aka_title (
+					atom_id INTEGER,
+					outlet TEXT,
+						CHECK (outlet = "movie"
+							   OR outlet = "tvshow"
+							   OR outlet = "episode"
+							  ),
+					title TEXT NOT NULL,
+					attrs TEXT
+				);
 				`)
 			return err
 		},
@@ -80,17 +90,17 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TYPE medium AS ENUM ('movie', 'tvshow', 'episode');
 
 				CREATE TABLE atom (
-					id integer,
-					hash bytea NOT NULL,
+					id INTEGER,
+					hash BYTEA NOT NULL,
 					PRIMARY KEY (id)
 				);
 				CREATE TABLE movie (
-					id integer,
+					id INTEGER,
 					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					sequence TEXT,
 					tv boolean NOT NULL,
-					video boolean NOT NULL,
+					video BOOLEAN NOT NULL,
 					PRIMARY KEY (id)
 				);
 				CREATE TABLE tvshow (
@@ -111,26 +121,27 @@ var migrations = map[string][]migration.Migrator{
 					episode_num INTEGER NOT NULL,
 					PRIMARY KEY (id)
 				);
-				CREATE TABLE release (
-					atom_id integer,
+				CREATE TABLE release_date (
+					atom_id INTEGER,
 					outlet medium,
 					country TEXT,
-					released date,
+					released DATE,
 					attrs TEXT
 				);
-				`)
-			return err
-		},
-		func(tx migration.LimitedTx) error {
-			_, err := tx.Exec(`
 				CREATE TABLE running_time (
 					atom_id INTEGER,
 					outlet medium,
 					country TEXT,
-					minutes smallint,
+					minutes SMALLINT,
 					attrs TEXT
 				);
-			`)
+				CREATE TABLE aka_title (
+					atom_id INTEGER,
+					outlet medium,
+					title TEXT NOT NULL,
+					attrs TEXT
+				);
+				`)
 			return err
 		},
 	},
@@ -155,12 +166,15 @@ var indices = []index{
 	},
 	{false, "episode", "tv", "", []string{"tvshow_id"}},
 	{false, "episode", "tvseason", "", []string{"tvshow_id", "season"}},
-	{false, "release", "entity", "", []string{"atom_id", "outlet"}},
+
+	{false, "release_date", "entity", "", []string{"atom_id", "outlet"}},
 	{false, "running_time", "entity", "", []string{"atom_id", "outlet"}},
+	{false, "aka_title", "entity", "", []string{"atom_id", "outlet"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},
 	{false, "episode", "trgm_title", "gin", []string{"title"}},
+	{false, "aka_title", "trgm_title", "gin", []string{"title"}},
 }
 
 func (in index) sqlName() string {

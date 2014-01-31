@@ -5,69 +5,34 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/BurntSushi/csql"
 	"github.com/BurntSushi/goim/imdb"
 )
 
-func listRunningTimes(db *imdb.DB, times io.ReadCloser) {
-	defer idxs(db, "running_time").drop().create()
-	defer func() { csql.Panic(db.CloseInserters()) }()
-
-	logf("Reading running times list...")
-	addedTimes := 0
-
-	// It's easier to just blow away the times table and reconstruct it.
-	csql.Panic(csql.Truncate(db, db.Driver, "running_time"))
-
-	txDates, err := db.Begin()
-	csql.Panic(err)
-
-	timeIns, err := db.NewInserter(txDates, 50, "running_time",
+func listRunningTimes(db *imdb.DB, r io.ReadCloser) {
+	simple := startSimpleList(db, "running_time",
 		"atom_id", "outlet", "country", "minutes", "attrs")
+	defer simple.done()
 
-	atoms, err := db.NewAtomizer(nil)
-	csql.Panic(err)
-
-	insert := func(line []byte, id imdb.Atom, o, c, a string, min int) {
-		if err := timeIns.Exec(id, o, c, min, a); err != nil {
-			logf("Full running time info (that failed to add): "+
-				"id:%d, outlet:%s, country:%s, minutes:%d, attrs:'%s'",
-				id, o, c, min, a)
-			csql.Panic(ef("Error adding time '%s': %s", line, err))
-		}
-	}
-	listLines(times, func(line []byte) bool {
+	listAttrRows(r, simple.atoms, func(id imdb.Atom, line []byte, row []byte) {
 		var (
-			id      imdb.Atom
-			ok      bool
 			country string
 			minutes int
 			attrs   []byte
 		)
 
-		fields := splitListLine(line)
-		if len(fields) <= 1 {
-			// herp derp...
-			return true
+		rowFields := splitListLine(row)
+		if len(rowFields) == 0 {
+			return // herp derp...
 		}
-		item, value := fields[0], fields[1]
-		if len(fields) == 3 {
-			attrs = bytes.TrimSpace(fields[2])
+		if !parseRunningTime(rowFields[0], &country, &minutes) {
+			return
 		}
-		if id, ok = atoms.AtomOnlyIfExist(item); !ok {
-			warnf("Could not find id for '%s'. Skipping.", item)
-			return true
+		if len(rowFields) > 1 {
+			attrs = rowFields[1]
 		}
-		if !parseRunningTime(value, &country, &minutes) {
-			return true
-		}
-
-		ent := entityType("running-times", item)
-		insert(line, id, ent.String(), country, unicode(attrs), minutes)
-		addedTimes++
-		return true
+		ent := entityType("running-times", line)
+		simple.add(line, id, ent.String(), country, minutes, unicode(attrs))
 	})
-	logf("Done. Added %d running times.", addedTimes)
 }
 
 func parseRunningTime(text []byte, country *string, minutes *int) bool {
