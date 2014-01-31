@@ -97,27 +97,27 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE movie (
 					id INTEGER,
 					title TEXT NOT NULL,
-					year INTEGER NOT NULL,
+					year SMALLINT NOT NULL,
 					sequence TEXT,
-					tv boolean NOT NULL,
+					tv BOOLEAN NOT NULL,
 					video BOOLEAN NOT NULL,
 					PRIMARY KEY (id)
 				);
 				CREATE TABLE tvshow (
-					id integer,
+					id INTEGER,
 					title TEXT NOT NULL,
-					year INTEGER NOT NULL,
+					year SMALLINT NOT NULL,
 					sequence TEXT,
-					year_start INTEGER,
-					year_end INTEGER,
+					year_start SMALLINT,
+					year_end SMALLINT,
 					PRIMARY KEY (id)
 				);
 				CREATE TABLE episode (
-					id integer,
-					tvshow_id integer NOT NULL,
+					id INTEGER,
+					tvshow_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
-					year INTEGER NOT NULL,
-					season INTEGER NOT NULL,
+					year SMALLINT NOT NULL,
+					season SMALLINT NOT NULL,
 					episode_num INTEGER NOT NULL,
 					PRIMARY KEY (id)
 				);

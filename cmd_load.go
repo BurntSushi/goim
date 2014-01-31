@@ -7,10 +7,12 @@ import (
 
 var (
 	flagLoadDownload = ""
-	flagLoadLists    = ""
+	flagLoadLists    = "movies"
 )
 
-var loadLists = []string{"movies", "release-dates", "running-times"}
+var loadLists = []string{
+	"movies", "release-dates", "running-times", "aka-titles",
+}
 
 var namedFtp = map[string]string{
 	"berlin":  "ftp://ftp.fu-berlin.de/pub/misc/movies/database",
@@ -72,6 +74,7 @@ func load(c *command) bool {
 		"movies":        listMovies,
 		"release-dates": listReleaseDates,
 		"running-times": listRunningTimes,
+		"aka-titles":    listAkaTitles,
 	}
 	for _, name := range loadLists {
 		if !loaderIn(name, flagLoadLists) {

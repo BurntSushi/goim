@@ -51,7 +51,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 			return
 		}
 		item, value := fields[0], fields[1]
-		switch ent := entityType("movies", item); ent {
+		switch ent := entityType("media", item); ent {
 		case imdb.EntityMovie:
 			m := imdb.Movie{}
 			if existed, err := parseId(atoms, item, &m.Id); existed {
@@ -161,12 +161,14 @@ func parseEpisode(az imdb.Atomer, episode []byte, ep *imdb.Episode) bool {
 		return false
 	}
 
-	var err error
-	ep.TvshowId, _, err = az.Atom(episode[0:openBrace])
-	if err != nil {
-		pef("Could not atomize TV show '%s' from episode '%s': %s",
-			episode[0:openBrace], episode, err)
-		return false
+	if az != nil {
+		var err error
+		ep.TvshowId, _, err = az.Atom(episode[0:openBrace])
+		if err != nil {
+			pef("Could not atomize TV show '%s' from episode '%s': %s",
+				episode[0:openBrace], episode, err)
+			return false
+		}
 	}
 
 	// The season/episode numbers are optional.

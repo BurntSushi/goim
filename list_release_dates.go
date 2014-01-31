@@ -28,7 +28,7 @@ func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = unicode(rowFields[1])
 		}
-		ent := entityType("release-dates", entity)
+		ent := entityType("media", entity)
 		table.add(line, id, ent.String(), country, date, attrs)
 	})
 }

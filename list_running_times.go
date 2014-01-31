@@ -30,7 +30,7 @@ func listRunningTimes(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = rowFields[1]
 		}
-		ent := entityType("running-times", entity)
+		ent := entityType("media", entity)
 		table.add(line, id, ent.String(), country, minutes, unicode(attrs))
 	})
 }
