@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -125,9 +126,12 @@ func (c *command) config() (conf config, err error) {
 }
 
 func (c *command) tplExec(template *template.Template, data interface{}) {
-	if err := template.Execute(os.Stdout, data); err != nil {
+	buf := new(bytes.Buffer)
+	if err := template.Execute(buf, data); err != nil {
 		fatalf(err.Error())
 	}
+	s := stripTooManyLines.ReplaceAllString(buf.String(), "\n\n")
+	fmt.Fprint(os.Stdout, s)
 }
 
 func (c *command) tpl(name string) *template.Template {
@@ -168,6 +172,7 @@ func (c *command) tpl(name string) *template.Template {
 var (
 	stripNewLines     = regexp.MustCompile("}}\n")
 	stripLeadingSpace = regexp.MustCompile("(?m)^(\t| )+")
+	stripTooManyLines = regexp.MustCompile("\n\n\n+")
 )
 
 func trimTemplate(s string) string {

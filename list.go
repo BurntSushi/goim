@@ -132,7 +132,7 @@ func listLines(list io.ReadCloser, do func([]byte)) {
 			continue
 		}
 		if dataSection && bytes.HasPrefix(line, dataEnd) {
-			break
+			continue
 		}
 		if bytes.Contains(line, attrSuspended) {
 			continue

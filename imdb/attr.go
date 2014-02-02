@@ -38,7 +38,7 @@ func RunningTimes(db csql.Queryer, e Entity) ([]RunningTime, error) {
 		`, e.Ident(), e.Type().String())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var rt RunningTime
-			csql.Panic(s.Scan(&rt.Country, &rt.Minutes, &rt.Attrs))
+			csql.Scan(s, &rt.Country, &rt.Minutes, &rt.Attrs)
 			times = append(times, rt)
 		}))
 	})
@@ -82,7 +82,7 @@ func ReleaseDates(db csql.Queryer, e Entity) ([]ReleaseDate, error) {
 		`, e.Ident(), e.Type().String())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var d ReleaseDate
-			csql.Panic(s.Scan(&d.Country, &d.Released, &d.Attrs))
+			csql.Scan(s, &d.Country, &d.Released, &d.Attrs)
 			dates = append(dates, d)
 		}))
 	})
@@ -113,7 +113,7 @@ func AkaTitles(db csql.Queryer, e Entity) ([]AkaTitle, error) {
 		`, e.Ident(), e.Type().String())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var at AkaTitle
-			csql.Panic(s.Scan(&at.Title, &at.Attrs))
+			csql.Scan(s, &at.Title, &at.Attrs)
 			titles = append(titles, at)
 		}))
 	})
@@ -132,9 +132,78 @@ func AlternateVersions(db csql.Queryer, e Entity) ([]AlternateVersion, error) {
 		`, e.Ident(), e.Type().String())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var alt string
-			csql.Panic(s.Scan(&alt))
+			csql.Scan(s, &alt)
 			alts = append(alts, AlternateVersion(alt))
 		}))
 	})
 	return alts, err
+}
+
+type ColorInfo struct {
+	Color bool
+	Attrs string
+}
+
+func (ci ColorInfo) String() string {
+	s := "Black and White"
+	if ci.Color {
+		s = "Color"
+	}
+	if len(ci.Attrs) > 0 {
+		s += " " + ci.Attrs
+	}
+	return s
+}
+
+func ColorInfos(db csql.Queryer, e Entity) ([]ColorInfo, error) {
+	var infos []ColorInfo
+	err := csql.Safe(func() {
+		rs := csql.Query(db, `
+			SELECT color, attrs
+			FROM color_info
+			WHERE atom_id = $1 AND outlet = $2
+		`, e.Ident(), e.Type().String())
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+			var info ColorInfo
+			csql.Scan(s, &info.Color, &info.Attrs)
+			infos = append(infos, info)
+		}))
+	})
+	return infos, err
+}
+
+type RatingReason struct {
+	Rating string
+	Reason string
+}
+
+func (mr RatingReason) Unrated() bool {
+	return len(mr.Rating) == 0
+}
+
+func (mr RatingReason) String() string {
+	if mr.Unrated() {
+		return "Not rated"
+	}
+	reason := ""
+	if len(mr.Reason) > 0 {
+		reason = sf(" (%s)", mr.Reason)
+	}
+	return sf("Rated %s%s", mr.Rating, reason)
+}
+
+func MPAARating(db csql.Queryer, e Entity) (RatingReason, error) {
+	var rating RatingReason
+	err := csql.Safe(func() {
+		rs := csql.Query(db, `
+			SELECT rating, reason
+			FROM mpaa_rating
+			WHERE atom_id = $1 AND outlet = $2
+			LIMIT 1
+		`, e.Ident(), e.Type().String())
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+			csql.Scan(s, &rating.Rating, &rating.Reason)
+		}))
+	})
+	return rating, err
 }

@@ -14,27 +14,12 @@ type Formatted struct {
 var Defaults = defaults
 
 var defaults = strings.TrimSpace(`
-{{ define "info_details" }}
-	{{ $full := .A.Full }}
-	{{ template "bit_runtime" .O.RunningTimes }}
-	{{ template "bit_release_date" .O.ReleaseDates }}
-	{{ if $full }}
-
-		{{ template "bit_aka_titles" .O.AkaTitles }}
-		{{ template "bit_alternate_versions" .O.AlternateVersions }}
-		{{ template "bit_runtimes" .O.RunningTimes }}
-		{{ template "bit_release_dates" .O.ReleaseDates }}
-	{{ else }}
-
-	{{ end }}
-{{ end }}
-
 {{ define "info_movie" }}
 	{{ printf "%s (%d)" .O.Title .O.Year }}
 	{{ if .O.Tv }}{{ printf " (made for tv)" }}{{ end }}
 	{{ if .O.Video }}{{ printf " (made for video)" }}{{ end }}
 
-	{{ template "info_details" . }}
+	{{ template "info_media_details" . }}
 {{ end }}
 
 {{ define "info_tvshow" }}
@@ -54,7 +39,7 @@ var defaults = strings.TrimSpace(`
 		{{ printf " (%d season(s) with %d episodes)" $seasons $episodes }}
 	{{ end }}
 
-	{{ template "info_details" . }}
+	{{ template "info_media_details" . }}
 {{ end }}
 
 {{ define "info_episode" }}
@@ -63,7 +48,31 @@ var defaults = strings.TrimSpace(`
 	{{ printf "%s (%d) (TV show: %s)" .O.Title .O.Year $tv.Title }}\
 	{{ printf "Season %d, Episode %d" .O.Season .O.EpisodeNum }}
 
-	{{ template "info_details" . }}
+	{{ template "info_media_details" . }}
+{{ end }}
+
+{{ define "info_media_details" }}
+	{{ $full := .A.Full }}
+	{{ template "bit_mpaa" .O.MPAARating }}
+	{{ template "bit_runtime" .O.RunningTimes }}
+	{{ template "bit_release_date" .O.ReleaseDates }}
+	{{ if $full }}
+
+		{{ template "bit_aka_titles" .O.AkaTitles }}
+		{{ template "bit_alternate_versions" .O.AlternateVersions }}
+		{{ template "bit_runtimes" .O.RunningTimes }}
+		{{ template "bit_release_dates" .O.ReleaseDates }}
+		{{ template "bit_color_info" .O.ColorInfos }}
+	{{ else }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "bit_mpaa" }}
+	{{ if not .Unrated }}
+
+		{{ printf "Rating: %s" . | wrap 80 }}
+	{{ end }}
 {{ end }}
 
 {{ define "bit_runtime" }}
@@ -121,6 +130,17 @@ var defaults = strings.TrimSpace(`
 		=============
 		{{ range $date := . }}
 			{{ $date }}\
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_color_info" }}
+	{{ if gt (len .) 0 }}
+
+		Color info
+		==========
+		{{ range $info := . }}
+			{{ $info }}\
 		{{ end }}
 	{{ end }}
 {{ end }}

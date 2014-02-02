@@ -156,3 +156,27 @@ func (e Tvshow) AlternateVersions() []imdb.AlternateVersion {
 func (e Episode) AlternateVersions() []imdb.AlternateVersion {
 	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
 }
+
+func (e Movie) ColorInfos() []imdb.ColorInfo {
+	return assertTwo(imdb.ColorInfos(e.db, e)).([]imdb.ColorInfo)
+}
+
+func (e Tvshow) ColorInfos() []imdb.ColorInfo {
+	return assertTwo(imdb.ColorInfos(e.db, e)).([]imdb.ColorInfo)
+}
+
+func (e Episode) ColorInfos() []imdb.ColorInfo {
+	return assertTwo(imdb.ColorInfos(e.db, e)).([]imdb.ColorInfo)
+}
+
+func (e Movie) MPAARating() imdb.RatingReason {
+	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
+}
+
+func (e Tvshow) MPAARating() imdb.RatingReason {
+	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
+}
+
+func (e Episode) MPAARating() imdb.RatingReason {
+	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
+}

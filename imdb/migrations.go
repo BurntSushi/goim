@@ -88,6 +88,32 @@ var migrations = map[string][]migration.Migrator{
 							  ),
 					about TEXT
 				);
+				CREATE TABLE color_info (
+					atom_id INTEGER,
+					outlet TEXT
+						CHECK (outlet = "movie"
+							   OR outlet = "tvshow"
+							   OR outlet = "episode"
+							  ),
+					color INTEGER NOT NULL,
+					attrs TEXT
+				);
+				CREATE TABLE mpaa_rating (
+					atom_id INTEGER,
+					outlet TEXT
+						CHECK (outlet = "movie"
+							   OR outlet = "tvshow"
+							   OR outlet = "episode"
+							  ),
+					rating TEXT
+						CHECK (rating = "G"
+						       OR rating = "PG"
+							   OR rating = "PG-13"
+							   OR rating = "R"
+							   OR rating = "NC-17"
+							  ),
+					reason TEXT
+				);
 				`)
 			return err
 		},
@@ -97,6 +123,7 @@ var migrations = map[string][]migration.Migrator{
 			var err error
 			_, err = tx.Exec(`
 				CREATE TYPE medium AS ENUM ('movie', 'tvshow', 'episode');
+				CREATE TYPE mpaa AS ENUM ('G', 'PG', 'PG-13', 'R', 'NC-17');
 
 				CREATE TABLE atom (
 					id INTEGER,
@@ -155,6 +182,18 @@ var migrations = map[string][]migration.Migrator{
 					outlet medium,
 					about TEXT
 				);
+				CREATE TABLE color_info (
+					atom_id INTEGER,
+					outlet medium,
+					color BOOLEAN NOT NULL,
+					attrs TEXT
+				);
+				CREATE TABLE mpaa_rating (
+					atom_id INTEGER,
+					outlet medium,
+					rating mpaa,
+					reason TEXT
+				);
 				`)
 			return err
 		},
@@ -185,6 +224,8 @@ var indices = []index{
 	{false, "running_time", "entity", "", []string{"atom_id", "outlet"}},
 	{false, "aka_title", "entity", "", []string{"atom_id", "outlet"}},
 	{false, "alternate_version", "entity", "", []string{"atom_id", "outlet"}},
+	{false, "color_info", "entity", "", []string{"atom_id", "outlet"}},
+	{false, "mpaa_rating", "entity", "", []string{"atom_id", "outlet"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},
