@@ -112,11 +112,19 @@ func listAttrRows(
 //
 // Lines are not trimmed. Empty lines are NOT ignored.
 func listLines(list io.ReadCloser, do func([]byte)) {
+	seenListName := false
+	nameSuffix := []byte(" LIST")
 	dataStart, dataEnd := []byte("====="), []byte("----------")
 	dataSection := false
 	scanner := bufio.NewScanner(list)
 	for scanner.Scan() {
 		line := scanner.Bytes()
+		if !seenListName {
+			if bytes.HasSuffix(line, nameSuffix) {
+				seenListName = true
+			}
+			continue
+		}
 		if !dataSection {
 			if bytes.HasPrefix(line, dataStart) {
 				dataSection = true

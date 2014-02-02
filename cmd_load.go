@@ -12,6 +12,7 @@ var (
 
 var loadLists = []string{
 	"movies", "release-dates", "running-times", "aka-titles",
+	"alternate-versions",
 }
 
 var namedFtp = map[string]string{
@@ -71,10 +72,11 @@ func load(c *command) bool {
 		return false
 	}
 	loaders := map[string]listHandler{
-		"movies":        listMovies,
-		"release-dates": listReleaseDates,
-		"running-times": listRunningTimes,
-		"aka-titles":    listAkaTitles,
+		"movies":             listMovies,
+		"release-dates":      listReleaseDates,
+		"running-times":      listRunningTimes,
+		"aka-titles":         listAkaTitles,
+		"alternate-versions": listAlternateVersions,
 	}
 	for _, name := range loadLists {
 		if !loaderIn(name, flagLoadLists) {

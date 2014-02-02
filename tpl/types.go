@@ -132,3 +132,27 @@ func (e Tvshow) RunningTimes() []imdb.RunningTime {
 func (e Episode) RunningTimes() []imdb.RunningTime {
 	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
 }
+
+func (e Movie) AkaTitles() []imdb.AkaTitle {
+	return assertTwo(imdb.AkaTitles(e.db, e)).([]imdb.AkaTitle)
+}
+
+func (e Tvshow) AkaTitles() []imdb.AkaTitle {
+	return assertTwo(imdb.AkaTitles(e.db, e)).([]imdb.AkaTitle)
+}
+
+func (e Episode) AkaTitles() []imdb.AkaTitle {
+	return assertTwo(imdb.AkaTitles(e.db, e)).([]imdb.AkaTitle)
+}
+
+func (e Movie) AlternateVersions() []imdb.AlternateVersion {
+	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
+}
+
+func (e Tvshow) AlternateVersions() []imdb.AlternateVersion {
+	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
+}
+
+func (e Episode) AlternateVersions() []imdb.AlternateVersion {
+	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
+}

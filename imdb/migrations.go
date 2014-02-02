@@ -71,13 +71,22 @@ var migrations = map[string][]migration.Migrator{
 				);
 				CREATE TABLE aka_title (
 					atom_id INTEGER,
-					outlet TEXT,
+					outlet TEXT
 						CHECK (outlet = "movie"
 							   OR outlet = "tvshow"
 							   OR outlet = "episode"
 							  ),
 					title TEXT NOT NULL,
 					attrs TEXT
+				);
+				CREATE TABLE alternate_version (
+					atom_id INTEGER,
+					outlet TEXT
+						CHECK (outlet = "movie"
+							   OR outlet = "tvshow"
+							   OR outlet = "episode"
+							  ),
+					about TEXT
 				);
 				`)
 			return err
@@ -141,6 +150,11 @@ var migrations = map[string][]migration.Migrator{
 					title TEXT NOT NULL,
 					attrs TEXT
 				);
+				CREATE TABLE alternate_version (
+					atom_id INTEGER,
+					outlet medium,
+					about TEXT
+				);
 				`)
 			return err
 		},
@@ -170,6 +184,7 @@ var indices = []index{
 	{false, "release_date", "entity", "", []string{"atom_id", "outlet"}},
 	{false, "running_time", "entity", "", []string{"atom_id", "outlet"}},
 	{false, "aka_title", "entity", "", []string{"atom_id", "outlet"}},
+	{false, "alternate_version", "entity", "", []string{"atom_id", "outlet"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},

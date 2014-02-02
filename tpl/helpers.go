@@ -2,10 +2,13 @@ package tpl
 
 import (
 	"text/template"
+
+	"github.com/kr/text"
 )
 
 var Helpers = template.FuncMap{
-	"Combine": HelpCombine,
+	"combine": HelpCombine,
+	"wrap":    HelpWrap,
 }
 
 // HelpCombine provides a way to compose values during template execution.
@@ -38,4 +41,8 @@ func HelpCombine(keyvals ...interface{}) map[string]interface{} {
 		// pef("### %#v :: %#v", keyvals[i], keyvals[i+1])
 	}
 	return m
+}
+
+func HelpWrap(limit int, s interface{}) string {
+	return text.Wrap(sf("%s", s), limit)
 }

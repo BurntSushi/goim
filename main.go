@@ -13,6 +13,7 @@ var commands = []*command{
 	cmdClean,
 	cmdLoad,
 	cmdSearch,
+	cmdSize,
 	cmdWriteConfig,
 }
 

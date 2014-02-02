@@ -88,3 +88,53 @@ func ReleaseDates(db csql.Queryer, e Entity) ([]ReleaseDate, error) {
 	})
 	return dates, err
 }
+
+type AkaTitle struct {
+	Title string
+	Attrs string
+}
+
+func (at AkaTitle) String() string {
+	s := at.Title
+	if len(at.Attrs) > 0 {
+		s += " " + at.Attrs
+	}
+	return s
+}
+
+func AkaTitles(db csql.Queryer, e Entity) ([]AkaTitle, error) {
+	var titles []AkaTitle
+	err := csql.Safe(func() {
+		rs := csql.Query(db, `
+			SELECT title, attrs
+			FROM aka_title
+			WHERE atom_id = $1 AND outlet = $2
+			ORDER BY title ASC
+		`, e.Ident(), e.Type().String())
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+			var at AkaTitle
+			csql.Panic(s.Scan(&at.Title, &at.Attrs))
+			titles = append(titles, at)
+		}))
+	})
+	return titles, err
+}
+
+type AlternateVersion string
+
+func AlternateVersions(db csql.Queryer, e Entity) ([]AlternateVersion, error) {
+	var alts []AlternateVersion
+	err := csql.Safe(func() {
+		rs := csql.Query(db, `
+			SELECT about
+			FROM alternate_version
+			WHERE atom_id = $1 AND outlet = $2
+		`, e.Ident(), e.Type().String())
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+			var alt string
+			csql.Panic(s.Scan(&alt))
+			alts = append(alts, AlternateVersion(alt))
+		}))
+	})
+	return alts, err
+}
