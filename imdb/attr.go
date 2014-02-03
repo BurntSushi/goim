@@ -1,10 +1,66 @@
 package imdb
 
 import (
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/csql"
 )
+
+// attrs uses reflection to automatically construct a list of simple attribute
+// rows from the database based on information in the attribute's struct.
+// This includes building the SELECT query and the slice itself.
+//
+// zero MUST be a pointer to a simple struct. A simple struct MUST ONLY contain
+// fields that can be encoded/decoded as declared by the 'database/sql' 
+// package. Column names are the lowercase version of their struct field name
+// unless the 'imdb_table' struct tag is set, in which case, that name is used.
+//
+// extra is passed to the end of the query executed. Useful for specifying
+// ORDER BY or LIMIT clauses.
+func attrs(
+	zero interface{},
+	db csql.Queryer,
+	e Entity,
+	tableName string,
+	extra string,
+) (interface{}, error) {
+	rz := reflect.ValueOf(zero).Elem()
+	tz := rz.Type()
+	nfields := tz.NumField()
+	columns := make([]string, nfields)
+	for i := 0; i < nfields; i++ {
+		f := tz.Field(i)
+		column := f.Tag.Get("imdb_table")
+		if len(column) == 0 {
+			column = strings.ToLower(f.Name)
+		}
+		columns[i] = column
+	}
+	tattrs := reflect.SliceOf(tz)
+	vattrs := reflect.MakeSlice(tattrs, 0, 10)
+
+	err := csql.Safe(func() {
+		q := sf("SELECT %s FROM %s WHERE atom_id = $1 %s",
+			strings.Join(columns, ", "), tableName, extra)
+		rs := csql.Query(db, q, e.Ident())
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+			loadCols := make([]interface{}, nfields)
+			for i := 0; i < nfields; i++ {
+				loadCols[i] = reflect.New(tz.Field(i).Type).Interface()
+			}
+			csql.Scan(s, loadCols...)
+
+			row := reflect.New(tz).Elem()
+			for i := 0; i < nfields; i++ {
+				row.Field(i).Set(reflect.ValueOf(loadCols[i]).Elem())
+			}
+			vattrs = reflect.Append(vattrs, row)
+		}))
+	})
+	return vattrs.Interface(), err
+}
 
 type RunningTime struct {
 	Country string
@@ -24,25 +80,9 @@ func (r RunningTime) String() string {
 }
 
 func RunningTimes(db csql.Queryer, e Entity) ([]RunningTime, error) {
-	var times []RunningTime
-	err := csql.Safe(func() {
-		// IMDb claims that the "default" running time is one with a blank
-		// country. This is nowhere near consistent, but we try anyway.
-		// So we sort by country---the blank one will come first.
-		// See: http://www.imdb.com/updates/guide/running_times
-		rs := csql.Query(db, `
-			SELECT country, minutes, attrs
-			FROM running_time
-			WHERE atom_id = $1
-			ORDER BY country ASC
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			var rt RunningTime
-			csql.Scan(s, &rt.Country, &rt.Minutes, &rt.Attrs)
-			times = append(times, rt)
-		}))
-	})
-	return times, err
+	rows, err := attrs(new(RunningTime), db, e,
+		"running_time", "ORDER BY country ASC")
+	return rows.([]RunningTime), err
 }
 
 type ReleaseDate struct {
@@ -72,21 +112,9 @@ func (r ReleaseDate) String() string {
 }
 
 func ReleaseDates(db csql.Queryer, e Entity) ([]ReleaseDate, error) {
-	var dates []ReleaseDate
-	err := csql.Safe(func() {
-		rs := csql.Query(db, `
-			SELECT country, released, attrs
-			FROM release_date
-			WHERE atom_id = $1
-			ORDER BY released ASC
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			var d ReleaseDate
-			csql.Scan(s, &d.Country, &d.Released, &d.Attrs)
-			dates = append(dates, d)
-		}))
-	})
-	return dates, err
+	rows, err := attrs(new(ReleaseDate), db, e, "release_date",
+		"ORDER BY released")
+	return rows.([]ReleaseDate), err
 }
 
 type AkaTitle struct {
@@ -103,40 +131,21 @@ func (at AkaTitle) String() string {
 }
 
 func AkaTitles(db csql.Queryer, e Entity) ([]AkaTitle, error) {
-	var titles []AkaTitle
-	err := csql.Safe(func() {
-		rs := csql.Query(db, `
-			SELECT title, attrs
-			FROM aka_title
-			WHERE atom_id = $1
-			ORDER BY title ASC
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			var at AkaTitle
-			csql.Scan(s, &at.Title, &at.Attrs)
-			titles = append(titles, at)
-		}))
-	})
-	return titles, err
+	rows, err := attrs(new(AkaTitle), db, e, "aka_title", "ORDER BY title")
+	return rows.([]AkaTitle), err
 }
 
-type AlternateVersion string
+type AlternateVersion struct {
+	About string
+}
+
+func (av AlternateVersion) String() string {
+	return av.About
+}
 
 func AlternateVersions(db csql.Queryer, e Entity) ([]AlternateVersion, error) {
-	var alts []AlternateVersion
-	err := csql.Safe(func() {
-		rs := csql.Query(db, `
-			SELECT about
-			FROM alternate_version
-			WHERE atom_id = $1
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			var alt string
-			csql.Scan(s, &alt)
-			alts = append(alts, AlternateVersion(alt))
-		}))
-	})
-	return alts, err
+	rows, err := attrs(new(AlternateVersion), db, e, "alternate_version", "")
+	return rows.([]AlternateVersion), err
 }
 
 type ColorInfo struct {
@@ -156,20 +165,8 @@ func (ci ColorInfo) String() string {
 }
 
 func ColorInfos(db csql.Queryer, e Entity) ([]ColorInfo, error) {
-	var infos []ColorInfo
-	err := csql.Safe(func() {
-		rs := csql.Query(db, `
-			SELECT color, attrs
-			FROM color_info
-			WHERE atom_id = $1
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			var info ColorInfo
-			csql.Scan(s, &info.Color, &info.Attrs)
-			infos = append(infos, info)
-		}))
-	})
-	return infos, err
+	rows, err := attrs(new(ColorInfo), db, e, "color_info", "")
+	return rows.([]ColorInfo), err
 }
 
 type RatingReason struct {
@@ -193,19 +190,12 @@ func (mr RatingReason) String() string {
 }
 
 func MPAARating(db csql.Queryer, e Entity) (RatingReason, error) {
-	var rating RatingReason
-	err := csql.Safe(func() {
-		rs := csql.Query(db, `
-			SELECT rating, reason
-			FROM mpaa_rating
-			WHERE atom_id = $1
-			LIMIT 1
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			csql.Scan(s, &rating.Rating, &rating.Reason)
-		}))
-	})
-	return rating, err
+	rows, err := attrs(new(RatingReason), db, e, "mpaa_rating", "LIMIT 1")
+	reasons := rows.([]RatingReason)
+	if len(reasons) == 0 {
+		return RatingReason{}, err
+	}
+	return reasons[0], err
 }
 
 type SoundMix struct {
@@ -222,18 +212,6 @@ func (sm SoundMix) String() string {
 }
 
 func SoundMixes(db csql.Queryer, e Entity) ([]SoundMix, error) {
-	var mixes []SoundMix
-	err := csql.Safe(func() {
-		rs := csql.Query(db, `
-			SELECT mix, attrs
-			FROM sound_mix
-			WHERE atom_id = $1
-		`, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			var mix SoundMix
-			csql.Scan(s, &mix.Mix, &mix.Attrs)
-			mixes = append(mixes, mix)
-		}))
-	})
-	return mixes, err
+	rows, err := attrs(new(SoundMix), db, e, "sound_mix", "")
+	return rows.([]SoundMix), err
 }
