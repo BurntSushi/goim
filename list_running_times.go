@@ -10,7 +10,7 @@ import (
 
 func listRunningTimes(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "running_time",
-		"atom_id", "outlet", "country", "minutes", "attrs")
+		"atom_id", "country", "minutes", "attrs")
 	defer table.done()
 
 	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
@@ -30,8 +30,7 @@ func listRunningTimes(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = rowFields[1]
 		}
-		ent := entityType("media", entity)
-		table.add(line, id, ent.String(), country, minutes, unicode(attrs))
+		table.add(line, id, country, minutes, unicode(attrs))
 	})
 }
 

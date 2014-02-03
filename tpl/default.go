@@ -63,6 +63,7 @@ var defaults = strings.TrimSpace(`
 		{{ template "bit_runtimes" .O.RunningTimes }}
 		{{ template "bit_release_dates" .O.ReleaseDates }}
 		{{ template "bit_color_info" .O.ColorInfos }}
+		{{ template "bit_sound_mixes" .O.SoundMixes }}
 	{{ else }}
 
 	{{ end }}
@@ -141,6 +142,17 @@ var defaults = strings.TrimSpace(`
 		==========
 		{{ range $info := . }}
 			{{ $info }}\
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_sound_mixes" }}
+	{{ if gt (len .) 0 }}
+
+		Sound Mixes
+		===========
+		{{ range $mix := . }}
+			{{ $mix }}\
 		{{ end }}
 	{{ end }}
 {{ end }}

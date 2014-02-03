@@ -91,7 +91,7 @@ func (e Tvshow) CountSeasons() (count int) {
 			FROM (
 				SELECT DISTINCT season
 				FROM episode
-				WHERE tvshow_id = $1 AND season > 0
+				WHERE tvshow_atom_id = $1 AND season > 0
 			) AS s
 		`, e.Id)
 	}))
@@ -103,7 +103,7 @@ func (e Tvshow) CountEpisodes() (count int) {
 		count = csql.Count(e.db, `
 			SELECT COUNT(*) AS count
 			FROM episode
-			WHERE tvshow_id = $1 AND season > 0
+			WHERE tvshow_atom_id = $1 AND season > 0
 		`, e.Id)
 	}))
 	return
@@ -179,4 +179,16 @@ func (e Tvshow) MPAARating() imdb.RatingReason {
 
 func (e Episode) MPAARating() imdb.RatingReason {
 	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
+}
+
+func (e Movie) SoundMixes() []imdb.SoundMix {
+	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
+}
+
+func (e Tvshow) SoundMixes() []imdb.SoundMix {
+	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
+}
+
+func (e Episode) SoundMixes() []imdb.SoundMix {
+	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
 }

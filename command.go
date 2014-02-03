@@ -95,8 +95,18 @@ func (c *command) setCommonFlags() {
 
 func (c *command) dbinfo() (driver, dsn string) {
 	if len(flagDb) > 0 {
-		dbInfo := strings.Split(flagDb, ":")
-		driver, dsn = dbInfo[0], dbInfo[1]
+		if !strings.Contains(flagDb, ":") {
+			if strings.HasSuffix(flagDb, "sqlite") ||
+				strings.HasSuffix(flagDb, "sqlite3") {
+				driver = "sqlite3"
+				dsn = flagDb
+			} else {
+				fatalf("Database must be of the form 'dirver:dsn'.")
+			}
+		} else {
+			dbInfo := strings.Split(flagDb, ":")
+			driver, dsn = dbInfo[0], dbInfo[1]
+		}
 	} else {
 		conf, err := c.config()
 		if err != nil {

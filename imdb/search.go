@@ -89,7 +89,7 @@ func (opts SearchOptions) searchSub(
 	case EntityMovie:
 		return sf(`
 			SELECT 
-				'%s' AS entity, id, title, year,
+				'%s' AS entity, atom_id, title, year,
 				trim(CASE WHEN tv THEN '(TV) ' ELSE '' END
 					|| CASE WHEN video THEN '(V)' ELSE '' END)
 					AS attrs,
@@ -104,7 +104,7 @@ func (opts SearchOptions) searchSub(
 	case EntityTvshow:
 		return sf(`
 			SELECT
-				'%s' AS entity, id, title, year,
+				'%s' AS entity, atom_id, title, year,
 				CASE WHEN year_start > 0
 					THEN cast(year_start AS text)
 					ELSE '????' END
@@ -124,7 +124,7 @@ func (opts SearchOptions) searchSub(
 	case EntityEpisode:
 		return sf(`
 			SELECT
-				'%s' AS entity, episode.id, episode.title, episode.year,
+				'%s' AS entity, episode.atom_id, episode.title, episode.year,
 				'(TV show: ' || tvshow.title
 					|| CASE WHEN season > 0 AND episode_num > 0
 							THEN ', #' || cast(season AS text)
@@ -134,7 +134,7 @@ func (opts SearchOptions) searchSub(
 					AS attrs,
 				%s
 			FROM episode
-			LEFT JOIN tvshow ON tvshow.id = episode.tvshow_id
+			LEFT JOIN tvshow ON tvshow.atom_id = episode.tvshow_atom_id
 			WHERE %s AND %s`,
 			entity.String(),
 			opts.similarColumn("episode.title", index),
@@ -215,7 +215,7 @@ func (opts SearchOptions) repeatedSearch(q string, nents int) []interface{} {
 }
 
 var SearchResultColumns = []string{
-	"entity", "id", "title", "year", "attrs", "similarity",
+	"entity", "atom_id", "title", "year", "attrs", "similarity",
 }
 
 func srColQualified(name string) string {

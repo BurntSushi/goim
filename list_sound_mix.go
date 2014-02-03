@@ -8,7 +8,7 @@ import (
 
 func listSoundMixes(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "sound_mix",
-		"atom_id", "outlet", "mix", "attrs")
+		"atom_id", "mix", "attrs")
 	defer table.done()
 
 	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
@@ -21,7 +21,6 @@ func listSoundMixes(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = rowFields[1]
 		}
-		ent := entityType("media", entity)
-		table.add(line, id, ent.String(), unicode(rowFields[0]), unicode(attrs))
+		table.add(line, id, unicode(rowFields[0]), unicode(attrs))
 	})
 }

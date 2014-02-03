@@ -9,7 +9,7 @@ import (
 
 func listColorInfo(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "color_info",
-		"atom_id", "outlet", "color", "attrs")
+		"atom_id", "color", "attrs")
 	defer table.done()
 
 	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
@@ -28,8 +28,7 @@ func listColorInfo(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = rowFields[1]
 		}
-		ent := entityType("media", entity)
-		table.add(line, id, ent.String(), color, unicode(attrs))
+		table.add(line, id, color, unicode(attrs))
 	})
 }
 

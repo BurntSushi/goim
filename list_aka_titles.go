@@ -8,8 +8,7 @@ import (
 )
 
 func listAkaTitles(db *imdb.DB, r io.ReadCloser) {
-	table := startSimpleLoad(db, "aka_title",
-		"atom_id", "outlet", "title", "attrs")
+	table := startSimpleLoad(db, "aka_title", "atom_id", "title", "attrs")
 	defer table.done()
 
 	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
@@ -31,8 +30,7 @@ func listAkaTitles(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = rowFields[1]
 		}
-		ent := entityType("media", entity)
-		table.add(line, id, ent.String(), title, unicode(attrs))
+		table.add(line, id, title, unicode(attrs))
 	})
 }
 

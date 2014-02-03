@@ -10,7 +10,7 @@ import (
 
 func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "release_date",
-		"atom_id", "outlet", "country", "released", "attrs")
+		"atom_id", "country", "released", "attrs")
 	defer table.done()
 
 	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
@@ -28,8 +28,7 @@ func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
 		if len(rowFields) > 1 {
 			attrs = unicode(rowFields[1])
 		}
-		ent := entityType("media", entity)
-		table.add(line, id, ent.String(), country, date, attrs)
+		table.add(line, id, country, date, attrs)
 	})
 }
 

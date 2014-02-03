@@ -33,13 +33,13 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 
 	batchSize := 50
 	mvIns, err := db.NewInserter(tx1, batchSize, "movie",
-		"id", "title", "year", "sequence", "tv", "video")
+		"atom_id", "title", "year", "sequence", "tv", "video")
 	csql.Panic(err)
 	tvIns, err := db.NewInserter(tx2, batchSize, "tvshow",
-		"id", "title", "year", "sequence", "year_start", "year_end")
+		"atom_id", "title", "year", "sequence", "year_start", "year_end")
 	csql.Panic(err)
 	epIns, err := db.NewInserter(tx3, batchSize, "episode",
-		"id", "tvshow_id", "title", "year", "season", "episode_num")
+		"atom_id", "tvshow_atom_id", "title", "year", "season", "episode_num")
 	csql.Panic(err)
 	atoms, err := db.NewAtomizer(tx4)
 	csql.Panic(err)

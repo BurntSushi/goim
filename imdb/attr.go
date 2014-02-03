@@ -33,9 +33,9 @@ func RunningTimes(db csql.Queryer, e Entity) ([]RunningTime, error) {
 		rs := csql.Query(db, `
 			SELECT country, minutes, attrs
 			FROM running_time
-			WHERE atom_id = $1 AND outlet = $2
+			WHERE atom_id = $1
 			ORDER BY country ASC
-		`, e.Ident(), e.Type().String())
+		`, e.Ident())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var rt RunningTime
 			csql.Scan(s, &rt.Country, &rt.Minutes, &rt.Attrs)
@@ -77,9 +77,9 @@ func ReleaseDates(db csql.Queryer, e Entity) ([]ReleaseDate, error) {
 		rs := csql.Query(db, `
 			SELECT country, released, attrs
 			FROM release_date
-			WHERE atom_id = $1 AND outlet = $2
+			WHERE atom_id = $1
 			ORDER BY released ASC
-		`, e.Ident(), e.Type().String())
+		`, e.Ident())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var d ReleaseDate
 			csql.Scan(s, &d.Country, &d.Released, &d.Attrs)
@@ -108,9 +108,9 @@ func AkaTitles(db csql.Queryer, e Entity) ([]AkaTitle, error) {
 		rs := csql.Query(db, `
 			SELECT title, attrs
 			FROM aka_title
-			WHERE atom_id = $1 AND outlet = $2
+			WHERE atom_id = $1
 			ORDER BY title ASC
-		`, e.Ident(), e.Type().String())
+		`, e.Ident())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var at AkaTitle
 			csql.Scan(s, &at.Title, &at.Attrs)
@@ -128,8 +128,8 @@ func AlternateVersions(db csql.Queryer, e Entity) ([]AlternateVersion, error) {
 		rs := csql.Query(db, `
 			SELECT about
 			FROM alternate_version
-			WHERE atom_id = $1 AND outlet = $2
-		`, e.Ident(), e.Type().String())
+			WHERE atom_id = $1
+		`, e.Ident())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var alt string
 			csql.Scan(s, &alt)
@@ -161,8 +161,8 @@ func ColorInfos(db csql.Queryer, e Entity) ([]ColorInfo, error) {
 		rs := csql.Query(db, `
 			SELECT color, attrs
 			FROM color_info
-			WHERE atom_id = $1 AND outlet = $2
-		`, e.Ident(), e.Type().String())
+			WHERE atom_id = $1
+		`, e.Ident())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			var info ColorInfo
 			csql.Scan(s, &info.Color, &info.Attrs)
@@ -198,12 +198,42 @@ func MPAARating(db csql.Queryer, e Entity) (RatingReason, error) {
 		rs := csql.Query(db, `
 			SELECT rating, reason
 			FROM mpaa_rating
-			WHERE atom_id = $1 AND outlet = $2
+			WHERE atom_id = $1
 			LIMIT 1
-		`, e.Ident(), e.Type().String())
+		`, e.Ident())
 		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 			csql.Scan(s, &rating.Rating, &rating.Reason)
 		}))
 	})
 	return rating, err
+}
+
+type SoundMix struct {
+	Mix   string
+	Attrs string
+}
+
+func (sm SoundMix) String() string {
+	s := sm.Mix
+	if len(sm.Attrs) > 0 {
+		s += " " + sm.Attrs
+	}
+	return s
+}
+
+func SoundMixes(db csql.Queryer, e Entity) ([]SoundMix, error) {
+	var mixes []SoundMix
+	err := csql.Safe(func() {
+		rs := csql.Query(db, `
+			SELECT mix, attrs
+			FROM sound_mix
+			WHERE atom_id = $1
+		`, e.Ident())
+		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+			var mix SoundMix
+			csql.Scan(s, &mix.Mix, &mix.Attrs)
+			mixes = append(mixes, mix)
+		}))
+	})
+	return mixes, err
 }

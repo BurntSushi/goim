@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -9,14 +8,12 @@ import (
 )
 
 func listMPAARatings(db *imdb.DB, r io.ReadCloser) {
-	table := startSimpleLoad(db, "mpaa_rating",
-		"atom_id", "outlet", "rating", "reason")
+	table := startSimpleLoad(db, "mpaa_rating", "atom_id", "rating", "reason")
 	defer table.done()
 
 	var curAtom imdb.Atom
 	var curRating string
 	var curReason []byte
-	var entType imdb.EntityKind
 	var ok bool
 	reset := func() {
 		curAtom, curRating, curReason = 0, "", nil
@@ -24,8 +21,7 @@ func listMPAARatings(db *imdb.DB, r io.ReadCloser) {
 	add := func(line []byte) {
 		if len(curReason) > 0 {
 			curReason = bytes.TrimSpace(curReason)
-			table.add(line, curAtom, entType.String(),
-				curRating, unicode(curReason))
+			table.add(line, curAtom, curRating, unicode(curReason))
 			reset()
 		}
 	}
@@ -36,7 +32,6 @@ func listMPAARatings(db *imdb.DB, r io.ReadCloser) {
 		if bytes.HasPrefix(line, []byte("MV: ")) {
 			add(line)
 			entity := bytes.TrimSpace(line[3:])
-			entType = entityType("media", entity)
 			if curAtom, ok = table.atoms.AtomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
 				reset()

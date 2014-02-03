@@ -21,90 +21,60 @@ var migrations = map[string][]migration.Migrator{
 					PRIMARY KEY (id)
 				);
 				CREATE TABLE movie (
-					id INTEGER NOT NULL,
+					atom_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					sequence TEXT,
 					tv INTEGER NOT NULL,
 					video INTEGER NOT NULL,
-					PRIMARY KEY (id)
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE tvshow (
-					id INTEGER NOT NULL,
+					atom_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					sequence TEXT,
 					year_start INTEGER,
 					year_end INTEGER,
-					PRIMARY KEY (id)
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE episode (
-					id INTEGER NOT NULL,
-					tvshow_id INTEGER NOT NULL,
+					atom_id INTEGER NOT NULL,
+					tvshow_atom_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					season INTEGER NOT NULL,
 					episode_num INTEGER NOT NULL,
-					PRIMARY KEY (id)
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE release_date (
 					atom_id INTEGER,
-					outlet TEXT
-						CHECK (outlet = "movie"
-							   OR outlet = "tvshow"
-							   OR outlet = "episode"
-							  ),
 					country TEXT,
 					released DATE,
 					attrs TEXT
 				);
 				CREATE TABLE running_time (
 					atom_id INTEGER,
-					outlet TEXT
-						CHECK (outlet = "movie"
-							   OR outlet = "tvshow"
-							   OR outlet = "episode"
-							  ),
 					country TEXT,
 					minutes INTEGER,
 					attrs TEXT
 				);
 				CREATE TABLE aka_title (
 					atom_id INTEGER,
-					outlet TEXT
-						CHECK (outlet = "movie"
-							   OR outlet = "tvshow"
-							   OR outlet = "episode"
-							  ),
 					title TEXT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE alternate_version (
 					atom_id INTEGER,
-					outlet TEXT
-						CHECK (outlet = "movie"
-							   OR outlet = "tvshow"
-							   OR outlet = "episode"
-							  ),
 					about TEXT
 				);
 				CREATE TABLE color_info (
 					atom_id INTEGER,
-					outlet TEXT
-						CHECK (outlet = "movie"
-							   OR outlet = "tvshow"
-							   OR outlet = "episode"
-							  ),
 					color INTEGER NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE mpaa_rating (
 					atom_id INTEGER,
-					outlet TEXT
-						CHECK (outlet = "movie"
-							   OR outlet = "tvshow"
-							   OR outlet = "episode"
-							  ),
 					rating TEXT
 						CHECK (rating = "G"
 						       OR rating = "PG"
@@ -114,6 +84,11 @@ var migrations = map[string][]migration.Migrator{
 							  ),
 					reason TEXT
 				);
+				CREATE TABLE sound_mix (
+					atom_id INTEGER,
+					mix TEXT,
+					attrs TEXT
+				);
 				`)
 			return err
 		},
@@ -122,7 +97,6 @@ var migrations = map[string][]migration.Migrator{
 		func(tx migration.LimitedTx) error {
 			var err error
 			_, err = tx.Exec(`
-				CREATE TYPE medium AS ENUM ('movie', 'tvshow', 'episode');
 				CREATE TYPE mpaa AS ENUM ('G', 'PG', 'PG-13', 'R', 'NC-17');
 
 				CREATE TABLE atom (
@@ -131,68 +105,113 @@ var migrations = map[string][]migration.Migrator{
 					PRIMARY KEY (id)
 				);
 				CREATE TABLE movie (
-					id INTEGER,
+					atom_id INTEGER,
 					title TEXT NOT NULL,
 					year SMALLINT NOT NULL,
 					sequence TEXT,
 					tv BOOLEAN NOT NULL,
 					video BOOLEAN NOT NULL,
-					PRIMARY KEY (id)
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE tvshow (
-					id INTEGER,
+					atom_id INTEGER,
 					title TEXT NOT NULL,
 					year SMALLINT NOT NULL,
 					sequence TEXT,
 					year_start SMALLINT,
 					year_end SMALLINT,
-					PRIMARY KEY (id)
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE episode (
-					id INTEGER,
-					tvshow_id INTEGER NOT NULL,
+					atom_id INTEGER,
+					tvshow_atom_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
 					year SMALLINT NOT NULL,
 					season SMALLINT NOT NULL,
 					episode_num INTEGER NOT NULL,
-					PRIMARY KEY (id)
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE release_date (
 					atom_id INTEGER,
-					outlet medium,
 					country TEXT,
 					released DATE,
 					attrs TEXT
 				);
 				CREATE TABLE running_time (
 					atom_id INTEGER,
-					outlet medium,
 					country TEXT,
 					minutes SMALLINT,
 					attrs TEXT
 				);
 				CREATE TABLE aka_title (
 					atom_id INTEGER,
-					outlet medium,
 					title TEXT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE alternate_version (
 					atom_id INTEGER,
-					outlet medium,
 					about TEXT
 				);
 				CREATE TABLE color_info (
 					atom_id INTEGER,
-					outlet medium,
 					color BOOLEAN NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE mpaa_rating (
 					atom_id INTEGER,
-					outlet medium,
 					rating mpaa,
 					reason TEXT
+				);
+				CREATE TABLE sound_mix (
+					atom_id INTEGER,
+					mix TEXT,
+					attrs TEXT
+				);
+				CREATE TABLE tagline (
+					atom_id INTEGER,
+					tag TEXT
+				);
+				CREATE TABLE trivia (
+					atom_id INTEGER,
+					entry TEXT
+				);
+				CREATE TABLE genre (
+					atom_id INTEGER,
+					name TEXT
+				);
+				CREATE TABLE goof (
+					atom_id INTEGER,
+					goof_type TEXT,
+					entry TEXT
+				);
+				CREATE TABLE language (
+					atom_id INTEGER,
+					name TEXT,
+					attrs TEXT
+				);
+				CREATE TABLE literature (
+					atom_id INTEGER,
+					lit_type TEXT,
+					ref TEXT
+				);
+				CREATE TABLE location (
+					atom_id INTEGER,
+					place TEXT,
+					attrs TEXT
+				);
+				CREATE TABLE link (
+					atom_id INTEGER,
+					link_type TEXT,
+					link_atom_id INTEGER
+				);
+				CREATE TABLE plot (
+					atom_id INTEGER,
+					entry TEXT,
+					by TEXT
+				);
+				CREATE TABLE quote (
+					atom_id INTEGER,
+					entry TEXT
 				);
 				`)
 			return err
@@ -215,17 +234,18 @@ var indices = []index{
 	},
 	{true, "tvshow", "imdbpk", "", []string{"title", "year", "sequence"}},
 	{true, "episode", "imdbpk", "", []string{
-		"tvshow_id", "title", "season", "episode_num"},
+		"tvshow_atom_id", "title", "season", "episode_num"},
 	},
-	{false, "episode", "tv", "", []string{"tvshow_id"}},
-	{false, "episode", "tvseason", "", []string{"tvshow_id", "season"}},
+	{false, "episode", "tv", "", []string{"tvshow_atom_id"}},
+	{false, "episode", "tvseason", "", []string{"tvshow_atom_id", "season"}},
 
-	{false, "release_date", "entity", "", []string{"atom_id", "outlet"}},
-	{false, "running_time", "entity", "", []string{"atom_id", "outlet"}},
-	{false, "aka_title", "entity", "", []string{"atom_id", "outlet"}},
-	{false, "alternate_version", "entity", "", []string{"atom_id", "outlet"}},
-	{false, "color_info", "entity", "", []string{"atom_id", "outlet"}},
-	{false, "mpaa_rating", "entity", "", []string{"atom_id", "outlet"}},
+	{false, "release_date", "", "", []string{"atom_id"}},
+	{false, "running_time", "", "", []string{"atom_id"}},
+	{false, "aka_title", "", "", []string{"atom_id"}},
+	{false, "alternate_version", "", "", []string{"atom_id"}},
+	{false, "color_info", "", "", []string{"atom_id"}},
+	{false, "mpaa_rating", "", "", []string{"atom_id"}},
+	{false, "sound_mix", "", "", []string{"atom_id"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},
