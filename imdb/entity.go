@@ -113,7 +113,7 @@ func AtomToMovie(db csql.Queryer, id Atom) (Movie, error) {
 	e := new(Movie)
 	err := e.Scan(db.QueryRow(`
 		SELECT atom_id, title, year, sequence, tv, video
-		FROM movie WHERE id = $1`, id))
+		FROM movie WHERE atom_id = $1`, id))
 	return *e, err
 }
 
@@ -121,7 +121,7 @@ func AtomToTvshow(db csql.Queryer, id Atom) (Tvshow, error) {
 	e := new(Tvshow)
 	err := e.Scan(db.QueryRow(`
 		SELECT atom_id, title, year, sequence, year_start, year_end
-		FROM tvshow WHERE id = $1`, id))
+		FROM tvshow WHERE atom_id = $1`, id))
 	return *e, err
 }
 
@@ -129,7 +129,7 @@ func AtomToEpisode(db csql.Queryer, id Atom) (Episode, error) {
 	e := new(Episode)
 	err := e.Scan(db.QueryRow(`
 		SELECT atom_id, tvshow_atom_id, title, year, season, episode_num
-		FROM episode WHERE id = $1`, id))
+		FROM episode WHERE atom_id = $1`, id))
 	return *e, err
 }
 
@@ -137,7 +137,7 @@ func (e Episode) Tvshow(db csql.Queryer) (Tvshow, error) {
 	r := db.QueryRow(`
 		SELECT atom_id, title, year, sequence, year_start, year_end
 		FROM tvshow
-		WHERE id = $1`, e.TvshowId)
+		WHERE atom_id = $1`, e.TvshowId)
 	tv := new(Tvshow)
 	err := tv.Scan(r)
 	return *tv, err
