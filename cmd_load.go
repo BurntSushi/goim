@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"io"
+	path "path/filepath"
 	"strings"
 )
 
@@ -10,6 +12,11 @@ var (
 	flagLoadLists    = "movies"
 )
 
+// loadLists is the set of all list names that may be passed on the command
+// line to be updated. Note that this list also specifies the *order* in
+// which lists are updated, which is respected regardless of the order given
+// on the command line. (This is important because tables like 'movies' should
+// always be updated before their corresponding attribute tables.)
 var loadLists = []string{
 	"movies", "release-dates", "running-times", "aka-titles",
 	"alternate-versions", "color-info", "mpaa-ratings-reasons", "sound-mix",
@@ -67,8 +74,8 @@ func load(c *command) bool {
 	if len(getFrom) == 0 {
 		getFrom = "berlin"
 	}
-	fetch := saver{newFetcher(getFrom), flagLoadDownload}
-	if fetch.fetcher == nil {
+	fetch := newFetcher(getFrom)
+	if fetch == nil {
 		return false
 	}
 	loaders := map[string]listHandler{
@@ -85,15 +92,20 @@ func load(c *command) bool {
 		if !loaderIn(name, flagLoadLists) {
 			continue
 		}
-		list := fetch.list(name)
-		defer list.Close()
+		ok := func() bool {
+			list := fetch.list(name)
+			defer list.Close()
 
-		if len(flagLoadDownload) > 0 {
-			logf("Downloading %s...", name)
-			continue
-		}
-		if ld := loaders[name]; ld != nil {
-			ok := func() bool {
+			if len(flagLoadDownload) > 0 {
+				saveto := path.Join(flagLoadDownload, sf("%s.list.gz", name))
+				logf("Downloading %s to %s...", name, saveto)
+				f := createFile(saveto)
+				if _, err := io.Copy(f, list); err != nil {
+					fatalf("Could not save '%s' to disk: %s", name, err)
+				}
+				return true
+			}
+			if ld := loaders[name]; ld != nil {
 				db := openDb(driver, dsn)
 				defer closeDb(db)
 
@@ -101,11 +113,11 @@ func load(c *command) bool {
 					pef("Could not store %s list: %s", name, err)
 					return false
 				}
-				return true
-			}()
-			if !ok {
-				return false
 			}
+			return true
+		}()
+		if !ok {
+			return false
 		}
 	}
 	return true

@@ -93,37 +93,49 @@ type ftpRetrCloser struct {
 
 // Close closes the file download and the FTP connection.
 func (r ftpRetrCloser) Close() error {
-	// BUG(burntsushi): For some reason, closing the reader here appears
-	// to stall forever. After looking at the code in jlaffaye/goftp, I cannot
-	// see any obvious reason why. But quitting the FTP connection seems to
-	// work OK.
-
-	// if err := r.ReadCloser.Close(); err != nil {
-	// return ef("Problem closing FTP reader: %s", err)
-	// }
-	if err := r.conn.Quit(); err != nil {
-		return ef("Problem quitting: %s", err)
+	if err := r.ReadCloser.Close(); err != nil {
+		pef("Problem closing FTP reader: %s", err)
+		return ef("Problem closing FTP reader: %s", err)
 	}
+	// if err := r.conn.Quit(); err != nil {
+	// pef("Error disconnecting from FTP server: %s", err)
+	// return ef("Problem quitting: %s", err)
+	// }
+
+	// We aren't quitting the conn here becasue we're sharing one global
+	// FTP connection. For whatever reason, I couldn't get multiple
+	// connections to work right---even after closing them, they seem to
+	// remain open. (The IMDb mirrors block more than 5 concurrent connections.)
+	//
+	// The result here is that the FTP connection won't be closed until the
+	// program quits. I'm fine with that for now.
 	return nil
 }
 
-func (ff ftpFetcher) list(name string) io.ReadCloser {
-	conn, err := ftp.Connect(ff.Host)
-	if err != nil {
-		fatalf("Could not connect to '%s': %s", ff.Host, err)
-	}
+var (
+	ftpConn *ftp.ServerConn = nil
+)
 
-	pass, _ := ff.User.Password()
-	if err := conn.Login(ff.User.Username(), pass); err != nil {
-		fatalf("Authentication failed for '%s': %s", ff.Host, err)
+func (ff ftpFetcher) list(name string) io.ReadCloser {
+	if ftpConn == nil {
+		var err error
+		ftpConn, err = ftp.Connect(ff.Host)
+		if err != nil {
+			fatalf("Could not connect to '%s': %s", ff.Host, err)
+		}
+
+		pass, _ := ff.User.Password()
+		if err := ftpConn.Login(ff.User.Username(), pass); err != nil {
+			fatalf("Authentication failed for '%s': %s", ff.Host, err)
+		}
 	}
 
 	namePath := sf("%s/%s.list.gz", ff.Path, name)
-	r, err := conn.Retr(namePath)
+	r, err := ftpConn.Retr(namePath)
 	if err != nil {
 		fatalf("Could not retrieve '%s' from '%s': %s", namePath, ff.Host, err)
 	}
-	return ftpRetrCloser{r, conn}
+	return ftpRetrCloser{r, ftpConn}
 }
 
 // bufCloser makes a bytes.Buffer satisfy the io.ReadCloser interface.
