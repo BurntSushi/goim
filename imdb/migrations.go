@@ -132,86 +132,86 @@ var migrations = map[string][]migration.Migrator{
 					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE release_date (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					country TEXT,
-					released DATE,
+					released DATE NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE running_time (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					country TEXT,
-					minutes SMALLINT,
+					minutes SMALLINT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE aka_title (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE alternate_version (
-					atom_id INTEGER,
-					about TEXT
+					atom_id INTEGER NOT NULL,
+					about TEXT NOT NULL
 				);
 				CREATE TABLE color_info (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					color BOOLEAN NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE mpaa_rating (
-					atom_id INTEGER,
-					rating mpaa,
-					reason TEXT
+					atom_id INTEGER NOT NULL,
+					rating mpaa NOT NULL,
+					reason TEXT NOT NULL
 				);
 				CREATE TABLE sound_mix (
-					atom_id INTEGER,
-					mix TEXT,
+					atom_id INTEGER NOT NULL,
+					mix TEXT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE tagline (
-					atom_id INTEGER,
-					tag TEXT
+					atom_id INTEGER NOT NULL,
+					tag TEXT NOT NULL
 				);
 				CREATE TABLE trivia (
-					atom_id INTEGER,
-					entry TEXT
+					atom_id INTEGER NOT NULL,
+					entry TEXT NOT NULL
 				);
 				CREATE TABLE genre (
-					atom_id INTEGER,
-					name TEXT
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL
 				);
 				CREATE TABLE goof (
-					atom_id INTEGER,
-					goof_type TEXT,
-					entry TEXT
+					atom_id INTEGER NOT NULL,
+					goof_type TEXT NOT NULL,
+					entry TEXT NOT NULL
 				);
 				CREATE TABLE language (
-					atom_id INTEGER,
-					name TEXT,
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE literature (
-					atom_id INTEGER,
-					lit_type TEXT,
-					ref TEXT
+					atom_id INTEGER NOT NULL,
+					lit_type TEXT NOT NULL,
+					ref TEXT NOT NULL
 				);
 				CREATE TABLE location (
-					atom_id INTEGER,
-					place TEXT,
+					atom_id INTEGER NOT NULL,
+					place TEXT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE link (
-					atom_id INTEGER,
-					link_type TEXT,
-					link_atom_id INTEGER
+					atom_id INTEGER NOT NULL,
+					link_type TEXT NOT NULL,
+					link_atom_id INTEGER NOT NULL
 				);
 				CREATE TABLE plot (
-					atom_id INTEGER,
-					entry TEXT,
-					by TEXT
+					atom_id INTEGER NOT NULL,
+					entry TEXT NOT NULL,
+					by TEXT NOT NULL
 				);
 				CREATE TABLE quote (
-					atom_id INTEGER,
-					entry TEXT
+					atom_id INTEGER NOT NULL,
+					entry TEXT NOT NULL
 				);
 				`)
 			return err
@@ -246,6 +246,16 @@ var indices = []index{
 	{false, "color_info", "", "", []string{"atom_id"}},
 	{false, "mpaa_rating", "", "", []string{"atom_id"}},
 	{false, "sound_mix", "", "", []string{"atom_id"}},
+	{false, "genre", "", "", []string{"atom_id"}},
+	{false, "tagline", "", "", []string{"atom_id"}},
+	{false, "trivia", "", "", []string{"atom_id"}},
+	{false, "goof", "", "", []string{"atom_id"}},
+	{false, "language", "", "", []string{"atom_id"}},
+	{false, "literature", "", "", []string{"atom_id"}},
+	{false, "location", "", "", []string{"atom_id"}},
+	{false, "link", "", "", []string{"atom_id"}},
+	{false, "plot", "", "", []string{"atom_id"}},
+	{false, "quote", "", "", []string{"atom_id"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},
@@ -301,6 +311,7 @@ func doIndices(db *DB, getSql func(index, *DB) string, tables ...string) error {
 	trgmEnabled := db.IsFuzzyEnabled()
 	return csql.Safe(func() {
 		var q string
+		var ok bool
 		for _, idx := range indices {
 			if idx.isFulltext() && !trgmEnabled {
 				// Only show the error message if we're on PostgreSQL.
@@ -312,9 +323,12 @@ func doIndices(db *DB, getSql func(index, *DB) string, tables ...string) error {
 			}
 			if len(tables) == 0 || fun.In(idx.table, tables) {
 				q += getSql(idx, db) + "; "
+				ok = true
 			}
 		}
-		csql.Exec(db, q)
+		if ok {
+			csql.Exec(db, q)
+		}
 	})
 }
 

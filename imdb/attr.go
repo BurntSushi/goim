@@ -15,7 +15,7 @@ import (
 // zero MUST be a pointer to a simple struct. A simple struct MUST ONLY contain
 // fields that can be encoded/decoded as declared by the 'database/sql'
 // package. Column names are the lowercase version of their struct field name
-// unless the 'imdb_table' struct tag is set, in which case, that name is used.
+// unless the 'imdb_name' struct tag is set, in which case, that name is used.
 //
 // extra is passed to the end of the query executed. Useful for specifying
 // ORDER BY or LIMIT clauses.
@@ -32,7 +32,7 @@ func attrs(
 	columns := make([]string, nfields)
 	for i := 0; i < nfields; i++ {
 		f := tz.Field(i)
-		column := f.Tag.Get("imdb_table")
+		column := f.Tag.Get("imdb_name")
 		if len(column) == 0 {
 			column = strings.ToLower(f.Name)
 		}
@@ -214,4 +214,148 @@ func (sm SoundMix) String() string {
 func SoundMixes(db csql.Queryer, e Entity) ([]SoundMix, error) {
 	rows, err := attrs(new(SoundMix), db, e, "sound_mix", "")
 	return rows.([]SoundMix), err
+}
+
+type Tagline struct {
+	Tag string
+}
+
+func (t Tagline) String() string {
+	return t.Tag
+}
+
+func Taglines(db csql.Queryer, e Entity) ([]Tagline, error) {
+	rows, err := attrs(new(Tagline), db, e, "tagline", "")
+	return rows.([]Tagline), err
+}
+
+type Trivia struct {
+	Entry string
+}
+
+func (t Trivia) String() string {
+	return t.Entry
+}
+
+func Trivias(db csql.Queryer, e Entity) ([]Trivia, error) {
+	rows, err := attrs(new(Trivia), db, e, "trivia", "")
+	return rows.([]Trivia), err
+}
+
+type Genre struct {
+	Name string
+}
+
+func (g Genre) String() string {
+	return g.Name
+}
+
+func Genres(db csql.Queryer, e Entity) ([]Genre, error) {
+	rows, err := attrs(new(Genre), db, e, "genre", "ORDER BY name ASC")
+	return rows.([]Genre), err
+}
+
+type Goof struct {
+	Type  string `imdb_name:"goof_type"`
+	Entry string
+}
+
+func (g Goof) String() string {
+	return sf("(%s) %s", g.Type, g.Entry)
+}
+
+func Goofs(db csql.Queryer, e Entity) ([]Goof, error) {
+	rows, err := attrs(new(Goof), db, e, "goof", "")
+	return rows.([]Goof), err
+}
+
+type Language struct {
+	Name  string
+	Attrs string
+}
+
+func (lang Language) String() string {
+	s := lang.Name
+	if len(lang.Attrs) > 0 {
+		s += " " + lang.Attrs
+	}
+	return s
+}
+
+func Languages(db csql.Queryer, e Entity) ([]Language, error) {
+	rows, err := attrs(new(Language), db, e, "language", "")
+	return rows.([]Language), err
+}
+
+type Literature struct {
+	Type string `imdb_name:"lit_type"`
+	Ref  string
+}
+
+func (lit Literature) String() string {
+	return sf("(%s) %s", lit.Type, lit.Ref)
+}
+
+func Literatures(db csql.Queryer, e Entity) ([]Literature, error) {
+	rows, err := attrs(new(Literature), db, e, "literature", "")
+	return rows.([]Literature), err
+}
+
+type Location struct {
+	Place string
+	Attrs string
+}
+
+func (loc Location) String() string {
+	s := loc.Place
+	if len(loc.Attrs) > 0 {
+		s += " " + loc.Attrs
+	}
+	return s
+}
+
+func Locations(db csql.Queryer, e Entity) ([]Location, error) {
+	rows, err := attrs(new(Location), db, e, "location", "")
+	return rows.([]Location), err
+}
+
+type Link struct {
+	Type string `imdb_name:"link_type"`
+	Id   Atom
+}
+
+func (lk Link) String() string {
+	return sf("(%s) %d", lk.Type, lk.Id)
+}
+
+func Links(db csql.Queryer, e Entity) ([]Link, error) {
+	rows, err := attrs(new(Link), db, e, "link", "")
+	return rows.([]Link), err
+}
+
+type Plot struct {
+	Entry string
+	By    string
+}
+
+func (p Plot) String() string {
+	return sf("(%s) %s", p.By, p.Entry)
+}
+
+func Plots(db csql.Queryer, e Entity) ([]Plot, error) {
+	rows, err := attrs(new(Plot), db, e, "plot", "")
+	return rows.([]Plot), err
+}
+
+type Quote struct {
+	Entry string
+}
+
+func (q Quote) String() string {
+	return q.Entry
+}
+
+func Quotes(db csql.Queryer, e Entity) ([]Quote, error) {
+	rows, err := attrs(new(Quote), db, e, "quote", "")
+	return rows.([]Quote), err
 }
