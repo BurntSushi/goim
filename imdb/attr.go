@@ -13,7 +13,7 @@ import (
 // This includes building the SELECT query and the slice itself.
 //
 // zero MUST be a pointer to a simple struct. A simple struct MUST ONLY contain
-// fields that can be encoded/decoded as declared by the 'database/sql' 
+// fields that can be encoded/decoded as declared by the 'database/sql'
 // package. Column names are the lowercase version of their struct field name
 // unless the 'imdb_table' struct tag is set, in which case, that name is used.
 //
