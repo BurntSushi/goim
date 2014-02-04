@@ -20,6 +20,7 @@ var (
 var loadLists = []string{
 	"movies", "release-dates", "running-times", "aka-titles",
 	"alternate-versions", "color-info", "mpaa-ratings-reasons", "sound-mix",
+	"genres", "taglines", "trivia",
 }
 
 var namedFtp = map[string]string{
@@ -87,6 +88,9 @@ func load(c *command) bool {
 		"color-info":           listColorInfo,
 		"mpaa-ratings-reasons": listMPAARatings,
 		"sound-mix":            listSoundMixes,
+		"genres":               listGenres,
+		"taglines":             listTaglines,
+		"trivia":               listTrivia,
 	}
 	for _, name := range loadLists {
 		if !loaderIn(name, flagLoadLists) {

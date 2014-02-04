@@ -33,6 +33,73 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 	return csql.Safe(func() { handler(db, gzlist) })
 }
 
+// listPoundItems is a convenience function for reading IMDb lists of the
+// format:
+//
+//	# Entity Name
+//	- Some text.
+//	- More text. Over
+//	  new lines.
+//	- Another.
+//
+// The format attaches a series of longer-length text items to particular
+// entities. The 'do' function is called for each text item, where lines are
+// concatenated (with new line characters removed). The 'do' function is also
+// called with the atom identifier of the corresponding entity.
+//
+// In the example above, 'do' would be called three times.
+//
+// Entities without an existing atom are skipped.
+func listPrefixItems(
+	list io.ReadCloser,
+	atoms *imdb.Atomizer,
+	prefix byte,
+	do func(id imdb.Atom, item []byte),
+) {
+	var curAtom imdb.Atom
+	var curItem []byte
+	var ok bool
+
+	add := func() {
+		if curAtom > 0 && len(curItem) > 0 {
+			do(curAtom, curItem)
+			curItem = nil
+		}
+	}
+	listLinesSuspended(list, true, func(line []byte) {
+		if len(line) == 0 {
+			return
+		}
+		if bytes.Contains(line, attrSuspended) {
+			curAtom, curItem = 0, nil
+			return
+		}
+		if line[0] == '#' {
+			add()
+			entity := bytes.TrimSpace(line[1:])
+			if curAtom, ok = atoms.AtomOnlyIfExist(entity); !ok {
+				warnf("Could not find id for '%s'. Skipping.", entity)
+				curAtom, curItem = 0, nil
+			}
+			return
+		}
+		if curAtom == 0 {
+			return
+		}
+		if line[0] == prefix {
+			add()
+			line = line[1:]
+		}
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			return
+		}
+		curItem = append(curItem, line...)
+		curItem = append(curItem, ' ')
+	})
+	add() // don't forget the last one!
+}
+
 // listAttrRows is a convenience function for traversing lines in IMDb
 // lists that provide multiple instances of attributes for any particular
 // entity. For example, the 'aka-titles' list has this format:
@@ -65,10 +132,14 @@ func listAttrRows(
 	var curEntity []byte
 	var curAtom imdb.Atom
 	var ok bool
-	listLines(list, func(line []byte) {
+	listLinesSuspended(list, true, func(line []byte) {
 		// Safe to ignore new lines here, since we can tell where we are by
 		// the character in the first column.
 		if len(line) == 0 {
+			return
+		}
+		if bytes.Contains(line, attrSuspended) {
+			curAtom, curEntity = 0, nil
 			return
 		}
 
@@ -112,15 +183,25 @@ func listAttrRows(
 //
 // Lines are not trimmed. Empty lines are NOT ignored.
 func listLines(list io.ReadCloser, do func([]byte)) {
+	listLinesSuspended(list, false, do)
+}
+
+// listLinesSuspended is just like listLines, except it provides a way to
+// disable filtering lines with '{{SUSPENDED}}' in them. This is useful when
+// it's necessary to record suspended lines as resetting state associated with
+// an existing entity.
+func listLinesSuspended(list io.ReadCloser, suspended bool, do func([]byte)) {
 	seenListName := false
 	nameSuffix := []byte(" LIST")
+	nameSuffix2 := []byte(" TRIVIA")
 	dataStart, dataEnd := []byte("====="), []byte("----------")
 	dataSection := false
 	scanner := bufio.NewScanner(list)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if !seenListName {
-			if bytes.HasSuffix(line, nameSuffix) {
+			if bytes.HasSuffix(line, nameSuffix) ||
+				bytes.HasSuffix(line, nameSuffix2) {
 				seenListName = true
 			}
 			continue
@@ -134,7 +215,7 @@ func listLines(list io.ReadCloser, do func([]byte)) {
 		if dataSection && bytes.HasPrefix(line, dataEnd) {
 			continue
 		}
-		if bytes.Contains(line, attrSuspended) {
+		if !suspended && bytes.Contains(line, attrSuspended) {
 			continue
 		}
 		do(line)
@@ -315,10 +396,10 @@ type simpleLoad struct {
 func startSimpleLoad(db *imdb.DB, table string, columns ...string) *simpleLoad {
 	logf("Reading list to populate table %s...", table)
 	idxs(db, table).drop()
-	csql.Panic(csql.Truncate(db, db.Driver, table))
 
 	tx, err := db.Begin()
 	csql.Panic(err)
+	csql.Panic(csql.Truncate(tx, db.Driver, table))
 	ins, err := db.NewInserter(tx, 50, table, columns...)
 	csql.Panic(err)
 	atoms, err := db.NewAtomizer(nil) // read only
