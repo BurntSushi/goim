@@ -33,7 +33,7 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 	return csql.Safe(func() { handler(db, gzlist) })
 }
 
-// listPoundItems is a convenience function for reading IMDb lists of the
+// listPrefixItems is a convenience function for reading IMDb lists of the
 // format:
 //
 //	# Entity Name
@@ -47,13 +47,17 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 // concatenated (with new line characters removed). The 'do' function is also
 // called with the atom identifier of the corresponding entity.
 //
-// In the example above, 'do' would be called three times.
+// In the example above, 'do' would be called three times. Also, in the example
+// above, entPrefix is '#' and itemPrefix is '-'.
 //
 // Entities without an existing atom are skipped.
+//
+// As a special case, if itemPrefix has length 0, then do will be called for
+// any non-empty line.
 func listPrefixItems(
 	list io.ReadCloser,
 	atoms *imdb.Atomizer,
-	prefix byte,
+	entPrefix, itemPrefix []byte,
 	do func(id imdb.Atom, item []byte),
 ) {
 	var curAtom imdb.Atom
@@ -74,9 +78,9 @@ func listPrefixItems(
 			curAtom, curItem = 0, nil
 			return
 		}
-		if line[0] == '#' {
+		if bytes.HasPrefix(line, entPrefix) {
 			add()
-			entity := bytes.TrimSpace(line[1:])
+			entity := bytes.TrimSpace(line[len(entPrefix):])
 			if curAtom, ok = atoms.AtomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
 				curAtom, curItem = 0, nil
@@ -86,9 +90,9 @@ func listPrefixItems(
 		if curAtom == 0 {
 			return
 		}
-		if line[0] == prefix {
+		if len(itemPrefix) == 0 || bytes.HasPrefix(line, itemPrefix) {
 			add()
-			line = line[1:]
+			line = line[len(itemPrefix):]
 		}
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
@@ -275,6 +279,12 @@ func parseMediaEntity(entity []byte) (imdb.Entity, bool) {
 	}
 }
 
+var attrPrefixes = [][]byte{
+	[]byte("aka"), []byte("version of"),
+	[]byte("follows"), []byte("followed by"),
+	[]byte("alternate language version of"),
+}
+
 // parseNamedAttr returns the contents of text in the form
 // '(attr-name {DATA})'. The 'attr-name' is returned first and the '{DATA}'
 // is returned second.
@@ -288,11 +298,12 @@ func parseNamedAttr(namedAttr []byte) ([]byte, []byte, bool) {
 		return nil, nil, false
 	}
 	namedAttr = namedAttr[1 : len(namedAttr)-1]
-	pieces := bytes.SplitN(namedAttr, []byte{' '}, 2)
-	if len(pieces) <= 1 {
-		return nil, nil, false
+	for _, prefix := range attrPrefixes {
+		if bytes.HasPrefix(namedAttr, prefix) {
+			return prefix, bytes.TrimSpace(namedAttr[len(prefix):]), true
+		}
 	}
-	return bytes.TrimSpace(pieces[0]), bytes.TrimSpace(pieces[1]), true
+	return nil, nil, false
 }
 
 // parseId attempts to retrieve a uniquely identifying integer for this

@@ -17,18 +17,18 @@ func listAkaTitles(db *imdb.DB, r io.ReadCloser) {
 			attrs []byte
 		)
 
-		rowFields := splitListLine(row)
-		if len(rowFields) == 0 {
+		fields := splitListLine(row)
+		if len(fields) == 0 {
 			return // herp derp...
 		}
-		if !parseAkaTitle(rowFields[0], &title) {
-			if !bytes.Contains(rowFields[0], []byte("(VG)")) {
-				logf("Could not parse aka title from '%s'", rowFields[0])
+		if !parseAkaTitle(fields[0], &title) {
+			if !bytes.Contains(fields[0], []byte("(VG)")) {
+				logf("Could not parse aka title from '%s'", fields[0])
 			}
 			return
 		}
-		if len(rowFields) > 1 {
-			attrs = rowFields[1]
+		if len(fields) > 1 {
+			attrs = fields[1]
 		}
 		table.add(line, id, title, unicode(attrs))
 	})

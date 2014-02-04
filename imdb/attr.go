@@ -320,12 +320,13 @@ func Locations(db csql.Queryer, e Entity) ([]Location, error) {
 }
 
 type Link struct {
-	Type string `imdb_name:"link_type"`
-	Id   Atom
+	Type   string `imdb_name:"link_type"`
+	Id     Atom   `imdb_name:"link_atom_id"`
+	Entity string
 }
 
 func (lk Link) String() string {
-	return sf("(%s) %d", lk.Type, lk.Id)
+	return sf("%s %d (%s)", lk.Type, lk.Id, lk.Entity)
 }
 
 func Links(db csql.Queryer, e Entity) ([]Link, error) {

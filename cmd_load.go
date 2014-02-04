@@ -20,7 +20,27 @@ var (
 var loadLists = []string{
 	"movies", "release-dates", "running-times", "aka-titles",
 	"alternate-versions", "color-info", "mpaa-ratings-reasons", "sound-mix",
-	"genres", "taglines", "trivia",
+	"genres", "taglines", "trivia", "goofs", "language", "literature",
+	"locations", "movie-links",
+}
+
+var loaders = map[string]listHandler{
+	"movies":               listMovies,
+	"release-dates":        listReleaseDates,
+	"running-times":        listRunningTimes,
+	"aka-titles":           listAkaTitles,
+	"alternate-versions":   listAlternateVersions,
+	"color-info":           listColorInfo,
+	"mpaa-ratings-reasons": listMPAARatings,
+	"sound-mix":            listSoundMixes,
+	"genres":               listGenres,
+	"taglines":             listTaglines,
+	"trivia":               listTrivia,
+	"goofs":                listGoofs,
+	"language":             listLanguages,
+	"literature":           listLiterature,
+	"locations":            listLocations,
+	"movie-links":          listMovieLinks,
 }
 
 var namedFtp = map[string]string{
@@ -78,19 +98,6 @@ func load(c *command) bool {
 	fetch := newFetcher(getFrom)
 	if fetch == nil {
 		return false
-	}
-	loaders := map[string]listHandler{
-		"movies":               listMovies,
-		"release-dates":        listReleaseDates,
-		"running-times":        listRunningTimes,
-		"aka-titles":           listAkaTitles,
-		"alternate-versions":   listAlternateVersions,
-		"color-info":           listColorInfo,
-		"mpaa-ratings-reasons": listMPAARatings,
-		"sound-mix":            listSoundMixes,
-		"genres":               listGenres,
-		"taglines":             listTaglines,
-		"trivia":               listTrivia,
 	}
 	for _, name := range loadLists {
 		if !loaderIn(name, flagLoadLists) {

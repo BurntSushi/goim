@@ -202,7 +202,11 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE link (
 					atom_id INTEGER NOT NULL,
 					link_type TEXT NOT NULL,
-					link_atom_id INTEGER NOT NULL
+					link_atom_id INTEGER NOT NULL,
+					entity TEXT NOT NULL
+						CHECK (entity = 'movie'
+						       OR entity = 'tvshow'
+							   OR entity = 'episode')
 				);
 				CREATE TABLE plot (
 					atom_id INTEGER NOT NULL,
