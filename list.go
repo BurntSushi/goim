@@ -361,7 +361,8 @@ func assertInsert(
 		toStr := func(v interface{}) string { return sf("%#v", v) }
 		logf("Full %s info (that failed to add): %s",
 			what, fun.Map(toStr, args).([]string))
-		csql.Panic(ef("Error adding to %s table '%s': %s", what, line, err))
+		logf("Context: %s", line)
+		csql.Panic(ef("Error adding to %s table: %s", what, err))
 	}
 }
 

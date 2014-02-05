@@ -204,3 +204,15 @@ func (e Tvshow) Quotes() []imdb.Quote {
 func (e Episode) Quotes() []imdb.Quote {
 	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
 }
+
+func (e Movie) Plots() []imdb.Plot {
+	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
+}
+
+func (e Tvshow) Plots() []imdb.Plot {
+	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
+}
+
+func (e Episode) Plots() []imdb.Plot {
+	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
+}

@@ -56,12 +56,14 @@ var defaults = strings.TrimSpace(`
 	{{ template "bit_mpaa" .O.MPAARating }}
 	{{ template "bit_runtime" .O.RunningTimes }}
 	{{ template "bit_release_date" .O.ReleaseDates }}
+	{{ template "bit_plot" .O.Plots }}
 	{{ if $full }}
 
 		{{ template "bit_aka_titles" .O.AkaTitles }}
 		{{ template "bit_alternate_versions" .O.AlternateVersions }}
 		{{ template "bit_runtimes" .O.RunningTimes }}
 		{{ template "bit_release_dates" .O.ReleaseDates }}
+		{{ template "bit_plots" .O.Plots }}
 		{{ template "bit_quotes" .O.Quotes }}
 		{{ template "bit_color_info" .O.ColorInfos }}
 		{{ template "bit_sound_mixes" .O.SoundMixes }}
@@ -88,6 +90,16 @@ var defaults = strings.TrimSpace(`
 	{{ if gt (len .) 0 }}
 
 		{{ printf "Release date: %s" (index . 0) }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_plot" }}
+	{{ if gt (len .) 0 }}
+
+
+		Plot
+		====
+		{{ index . 0 | wrap 80 }}
 	{{ end }}
 {{ end }}
 
@@ -132,6 +144,18 @@ var defaults = strings.TrimSpace(`
 		=============
 		{{ range $date := . }}
 			{{ $date }}\
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_plots" }}
+	{{ if gt (len .) 0 }}
+
+		Plot
+		===={{ range $plot := . }}
+
+			{{ wrap 80 $plot }}
+
 		{{ end }}
 	{{ end }}
 {{ end }}
