@@ -216,3 +216,15 @@ func (e Tvshow) Plots() []imdb.Plot {
 func (e Episode) Plots() []imdb.Plot {
 	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
 }
+
+func (e Movie) Ratings() []imdb.UserRating {
+	return assertTwo(imdb.Rating(e.db, e)).([]imdb.UserRating)
+}
+
+func (e Tvshow) Ratings() []imdb.UserRating {
+	return assertTwo(imdb.Rating(e.db, e)).([]imdb.UserRating)
+}
+
+func (e Episode) Ratings() []imdb.UserRating {
+	return assertTwo(imdb.Rating(e.db, e)).([]imdb.UserRating)
+}

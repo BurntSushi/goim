@@ -217,6 +217,11 @@ var migrations = map[string][]migration.Migrator{
 					atom_id INTEGER NOT NULL,
 					entry TEXT NOT NULL
 				);
+				CREATE TABLE rating (
+					atom_id INTEGER NOT NULL,
+					votes INTEGER NOT NULL,
+					rank INTEGER NOT NULL
+				);
 				`)
 			return err
 		},
@@ -260,6 +265,7 @@ var indices = []index{
 	{false, "link", "", "", []string{"atom_id"}},
 	{false, "plot", "", "", []string{"atom_id"}},
 	{false, "quote", "", "", []string{"atom_id"}},
+	{false, "rating", "", "", []string{"atom_id"}},
 
 	{false, "movie", "trgm_title", "gin", []string{"title"}},
 	{false, "tvshow", "trgm_title", "gin", []string{"title"}},

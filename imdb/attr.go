@@ -360,3 +360,25 @@ func Quotes(db csql.Queryer, e Entity) ([]Quote, error) {
 	rows, err := attrs(new(Quote), db, e, "quote", "")
 	return rows.([]Quote), err
 }
+
+type UserRating struct {
+	Votes int
+	Rank int
+}
+
+func (r UserRating) Unrated() bool {
+	return r.Votes == 0
+}
+
+func (r UserRating) String() string {
+	return sf("%d/100 (%d votes)", r.Rank, r.Votes)
+}
+
+func Rating(db csql.Queryer, e Entity) (UserRating, error) {
+	rows, err := attrs(new(UserRating), db, e, "rating", "LIMIT 1")
+	rates := rows.([]UserRating)
+	if len(rates) == 0 {
+		return UserRating{}, err
+	}
+	return rates[0], err
+}

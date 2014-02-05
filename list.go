@@ -198,6 +198,7 @@ func listLinesSuspended(list io.ReadCloser, suspended bool, do func([]byte)) {
 	seenListName := false
 	nameSuffix := []byte(" LIST")
 	nameSuffix2 := []byte(" TRIVIA")
+	nameSuffix3 := []byte(" RATINGS REPORT")
 	dataStart, dataEnd := []byte("====="), []byte("----------")
 	dataSection := false
 	scanner := bufio.NewScanner(list)
@@ -207,6 +208,9 @@ func listLinesSuspended(list io.ReadCloser, suspended bool, do func([]byte)) {
 			if bytes.HasSuffix(line, nameSuffix) ||
 				bytes.HasSuffix(line, nameSuffix2) {
 				seenListName = true
+			} else if bytes.HasSuffix(line, nameSuffix3) {
+				seenListName = true
+				dataSection = true
 			}
 			continue
 		}
@@ -348,6 +352,15 @@ func parseInt(bs []byte, store *int) error {
 		return err
 	}
 	*store = int(n)
+	return nil
+}
+
+func parseFloat(bs []byte, store *float64) error {
+	n, err := strconv.ParseFloat(string(bs), 64)
+	if err != nil {
+		return err
+	}
+	*store = n
 	return nil
 }
 

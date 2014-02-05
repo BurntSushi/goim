@@ -21,7 +21,7 @@ var loadLists = []string{
 	"movies", "release-dates", "running-times", "aka-titles",
 	"alternate-versions", "color-info", "mpaa-ratings-reasons", "sound-mix",
 	"genres", "taglines", "trivia", "goofs", "language", "literature",
-	"locations", "movie-links", "quotes", "plot",
+	"locations", "movie-links", "quotes", "plot", "ratings",
 }
 
 var loaders = map[string]listHandler{
@@ -43,6 +43,7 @@ var loaders = map[string]listHandler{
 	"movie-links":          listMovieLinks,
 	"quotes":               listQuotes,
 	"plot":                 listPlots,
+	"ratings":              listRatings,
 }
 
 var namedFtp = map[string]string{
