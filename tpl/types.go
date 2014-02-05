@@ -192,3 +192,15 @@ func (e Tvshow) SoundMixes() []imdb.SoundMix {
 func (e Episode) SoundMixes() []imdb.SoundMix {
 	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
 }
+
+func (e Movie) Quotes() []imdb.Quote {
+	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
+}
+
+func (e Tvshow) Quotes() []imdb.Quote {
+	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
+}
+
+func (e Episode) Quotes() []imdb.Quote {
+	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
+}

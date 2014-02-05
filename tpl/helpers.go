@@ -1,6 +1,7 @@
 package tpl
 
 import (
+	"strings"
 	"text/template"
 
 	"github.com/kr/text"
@@ -8,6 +9,7 @@ import (
 
 var Helpers = template.FuncMap{
 	"combine": HelpCombine,
+	"lines":   HelpLines,
 	"wrap":    HelpWrap,
 }
 
@@ -45,4 +47,8 @@ func HelpCombine(keyvals ...interface{}) map[string]interface{} {
 
 func HelpWrap(limit int, s interface{}) string {
 	return text.Wrap(sf("%s", s), limit)
+}
+
+func HelpLines(s interface{}) []string {
+	return strings.Split(sf("%s", s), "\n")
 }

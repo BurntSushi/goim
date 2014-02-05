@@ -62,6 +62,7 @@ var defaults = strings.TrimSpace(`
 		{{ template "bit_alternate_versions" .O.AlternateVersions }}
 		{{ template "bit_runtimes" .O.RunningTimes }}
 		{{ template "bit_release_dates" .O.ReleaseDates }}
+		{{ template "bit_quotes" .O.Quotes }}
 		{{ template "bit_color_info" .O.ColorInfos }}
 		{{ template "bit_sound_mixes" .O.SoundMixes }}
 	{{ else }}
@@ -131,6 +132,19 @@ var defaults = strings.TrimSpace(`
 		=============
 		{{ range $date := . }}
 			{{ $date }}\
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "bit_quotes" }}
+	{{ if gt (len .) 0 }}
+
+		Quotes
+		======{{ range $quote := . }}
+
+			{{ range $line := lines $quote }}
+				{{ wrap 80 $line }}\
+			{{ end }}
 		{{ end }}
 	{{ end }}
 {{ end }}
