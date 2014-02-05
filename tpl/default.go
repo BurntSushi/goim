@@ -7,7 +7,7 @@ type Object interface{}
 type Attrs map[string]interface{}
 
 type Formatted struct {
-	O Object
+	X Object
 	A Attrs
 }
 
@@ -15,26 +15,26 @@ var Defaults = defaults
 
 var defaults = strings.TrimSpace(`
 {{ define "info_movie" }}
-	{{ printf "%s (%d)" .O.Title .O.Year }}
-	{{ if .O.Tv }}{{ printf " (made for tv)" }}{{ end }}
-	{{ if .O.Video }}{{ printf " (made for video)" }}{{ end }}
+	{{ printf "%s (%d)" .X.Title .X.Year }}
+	{{ if .X.Tv }}{{ printf " (made for tv)" }}{{ end }}
+	{{ if .X.Video }}{{ printf " (made for video)" }}{{ end }}
 
 	{{ template "info_media_details" . }}
 {{ end }}
 
 {{ define "info_tvshow" }}
 	{{ $full := .A.Full }}
-	{{ printf "%s (%d)" .O.Title .O.Year }}
-	{{ if gt .O.YearStart 0 }}
-		{{ printf " [%d-" .O.YearStart }}
-		{{ if gt .O.YearEnd 0 }}
-			{{ printf "%d]" .O.YearEnd }}
+	{{ printf "%s (%d)" .X.Title .X.Year }}
+	{{ if gt .X.YearStart 0 }}
+		{{ printf " [%d-" .X.YearStart }}
+		{{ if gt .X.YearEnd 0 }}
+			{{ printf "%d]" .X.YearEnd }}
 		{{ else }}
 			{{ "]" }}
 		{{ end }}
 	{{ end }}
-	{{ $seasons := .O.CountSeasons }}
-	{{ $episodes := .O.CountEpisodes }}
+	{{ $seasons := .X.CountSeasons }}
+	{{ $episodes := .X.CountEpisodes }}
 	{{ if gt $seasons 0 }}
 		{{ printf " (%d season(s) with %d episodes)" $seasons $episodes }}
 	{{ end }}
@@ -43,30 +43,30 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "info_episode" }}
-	{{ $tv := .O.Tvshow }}
+	{{ $tv := .X.Tvshow }}
 	{{ $full := .A.Full }}
-	{{ printf "%s (%d) (TV show: %s)" .O.Title .O.Year $tv.Title }}\
-	{{ printf "Season %d, Episode %d" .O.Season .O.EpisodeNum }}
+	{{ printf "%s (%d) (TV show: %s)" .X.Title .X.Year $tv.Title }}\
+	{{ printf "Season %d, Episode %d" .X.Season .X.EpisodeNum }}
 
 	{{ template "info_media_details" . }}
 {{ end }}
 
 {{ define "info_media_details" }}
 	{{ $full := .A.Full }}
-	{{ template "bit_mpaa" .O.MPAARating }}
-	{{ template "bit_runtime" .O.RunningTimes }}
-	{{ template "bit_release_date" .O.ReleaseDates }}
-	{{ template "bit_plot" .O.Plots }}
+	{{ template "bit_mpaa" .X.MPAARating }}
+	{{ template "bit_runtime" .X.RunningTimes }}
+	{{ template "bit_release_date" .X.ReleaseDates }}
+	{{ template "bit_plot" .X.Plots }}
 	{{ if $full }}
 
-		{{ template "bit_aka_titles" .O.AkaTitles }}
-		{{ template "bit_alternate_versions" .O.AlternateVersions }}
-		{{ template "bit_runtimes" .O.RunningTimes }}
-		{{ template "bit_release_dates" .O.ReleaseDates }}
-		{{ template "bit_plots" .O.Plots }}
-		{{ template "bit_quotes" .O.Quotes }}
-		{{ template "bit_color_info" .O.ColorInfos }}
-		{{ template "bit_sound_mixes" .O.SoundMixes }}
+		{{ template "bit_aka_titles" .X.AkaTitles }}
+		{{ template "bit_alternate_versions" .X.AlternateVersions }}
+		{{ template "bit_runtimes" .X.RunningTimes }}
+		{{ template "bit_release_dates" .X.ReleaseDates }}
+		{{ template "bit_plots" .X.Plots }}
+		{{ template "bit_quotes" .X.Quotes }}
+		{{ template "bit_color_info" .X.ColorInfos }}
+		{{ template "bit_sound_mixes" .X.SoundMixes }}
 	{{ else }}
 
 	{{ end }}
@@ -196,12 +196,12 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "search_result" }}
-	{{ printf "%3d. %-9s %s (%d)" .A.Index .O.Entity .O.Name .O.Year }}
-	{{ if .O.Attrs }}
-		{{ printf " %s" .O.Attrs }}
+	{{ printf "%3d. %-9s %s (%d)" .A.Index .X.Entity .X.Name .X.Year }}
+	{{ if .X.Attrs }}
+		{{ printf " %s" .X.Attrs }}
 	{{ end }}
-	{{ if gt .O.Similarity -1.0 }}
-		{{ printf " (score: %0.2f)" .O.Similarity }}
+	{{ if gt .X.Similarity -1.0 }}
+		{{ printf " (score: %0.2f)" .X.Similarity }}
 	{{ end }}
 
 {{ end }}

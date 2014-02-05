@@ -363,7 +363,7 @@ func Quotes(db csql.Queryer, e Entity) ([]Quote, error) {
 
 type UserRating struct {
 	Votes int
-	Rank int
+	Rank  int
 }
 
 func (r UserRating) Unrated() bool {

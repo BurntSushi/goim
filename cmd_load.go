@@ -5,11 +5,14 @@ import (
 	"io"
 	path "path/filepath"
 	"strings"
+
+	"github.com/kr/text"
 )
 
 var (
 	flagLoadDownload = ""
 	flagLoadLists    = "movies"
+	flagWarnings     = false
 )
 
 // loadLists is the set of all list names that may be passed on the command
@@ -82,12 +85,18 @@ the 'clean' command and then running 'load'.
 		c.flags.StringVar(&flagLoadDownload, "download", flagLoadDownload,
 			"When set, the data retrieved will be stored in the directory\n"+
 				"specified. Then goim will quit.")
+		lists := text.Wrap(strings.Join(loadLists, ", "), 80)
 		c.flags.StringVar(&flagLoadLists, "lists", flagLoadLists,
 			"Set to a comma separated list of IMDB movie lists to load, with\n"+
 				"no whitespace. Only lists named here will be loaded. If not\n"+
 				"specified, then only the 'movie' list is load.\n"+
 				"Use 'all' to load all lists.\n"+
-				"Available lists: "+strings.Join(loadLists, ", "))
+				"Available lists: "+lists)
+		c.flags.BoolVar(&flagWarnings, "warn", flagWarnings,
+			"When set, warnings messages about the data will be shown.\n"+
+				"When enabled, this can produce a lot of output saying that\n"+
+				"an could not be found for some entries. This is (likely) a\n"+
+				"result of inconsistent data in IMDb's text files.")
 	},
 }
 
