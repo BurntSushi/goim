@@ -7,7 +7,8 @@ import (
 type EntityKind int
 
 const (
-	EntityMovie EntityKind = iota
+	EntityNone EntityKind = iota
+	EntityMovie
 	EntityTvshow
 	EntityEpisode
 )
@@ -35,8 +36,7 @@ func (e EntityKind) String() string {
 	case EntityEpisode:
 		return "episode"
 	}
-	fatalf("unrecognized entity %d", e)
-	panic("unreachable")
+	panic(sf("unrecognized entity %d", e))
 }
 
 type Entity interface {

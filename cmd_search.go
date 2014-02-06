@@ -29,7 +29,7 @@ func search(c *command) bool {
 	defer closeDb(db)
 
 	template := c.tpl("search_result")
-	results := c.results(db)
+	results := c.results(db, "")
 	for i, result := range results {
 		c.tplExec(template, tpl.Formatted{result, tpl.Attrs{"Index": i + 1}})
 	}

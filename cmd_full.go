@@ -20,7 +20,7 @@ func cmd_full(c *command) bool {
 	db := openDb(c.dbinfo())
 	defer closeDb(db)
 
-	r := c.choose(c.results(db))
+	r := c.choose(c.results(db, ""), "")
 	if r == nil {
 		pef("No results found.")
 		return false
