@@ -42,13 +42,16 @@ type SearchResult struct {
 
 // Searcher represents the parameters of a search.
 type Searcher struct {
-	db       *DB
-	fuzzy    bool
-	name     string
-	entities []EntityKind
-	order    []searchOrder
-	limit    int
-	chooser  SearchChooser
+	db            *DB
+	fuzzy         bool
+	name          string
+	what          string
+	debug         bool
+	entities      []EntityKind
+	order         []searchOrder
+	limit         int
+	goodThreshold float64
+	chooser       SearchChooser
 
 	tvshow                        *subsearch
 	year, rating, season, episode *irange
@@ -68,7 +71,10 @@ type Searcher struct {
 // If no chooser function is supplied, then the first search result is always
 // picked. If there are no results, then the query stops and returns no
 // results.
-type SearchChooser func([]SearchResult) (*SearchResult, error)
+//
+// The string provided to the chooser function is a short noun phrase that
+// represents the thing being searched. (e.g., "TV show".)
+type SearchChooser func([]SearchResult, string) (*SearchResult, error)
 
 type searchOrder struct {
 	column, order string
@@ -85,9 +91,11 @@ type subsearch struct {
 
 func NewSearcher(db *DB, query string) (*Searcher, error) {
 	s := &Searcher{
-		db:    db,
-		fuzzy: db.IsFuzzyEnabled(),
-		limit: 30,
+		db:            db,
+		fuzzy:         db.IsFuzzyEnabled(),
+		limit:         30,
+		goodThreshold: 0.25,
+		what:          "entity",
 	}
 
 	var qname []string
@@ -95,6 +103,8 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 		name, val := argOption(arg)
 		if ent, ok := Entities[name]; len(val) == 0 && ok {
 			s.Entity(ent)
+		} else if name == "debug" {
+			s.debug = true
 		} else if name == "year" || name == "years" {
 			s.Years(intRange(val, 0, maxYear))
 		} else if name == "s" || name == "season" || name == "seasons" {
@@ -136,6 +146,11 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 		}
 	}
 	s.name = strings.Join(qname, " ")
+
+	// Disable similarity scores if a wildcard is used.
+	if strings.ContainsAny(s.name, "%_") {
+		s.fuzzy = false
+	}
 	return s, nil
 }
 
@@ -143,16 +158,9 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 func (s *Searcher) Results() ([]SearchResult, error) {
 	var rs []SearchResult
 	if s.tvshow != nil {
-		tvrs, err := s.tvshow.Results()
-		if err != nil {
-			return nil, ef("Error with tvshow sub-search: %s", err)
+		if err := s.tvshow.choose(s.goodThreshold, s.chooser); err != nil {
+			return nil, err
 		}
-		if len(tvrs) == 0 {
-			return nil, nil
-		}
-		// FIXME: This needs to be more sophisticated and it should call
-		// the Chooser function.
-		s.tvshow.id = tvrs[0].Id
 	}
 	err := csql.Safe(func() {
 		var rows *sql.Rows
@@ -171,6 +179,57 @@ func (s *Searcher) Results() ([]SearchResult, error) {
 		}))
 	})
 	return rs, err
+}
+
+func (s *Searcher) Pick(rs []SearchResult) (*SearchResult, error) {
+	if len(rs) == 0 {
+		return nil, nil
+	} else if len(rs) == 1 {
+		return &rs[0], nil
+	} else if ft, sd := rs[0].Similarity, rs[1].Similarity; ft > -1 && sd > -1 {
+		if ft-sd >= s.goodThreshold {
+			return &rs[0], nil
+		}
+	}
+	if s.chooser == nil {
+		return &rs[0], nil
+	}
+	r, err := s.chooser(rs, s.what)
+	if err != nil {
+		return nil, err
+	}
+	if r == nil {
+		return nil, nil
+	}
+	return r, nil
+}
+
+func (sub *subsearch) choose(diff float64, chooser SearchChooser) error {
+	rs, err := sub.Results()
+	if err != nil {
+		return ef("Error with %s sub-search: %s", sub.what, err)
+	}
+	sub.goodThreshold = diff
+	r, err := sub.Pick(rs)
+	if err != nil {
+		return ef("Error picking %s result: %s", sub.what, err)
+	}
+	sub.id = r.Id
+	return nil
+}
+
+// GoodThreshold sets the threshold at which a result is considered "good"
+// relative to other results returned. This is used to automatically pick a
+// good hit from sub-searches (like for a TV show). Namely, if the difference
+// in similarity between the first and second hits is greater than or equal to
+// the threshold given, then the first hit is automatically returned.
+//
+// By default, the threshold is set to 0.25.
+//
+// Set the threshold to 1.0 to disable this behavior.
+func (s *Searcher) GoodThreshold(diff float64) *Searcher {
+	s.goodThreshold = diff
+	return s
 }
 
 // Entity adds the given entity to the search. Results only belonging to the
@@ -224,6 +283,7 @@ func (s *Searcher) Ratings(min, max int) *Searcher {
 func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 	tvs.Entity(EntityTvshow)
 	s.tvshow = &subsearch{tvs, 0}
+	tvs.what = "TV show"
 	s.entities = []EntityKind{EntityEpisode}
 	return s
 }
@@ -398,7 +458,9 @@ func (s *Searcher) sql() string {
 		`,
 		s.entityColumn(), s.similarColumn("name.name"),
 		s.where(), s.orderby(), s.limit)
-	logf("%s", q)
+	if s.debug {
+		logf("%s", q)
+	}
 	return q
 }
 

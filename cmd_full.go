@@ -20,13 +20,13 @@ func cmd_full(c *command) bool {
 	db := openDb(c.dbinfo())
 	defer closeDb(db)
 
-	r := c.choose(c.results(db, ""), "")
-	if r == nil {
-		pef("No results found.")
+	rs, ok := c.results(db, true)
+	if !ok {
 		return false
 	}
+	r := rs[0]
 	t := c.tpl(sf("info_%s", r.Entity))
-	v := tpl.Formatted{tpl.FromSearchResult(db, *r), tpl.Attrs{"Full": true}}
+	v := tpl.Formatted{tpl.FromSearchResult(db, r), tpl.Attrs{"Full": true}}
 	c.tplExec(t, v)
 	return true
 }
