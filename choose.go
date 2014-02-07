@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -19,83 +18,84 @@ var defaultOrders = map[string]string{
 // results searches the database for the query defined by command line
 // arguments.
 func (c *command) results(db *imdb.DB, query string) []imdb.SearchResult {
-	var titleQuery []string
-	var orders []imdb.SearchOrder
-
-	if len(query) == 0 {
-		query = strings.Join(c.flags.Args(), " ")
-	}
-	opts := imdb.DefaultSearch
-	opts.Entities = nil
-	opts.NoCase = false
-	opts.Limit = 20
-	opts.Fuzzy = db.IsFuzzyEnabled()
-
-	for _, arg := range queryTokens(query) {
-		name, val := argOption(arg)
-		if ent, ok := imdb.Entities[name]; len(val) == 0 && ok {
-			if opts.TvshowId == 0 {
-				// If the tvshow id is set, then we always restrict searching
-				// to episodes.
-				opts.Entities = append(opts.Entities, ent)
-			}
-		} else if name == "year" || name == "years" {
-			opts.YearMin, opts.YearMax = intRange(
-				val, imdb.DefaultSearch.YearMin, imdb.DefaultSearch.YearMax)
-		} else if name == "s" || name == "season" || name == "seasons" {
-			opts.SeasonMin, opts.SeasonMax = intRange(
-				val, imdb.DefaultSearch.SeasonMin, imdb.DefaultSearch.SeasonMax)
-		} else if name == "e" || name == "episode" || name == "episodes" {
-			opts.EpisodeNumMin, opts.EpisodeNumMax = intRange(
-				val,
-				imdb.DefaultSearch.EpisodeNumMin,
-				imdb.DefaultSearch.EpisodeNumMax)
-		} else if name == "tv" || name == "tvshow" {
-			if len(val) == 0 {
-				fatalf("No query found for 'tvshow'.")
-			}
-			r := c.choose(c.results(db, val+" {tvshow}"),
-				"TV show name is ambiguous. Please choose one:")
-			if r == nil {
-				fatalf("No results for TV show query '%s'.", val)
-			}
-			opts.TvshowId = r.Id
-			opts.Entities = []imdb.EntityKind{imdb.EntityEpisode}
-		} else if name == "limit" {
-			n, err := strconv.Atoi(val)
-			if err != nil {
-				fatalf("Not a valid integer '%s' for limit: %s", val, err)
-			}
-			opts.Limit = int(n)
-		} else if name == "sort" {
-			fields := strings.Fields(val)
-			if len(fields) == 0 || len(fields) > 2 {
-				fatalf("Too little or too much in sort option: '%s'", val)
-			} else {
-				var order string
-				if len(fields) > 1 {
-					order = fields[1]
-				} else {
-					order = defaultOrders[fields[0]]
-					if len(order) == 0 {
-						order = "asc"
-					}
-				}
-				orders = append(orders, imdb.SearchOrder{fields[0], order})
-			}
-		} else {
-			titleQuery = append(titleQuery, arg)
-		}
-	}
-	if orders != nil {
-		opts.Order = orders
-	}
-
-	results, err := opts.Search(db, strings.Join(titleQuery, " "))
-	if err != nil {
-		fatalf("Error searching: %s", err)
-	}
-	return results
+	return nil
+	// var titleQuery []string
+	// var orders []imdb.SearchOrder
+	//
+	// if len(query) == 0 {
+	// query = strings.Join(c.flags.Args(), " ")
+	// }
+	// opts := imdb.DefaultSearch
+	// opts.Entities = nil
+	// opts.NoCase = false
+	// opts.Limit = 20
+	// opts.Fuzzy = db.IsFuzzyEnabled()
+	//
+	// for _, arg := range queryTokens(query) {
+	// name, val := argOption(arg)
+	// if ent, ok := imdb.Entities[name]; len(val) == 0 && ok {
+	// if opts.TvshowId == 0 {
+	// // If the tvshow id is set, then we always restrict searching
+	// // to episodes.
+	// opts.Entities = append(opts.Entities, ent)
+	// }
+	// } else if name == "year" || name == "years" {
+	// opts.YearMin, opts.YearMax = intRange(
+	// val, imdb.DefaultSearch.YearMin, imdb.DefaultSearch.YearMax)
+	// } else if name == "s" || name == "season" || name == "seasons" {
+	// opts.SeasonMin, opts.SeasonMax = intRange(
+	// val, imdb.DefaultSearch.SeasonMin, imdb.DefaultSearch.SeasonMax)
+	// } else if name == "e" || name == "episode" || name == "episodes" {
+	// opts.EpisodeNumMin, opts.EpisodeNumMax = intRange(
+	// val,
+	// imdb.DefaultSearch.EpisodeNumMin,
+	// imdb.DefaultSearch.EpisodeNumMax)
+	// } else if name == "tv" || name == "tvshow" {
+	// if len(val) == 0 {
+	// fatalf("No query found for 'tvshow'.")
+	// }
+	// r := c.choose(c.results(db, val+" {tvshow}"),
+	// "TV show name is ambiguous. Please choose one:")
+	// if r == nil {
+	// fatalf("No results for TV show query '%s'.", val)
+	// }
+	// opts.TvshowId = r.Id
+	// opts.Entities = []imdb.EntityKind{imdb.EntityEpisode}
+	// } else if name == "limit" {
+	// n, err := strconv.Atoi(val)
+	// if err != nil {
+	// fatalf("Not a valid integer '%s' for limit: %s", val, err)
+	// }
+	// opts.Limit = int(n)
+	// } else if name == "sort" {
+	// fields := strings.Fields(val)
+	// if len(fields) == 0 || len(fields) > 2 {
+	// fatalf("Too little or too much in sort option: '%s'", val)
+	// } else {
+	// var order string
+	// if len(fields) > 1 {
+	// order = fields[1]
+	// } else {
+	// order = defaultOrders[fields[0]]
+	// if len(order) == 0 {
+	// order = "asc"
+	// }
+	// }
+	// orders = append(orders, imdb.SearchOrder{fields[0], order})
+	// }
+	// } else {
+	// titleQuery = append(titleQuery, arg)
+	// }
+	// }
+	// if orders != nil {
+	// opts.Order = orders
+	// }
+	//
+	// results, err := opts.Search(db, strings.Join(titleQuery, " "))
+	// if err != nil {
+	// fatalf("Error searching: %s", err)
+	// }
+	// return results
 }
 
 // choose searches the database for the query given. If there is more than

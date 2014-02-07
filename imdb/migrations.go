@@ -263,8 +263,8 @@ var indices = []index{
 	{false, "quote", "", "", []string{"atom_id"}},
 	{false, "rating", "", "", []string{"atom_id"}},
 
-	{false, "name", "trgm_name", "gin", []string{"name"}},
-	{false, "aka_title", "trgm_title", "gin", []string{"title"}},
+	{false, "name", "trgm_name", "gist", []string{"name"}},
+	{false, "aka_title", "trgm_title", "gist", []string{"title"}},
 }
 
 func (in index) sqlName() string {

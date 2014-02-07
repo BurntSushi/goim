@@ -2,55 +2,26 @@ package imdb
 
 import (
 	"database/sql"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/csql"
-
-	"github.com/BurntSushi/ty/fun"
 )
 
-var DefaultSearch = SearchOptions{
-	NoCase:        false,
-	Fuzzy:         false,
-	Limit:         20,
-	Order:         []SearchOrder{{"year", "DESC"}},
-	Entities:      nil,
-	TvshowId:      0,
-	YearMin:       0,
-	YearMax:       3000,
-	RateMin:       0,
-	RateMax:       100,
-	SeasonMin:     0,
-	SeasonMax:     1000000,
-	EpisodeNumMin: 0,
-	EpisodeNumMax: 1000000,
+const (
+	maxYear    = 3000
+	maxRate    = 100
+	maxSeason  = 1000000
+	maxEpisode = 1000000
+)
+
+var defaultOrders = map[string]string{
+	"year": "desc", "rating": "desc", "similarity": "desc",
+	"title": "asc", "entity": "asc",
+	"season": "asc", "episode_num": "asc",
 }
 
-type SearchOptions struct {
-	NoCase                       bool
-	Fuzzy                        bool
-	Limit                        int
-	Order                        []SearchOrder
-	Entities                     []EntityKind
-	TvshowId                     Atom
-	YearMin, YearMax             int
-	RateMin, RateMax             int
-	SeasonMin, SeasonMax         int
-	EpisodeNumMin, EpisodeNumMax int
-}
-
-type SearchOrder struct {
-	// Must be one of 'entity', 'id', 'title', 'year' or 'attrs'.
-	// Behavior is undefined if is any other value.
-	// Note that this string MUST be SQL safe. It is not escaped.
-	Column string
-
-	// Must be one of 'ASC' or 'DESC'.
-	// Behavior is undefined if is any other value.
-	// Note that this string MUST be SQL safe. It is not escaped.
-	Order string
-}
-
+// SearchResult represents the data returned for each result of a search.
 type SearchResult struct {
 	Entity EntityKind
 	Id     Atom
@@ -60,216 +31,425 @@ type SearchResult struct {
 	// Arbitrary additional data specific to an entity.
 	// e.g., Whether a movie is straight to video or made for TV.
 	// e.g., The season and episode number of a TV episode.
-	Attrs      string
+	Attrs string
+
+	// Similarity corresponds to the amount of similarity between the name
+	// given in the query and the name returned in this result.
+	// This is set to -1 when fuzzy searching is not available (e.g., for
+	// SQLite or Postgres when the 'pg_trgm' extension isn't enabled).
 	Similarity float64
 }
 
-type searcher struct {
-	db    *DB
-	query string
-	opts  SearchOptions
+// Searcher represents the parameters of a search.
+type Searcher struct {
+	db       *DB
+	fuzzy    bool
+	name     string
+	entities []EntityKind
+	order    []searchOrder
+	limit    int
+	chooser  SearchChooser
+
+	tvshow                        *subsearch
+	year, rating, season, episode *irange
 }
 
-func (opts SearchOptions) Search(db *DB, query string) ([]SearchResult, error) {
-	if opts.Entities == nil {
-		less := func(e1, e2 EntityKind) bool { return int(e1) < int(e2) }
-		opts.Entities = fun.QuickSort(less, fun.Values(Entities)).([]EntityKind)
+// SearchChooser corresponds to a function called by the searcher in this
+// package to resolve ambiguous query parameters. For example, if a TV show
+// is specified with '{tvshow:supernatural}' and there is more than one good
+// hit, then the chooser function will be called.
+//
+// If the search result returned is nil and the error is nil, then the
+// search will return no results without error.
+//
+// If an error is returned, then the search stops and the error is passed to
+// the caller of Searcher.Results.
+//
+// If no chooser function is supplied, then the first search result is always
+// picked. If there are no results, then the query stops and returns no
+// results.
+type SearchChooser func([]SearchResult) (*SearchResult, error)
+
+type searchOrder struct {
+	column, order string
+}
+
+type irange struct {
+	min, max int
+}
+
+type subsearch struct {
+	*Searcher
+	id Atom
+}
+
+func NewSearcher(db *DB, query string) (*Searcher, error) {
+	s := &Searcher{
+		db:    db,
+		fuzzy: db.IsFuzzyEnabled(),
+		limit: 30,
 	}
-	return searcher{db, query, opts}.search()
+
+	var qname []string
+	for _, arg := range queryTokens(query) {
+		name, val := argOption(arg)
+		if ent, ok := Entities[name]; len(val) == 0 && ok {
+			s.Entity(ent)
+		} else if name == "year" || name == "years" {
+			s.Years(intRange(val, 0, maxYear))
+		} else if name == "s" || name == "season" || name == "seasons" {
+			s.Seasons(intRange(val, 0, maxSeason))
+		} else if name == "e" || name == "episode" || name == "episodes" {
+			s.Episodes(intRange(val, 0, maxEpisode))
+		} else if name == "tv" || name == "tvshow" {
+			if len(val) == 0 {
+				return nil, ef("No query found for '%s'.", name)
+			}
+			tvs, err := NewSearcher(s.db, val)
+			if err != nil {
+				return nil, ef("Error with sub-search for '%s': %s", name, err)
+			}
+			s.Tvshow(tvs)
+		} else if name == "limit" {
+			n, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, ef("Invalid integer '%s' for limit: %s", val, err)
+			}
+			s.Limit(int(n))
+		} else if name == "sort" {
+			fields := strings.Fields(val)
+			if len(fields) == 0 || len(fields) > 2 {
+				return nil, ef("Invalid sort format: '%s'", val)
+			}
+			var order string
+			if len(fields) > 1 {
+				order = fields[1]
+			} else {
+				order = defaultOrders[fields[0]]
+				if len(order) == 0 {
+					order = "asc"
+				}
+			}
+			s.Sort(fields[0], order)
+		} else {
+			qname = append(qname, arg)
+		}
+	}
+	s.name = strings.Join(qname, " ")
+	return s, nil
 }
 
-func (s searcher) search() ([]SearchResult, error) {
-	var results []SearchResult
-
+// Results executes the parameters of the search and returns the results.
+func (s *Searcher) Results() ([]SearchResult, error) {
+	var rs []SearchResult
+	if s.tvshow != nil {
+		tvrs, err := s.tvshow.Results()
+		if err != nil {
+			return nil, ef("Error with tvshow sub-search: %s", err)
+		}
+		if len(tvrs) == 0 {
+			return nil, nil
+		}
+		// FIXME: This needs to be more sophisticated and it should call
+		// the Chooser function.
+		s.tvshow.id = tvrs[0].Id
+	}
 	err := csql.Safe(func() {
-		subs, prefix := "(", " "
-		for _, entity := range s.opts.Entities {
-			subs += prefix + s.searchSub(entity) + " "
-			prefix = ") UNION ("
-		}
-		subs += ")"
-
-		var rs *sql.Rows
-		if len(s.query) == 0 {
-			rs = csql.Query(s.db, s.parentSelect(subs))
+		var rows *sql.Rows
+		if len(s.name) == 0 {
+			rows = csql.Query(s.db, s.sql())
 		} else {
-			rs = csql.Query(s.db, s.parentSelect(subs), s.query)
+			rows = csql.Query(s.db, s.sql(), s.name)
 		}
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+		csql.Panic(csql.ForRow(rows, func(scanner csql.RowScanner) {
 			var r SearchResult
 			var ent string
-			csql.Scan(s, &ent, &r.Id, &r.Name, &r.Year, &r.Attrs, &r.Similarity)
+			csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
+				&r.Similarity, &r.Attrs)
 			r.Entity = Entities[ent]
-			results = append(results, r)
+			rs = append(rs, r)
 		}))
 	})
-	return results, err
+	return rs, err
 }
 
-func (s searcher) searchSub(entity EntityKind) string {
-	switch entity {
-	case EntityMovie:
-		return s.sqlsubMovie()
-	case EntityTvshow:
-		return s.sqlsubTvshow()
-	case EntityEpisode:
-		return s.sqlsubEpisode()
+// Entity adds the given entity to the search. Results only belonging to the
+// entities in the search will be returned.
+//
+// Note that if the search implies a specific entity (like specifying the TV
+// show implies an episode), then this method will have no effect.
+func (s *Searcher) Entity(e EntityKind) *Searcher {
+	if s.tvshow != nil {
+		return s
 	}
-	panic(sf("BUG: unrecognized entity %s", entity))
+	s.entities = append(s.entities, e)
+	return s
 }
 
-func (s searcher) sqlsubMovie() string {
-	return sf(`
-		SELECT 
-			'%s' AS entity, atom_id, title, year,
-			trim(CASE WHEN tv THEN '(TV) ' ELSE '' END
-				|| CASE WHEN video THEN '(V)' ELSE '' END)
-				AS attrs,
-			%s
-		FROM movie
-		WHERE %s AND %s
-		%s
-		LIMIT %d
-		`,
-		EntityMovie.String(),
-		s.similarColumn("title"),
-		s.years("year"),
-		s.cmp("title"),
-		s.orderBy(EntityMovie, ""),
-		s.opts.Limit*len(s.opts.Entities),
-	)
+// Years specifies that the results must be in the range of years given.
+// The range is inclusive.
+func (s *Searcher) Years(min, max int) *Searcher {
+	s.year = &irange{min, max}
+	return s
 }
 
-func (s searcher) sqlsubTvshow() string {
-	return sf(`
-		SELECT
-			'%s' AS entity, atom_id, title, year,
-			CASE WHEN year_start > 0
-				THEN cast(year_start AS text)
-				ELSE '????' END
-				|| '-'
-				|| CASE WHEN year_end > 0
-					THEN cast(year_end AS text)
-					ELSE '????' END
-				AS attrs,
-			%s
-		FROM tvshow
-		WHERE %s AND %s
-		%s
-		LIMIT %d
-		`,
-		EntityTvshow.String(),
-		s.similarColumn("title"),
-		s.years("year"),
-		s.cmp("title"),
-		s.orderBy(EntityTvshow, ""),
-		s.opts.Limit*len(s.opts.Entities),
-	)
+// Seasons specifies that the results must be in the range of seasons given.
+// The range is inclusive.
+func (s *Searcher) Seasons(min, max int) *Searcher {
+	s.season = &irange{min, max}
+	return s
 }
 
-func (s searcher) sqlsubEpisode() string {
-	return sf(`
-		SELECT
-			'%s' AS entity, episode.atom_id, episode.title, episode.year,
-			'(TV show: ' || tvshow.title
-				|| CASE WHEN season > 0 AND episode_num > 0
-						THEN ', #' || cast(season AS text)
-							|| '.' || cast(episode_num AS text)
-						ELSE '' END
-				|| ')'
-				AS attrs,
-			%s
-		FROM episode
-		LEFT JOIN tvshow ON tvshow.atom_id = episode.tvshow_atom_id
-		WHERE %s AND %s AND %s AND %s AND %s
-		%s
-		LIMIT %d
-		`,
-		EntityEpisode.String(),
-		s.similarColumn("episode.title"),
-		s.years("episode.year"),
-		s.tvshow("episode.tvshow_atom_id"),
-		s.seasons("episode.season"),
-		s.episodes("episode.episode_num"),
-		s.cmp("episode.title"),
-		s.orderBy(EntityEpisode, ""),
-		s.opts.Limit*len(s.opts.Entities),
-	)
+// Episodes specifies that the results must be in the range of episodes given.
+// The range is inclusive.
+func (s *Searcher) Episodes(min, max int) *Searcher {
+	s.episode = &irange{min, max}
+	return s
 }
 
-func (s searcher) years(column string) string {
-	return sf("%s >= %d AND %s <= %d",
-		column, s.opts.YearMin, column, s.opts.YearMax)
+// Ratings specifies that the results must be in the range of ratings given.
+// The range is inclusive.
+// Note that the minimum rating is 0 and the maximum is 100.
+func (s *Searcher) Ratings(min, max int) *Searcher {
+	s.rating = &irange{min, max}
+	return s
 }
 
-func (s searcher) tvshow(column string) string {
-	if s.opts.TvshowId == 0 {
-		return s.noop()
-	} else {
-		return sf("%s = %d", column, s.opts.TvshowId)
-	}
+// Tvshow specifies a sub-search that will be performed when Results is called.
+// The TV show returned by this sub-search will be used to filter the results
+// of its parent search. If no TV show is found, then the search quits and
+// returns no results. If more than one good matching TV show is found, then
+// the searcher's "chooser" is called. (See the documentation for the
+// SearchChooser type.)
+func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
+	tvs.Entity(EntityTvshow)
+	s.tvshow = &subsearch{tvs, 0}
+	s.entities = []EntityKind{EntityEpisode}
+	return s
 }
 
-func (s searcher) noop() string {
-	return "1 = 1"
+// Limit restricts the number of results to the limit given. If Limit is never
+// specified, then the search defaults to a limit of 30.
+func (s *Searcher) Limit(n int) *Searcher {
+	s.limit = n
+	return s
 }
 
-func (s searcher) seasons(column string) string {
-	return sf("%s >= %d AND %s <= %d",
-		column, s.opts.SeasonMin, column, s.opts.SeasonMax)
+// Sort specifies the order in which to return the results.
+// Note that Sort can be called multiple times. Each call adds the column and
+// order to the current sort criteria.
+func (s *Searcher) Sort(column, order string) *Searcher {
+	s.order = append(s.order, searchOrder{column, order})
+	return s
 }
 
-func (s searcher) episodes(column string) string {
-	return sf("%s >= %d AND %s <= %d",
-		column, s.opts.EpisodeNumMin, column, s.opts.EpisodeNumMax)
+// Chooser specifies the function to call when a sub-search returns 2 or more
+// good hits. See the documentation for the SearchChooser type for details.
+func (s *Searcher) Chooser(chooser SearchChooser) *Searcher {
+	s.chooser = chooser
+	return s
 }
 
-func (s searcher) similarColumn(column string) string {
-	if s.opts.Fuzzy && len(s.query) > 0 {
-		return sf("%s AS similarity", s.similarity(column))
-	} else {
-		return "-1 AS similarity"
-	}
-}
-
-func (s searcher) cmp(column string) string {
-	if len(s.query) == 0 {
-		return s.noop()
-	}
-	if s.opts.Fuzzy {
-		return sf("%s %% $1", column)
-	} else {
-		cmp := "="
-		if s.opts.NoCase || strings.ContainsAny(s.query, "%_") {
-			if s.db.Driver == "postgres" && s.opts.NoCase {
-				cmp = "ILIKE"
+// queryTokens breaks a search query into tokens. Namely, a token is whitespace
+// delimited, except when curly braces ('{' and '}') are presents. For example,
+// in the string "a b {x y z} c", there are exactly four tokens: "a", "b",
+// "{x y z}" and "c".
+func queryTokens(query string) []string {
+	var tokens []string
+	var buf []rune
+	curlyDepth := 0
+	for _, r := range query {
+		switch r {
+		case ' ':
+			if curlyDepth == 0 {
+				if len(buf) > 0 {
+					tokens = append(tokens, string(buf))
+				}
+				buf = nil
 			} else {
-				cmp = "LIKE"
+				buf = append(buf, r)
+			}
+		case '{':
+			curlyDepth++
+			buf = append(buf, r)
+		case '}':
+			curlyDepth--
+			buf = append(buf, r)
+			if curlyDepth == 0 {
+				tokens = append(tokens, string(buf))
+				buf = nil
+			}
+		default:
+			buf = append(buf, r)
+		}
+	}
+	if len(buf) > 0 {
+		tokens = append(tokens, string(buf))
+	}
+	return tokens
+}
+
+// argOption returns the name and optional value corresponding to a search
+// parameter in a query string. Query params are of the form '{name[:val]}'.
+func argOption(arg string) (name, val string) {
+	if len(arg) < 3 {
+		return
+	}
+	if arg[0] != '{' || arg[len(arg)-1] != '}' {
+		return
+	}
+	arg = arg[1 : len(arg)-1]
+	sep := strings.Index(arg, ":")
+	if sep == -1 {
+		name = arg
+	} else {
+		name, val = arg[0:sep], arg[sep+1:]
+	}
+	name, val = strings.TrimSpace(name), strings.TrimSpace(val)
+	return
+}
+
+// intRange parses a range of integers of the form "x-y" and returns x and y
+// as integers. If given only "x", then intRange returns x and x. If given
+// "x-", then intRange returns x and max. If given "-x", then intRange returns
+// min and x.
+func intRange(s string, min, max int) (int, int) {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return min, max
+	}
+	if !strings.Contains(s, "-") {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			fatalf("Could not parse '%s' as integer: %s", s, err)
+		}
+		return n, n
+	}
+
+	var pieces []string
+	for _, p := range strings.SplitN(s, "-", 2) {
+		pieces = append(pieces, strings.TrimSpace(p))
+	}
+
+	start, end := min, max
+	var err error
+	if len(pieces[0]) > 0 {
+		start, err = strconv.Atoi(pieces[0])
+		if err != nil {
+			fatalf("Could not parse '%s' as integer: %s", pieces[0], err)
+		}
+	}
+	if len(pieces[1]) > 0 {
+		end, err = strconv.Atoi(pieces[1])
+		if err != nil {
+			fatalf("Could not parse '%s' as integer: %s", pieces[1], err)
+		}
+	}
+	return start, end
+}
+
+func (s *Searcher) sql() string {
+	q := sf(`
+		SELECT
+			%s AS entity,
+			COALESCE(m.atom_id, t.atom_id, e.atom_id) AS atom_id,
+			name.name AS name,
+			COALESCE(m.year, t.year, e.year) AS year,
+			%s,
+			CASE
+				WHEN m.atom_id IS NOT NULL THEN
+					trim(
+						CASE WHEN m.tv THEN '(TV) ' ELSE '' END
+						||
+						CASE WHEN m.video THEN '(V)' ELSE '' END
+					)
+				WHEN t.atom_id IS NOT NULL THEN
+					CASE
+						WHEN t.year_start > 0 THEN cast(t.year_start AS text)
+						ELSE '????'
+					END
+					|| '-' ||
+					CASE
+						WHEN t.year_end > 0 THEN cast(t.year_end AS text)
+						ELSE '????'
+					END
+				WHEN e.atom_id IS NOT NULL THEN
+					'(TV show: ' || et.name
+					||
+					CASE
+						WHEN e.season > 0 AND e.episode_num > 0 THEN
+							', #' || cast(e.season AS text)
+							||
+							'.' || cast(e.episode_num AS text)
+						ELSE ''
+					END
+					|| ')'
+				ELSE ''
+			END
+			AS attrs
+		FROM name
+		LEFT JOIN movie AS m ON name.atom_id = m.atom_id
+		LEFT JOIN tvshow AS t ON name.atom_id = t.atom_id
+		LEFT JOIN episode AS e ON name.atom_id = e.atom_id
+		LEFT JOIN name AS et ON e.tvshow_atom_id = et.atom_id
+		WHERE 1 = 1 AND %s
+		%s
+		LIMIT %d
+		`,
+		s.entityColumn(), s.similarColumn("name.name"),
+		s.where(), s.orderby(), s.limit)
+	logf("%s", q)
+	return q
+}
+
+func (s *Searcher) where() string {
+	var conj []string
+	if s.tvshow != nil && s.tvshow.id > 0 {
+		conj = append(conj, sf("e.tvshow_atom_id = %d", s.tvshow.id))
+	}
+	if len(s.entities) > 0 {
+		var entsIn []string
+		for _, e := range s.entities {
+			entsIn = append(entsIn, sf("'%s'", e.String()))
+		}
+		in := sf("%s IN(%s)", s.entityColumn(), strings.Join(entsIn, ", "))
+		conj = append(conj, in)
+	}
+	if s.year != nil {
+		conj = append(conj, s.year.cond("COALESCE(m.year, t.year, e.year)"))
+	}
+	if s.season != nil {
+		conj = append(conj, s.season.cond("e.season"))
+	}
+	if s.episode != nil {
+		conj = append(conj, s.episode.cond("e.episode_num"))
+	}
+	if len(s.name) > 0 {
+		if s.fuzzy {
+			conj = append(conj, "name.name % $1")
+		} else {
+			if strings.ContainsAny(s.name, "%_") {
+				conj = append(conj, sf("name.name LIKE $1"))
+			} else {
+				conj = append(conj, sf("name.name = $1"))
 			}
 		}
-		return sf("%s %s $1", column, cmp)
 	}
+	return strings.Join(conj, " AND ")
 }
 
-func (s searcher) similarity(column string) string {
-	return sf("similarity(%s, $1)", column)
-}
-
-func (s searcher) orderBy(entity EntityKind, colPrefix string) string {
-	if s.opts.Fuzzy && len(s.query) > 0 {
-		s.opts.Order = append(
-			[]SearchOrder{{"similarity", "DESC"}}, s.opts.Order...)
-	}
-	if len(s.opts.Order) == 0 {
-		return ""
-	}
+func (s *Searcher) orderby() string {
 	q, prefix := "", ""
-	for _, ord := range s.opts.Order {
-		if !isValidColumn(entity, ord.Column) {
+	for _, ord := range s.order {
+		qualed := orderColumnQualified(ord.column)
+		if len(qualed) == 0 {
 			continue
 		}
-		q += sf("%s%s%s %s", prefix, colPrefix, ord.Column, srOrder(ord.Order))
+		q += sf("%s%s %s", prefix, qualed, ord.order)
 		prefix = ", "
+	}
+	if s.fuzzy && len(s.name) > 0 {
+		return sf("ORDER BY similarity DESC%s %s", prefix, q)
 	}
 	if len(q) == 0 {
 		return ""
@@ -277,20 +457,26 @@ func (s searcher) orderBy(entity EntityKind, colPrefix string) string {
 	return sf("ORDER BY %s", q)
 }
 
-func (s searcher) parentSelect(subQueries string) string {
-	var cols []string
-	for _, col := range SearchResultColumns["all"] {
-		cols = append(cols, sf("s.%s", col))
+func (s *Searcher) entityColumn() string {
+	return `
+			CASE
+				WHEN m.atom_id IS NOT NULL THEN 'movie'
+				WHEN t.atom_id IS NOT NULL THEN 'tvshow'
+				WHEN e.atom_id IS NOT NULL THEN 'episode'
+				ELSE ''
+			END`
+}
+
+func (s *Searcher) similarColumn(col string) string {
+	if len(s.name) > 0 && s.fuzzy {
+		return sf("similarity(%s, $1) AS similarity", col)
+	} else {
+		return "-1 AS similarity"
 	}
-	order := s.orderBy(EntityNone, "s.")
-	q := sf(`
-		SELECT %s
-		FROM (%s) AS s
-		%s
-		LIMIT %d`,
-		strings.Join(cols, ", "), subQueries, order, s.opts.Limit)
-	// logf("%s", q)
-	return q
+}
+
+func (ir *irange) cond(col string) string {
+	return sf("%s >= %d AND %s <= %d", col, ir.min, col, ir.max)
 }
 
 var SearchResultColumns = map[string][]string{
@@ -298,8 +484,27 @@ var SearchResultColumns = map[string][]string{
 	"episode": {"season", "episode_num"},
 }
 
+func orderColumnQualified(column string) string {
+	switch {
+	case isValidColumn(EntityNone, column):
+		return column
+	case isValidColumn(EntityEpisode, column):
+		return sf("e.%s", column)
+	case isValidColumn(EntityMovie, column):
+		return sf("m.%s", column)
+	case isValidColumn(EntityTvshow, column):
+		return sf("t.%s", column)
+	}
+	return ""
+}
+
 func isValidColumn(ent EntityKind, column string) bool {
-	return fun.In(column, validColumns(ent))
+	for _, c := range validColumns(ent) {
+		if c == column {
+			return true
+		}
+	}
+	return false
 }
 
 func validColumns(ent EntityKind) []string {
@@ -315,12 +520,4 @@ func validColumns(ent EntityKind) []string {
 	} else {
 		return SearchResultColumns["all"]
 	}
-}
-
-func srOrder(o string) string {
-	uo := strings.ToUpper(o)
-	if uo != "ASC" && uo != "DESC" {
-		csql.Panic(ef("Not a valid order: %s (must be one of ASC or DESC)", o))
-	}
-	return uo
 }
