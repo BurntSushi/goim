@@ -14,7 +14,7 @@ var attrTv, attrVid, attrVg = []byte("(TV)"), []byte("(V)"), []byte("(VG)")
 var attrUnknownYear, attrSuspended = []byte("????"), []byte("{{SUSPENDED}}")
 
 func listMovies(db *imdb.DB, movies io.ReadCloser) {
-	defer idxs(db, "atom", "movie", "tvshow", "episode").drop().create()
+	defer idxs(db, "atom", "name", "movie", "tvshow", "episode").drop().create()
 	defer func() { csql.Panic(db.CloseInserters()) }()
 
 	logf("Reading movies list...")
@@ -22,26 +22,31 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 
 	// Postgresql wants different transactions for each inserter.
 	// SQLite can't handle them.
-	tx1, err := db.Begin()
+	txmovie, err := db.Begin()
 	csql.Panic(err)
-	tx2, err := tx1.Another()
+	txtv, err := txmovie.Another()
 	csql.Panic(err)
-	tx3, err := tx1.Another()
+	txepisode, err := txmovie.Another()
 	csql.Panic(err)
-	tx4, err := tx1.Another()
+	txname, err := txmovie.Another()
+	csql.Panic(err)
+	txatom, err := txmovie.Another()
 	csql.Panic(err)
 
 	batchSize := 50
-	mvIns, err := db.NewInserter(tx1, batchSize, "movie",
-		"atom_id", "title", "year", "sequence", "tv", "video")
+	mvIns, err := db.NewInserter(txmovie, batchSize, "movie",
+		"atom_id", "year", "sequence", "tv", "video")
 	csql.Panic(err)
-	tvIns, err := db.NewInserter(tx2, batchSize, "tvshow",
-		"atom_id", "title", "year", "sequence", "year_start", "year_end")
+	tvIns, err := db.NewInserter(txtv, batchSize, "tvshow",
+		"atom_id", "year", "sequence", "year_start", "year_end")
 	csql.Panic(err)
-	epIns, err := db.NewInserter(tx3, batchSize, "episode",
-		"atom_id", "tvshow_atom_id", "title", "year", "season", "episode_num")
+	epIns, err := db.NewInserter(txepisode, batchSize, "episode",
+		"atom_id", "tvshow_atom_id", "year", "season", "episode_num")
 	csql.Panic(err)
-	atoms, err := db.NewAtomizer(tx4)
+	nameIns, err := db.NewInserter(txname, batchSize, "name",
+		"atom_id", "name")
+	csql.Panic(err)
+	atoms, err := db.NewAtomizer(txatom)
 	csql.Panic(err)
 
 	listLines(movies, func(line []byte) {
@@ -54,58 +59,70 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 		switch ent := entityType("media", item); ent {
 		case imdb.EntityMovie:
 			m := imdb.Movie{}
+			if !parseMovie(item, &m) {
+				return
+			}
 			if existed, err := parseId(atoms, item, &m.Id); existed {
 				return
 			} else if err != nil {
 				csql.Panic(err)
 			}
-			if !parseMovie(item, &m) {
-				return
-			}
-			err := mvIns.Exec(m.Id, m.Title, m.Year, m.Sequence, m.Tv, m.Video)
+			err := mvIns.Exec(m.Id, m.Year, m.Sequence, m.Tv, m.Video)
 			if err != nil {
 				logf("Full movie info (that failed to add): %#v", m)
 				csql.Panic(ef("Could not add movie '%s': %s", m, err))
 			}
+			if err = nameIns.Exec(m.Id, m.Title); err != nil {
+				logf("Full movie info (that failed to add): %#v", m)
+				csql.Panic(ef("Could not add name '%s': %s", m, err))
+			}
 			addedMovies++
 		case imdb.EntityTvshow:
 			tv := imdb.Tvshow{}
-			if existed, err := parseId(atoms, item, &tv.Id); existed {
-				return
-			} else if err != nil {
-				csql.Panic(err)
-			}
 			if !parseTvshow(item, &tv) {
 				return
 			}
 			if !parseTvshowRange(value, &tv) {
 				return
 			}
-			err := tvIns.Exec(tv.Id, tv.Title, tv.Year, tv.Sequence,
+			if existed, err := parseId(atoms, item, &tv.Id); existed {
+				return
+			} else if err != nil {
+				csql.Panic(err)
+			}
+			err := tvIns.Exec(tv.Id, tv.Year, tv.Sequence,
 				tv.YearStart, tv.YearEnd)
 			if err != nil {
 				logf("Full tvshow info (that failed to add): %#v", tv)
 				csql.Panic(ef("Could not add tvshow '%s': %s", tv, err))
 			}
+			if err = nameIns.Exec(tv.Id, tv.Title); err != nil {
+				logf("Full tvshow info (that failed to add): %#v", tv)
+				csql.Panic(ef("Could not add name '%s': %s", tv, err))
+			}
 			addedTvshows++
 		case imdb.EntityEpisode:
 			ep := imdb.Episode{}
-			if existed, err := parseId(atoms, item, &ep.Id); existed {
-				return
-			} else if err != nil {
-				csql.Panic(err)
-			}
 			if !parseEpisode(atoms, item, &ep) {
 				return
 			}
 			if !parseEpisodeYear(value, &ep) {
 				return
 			}
-			err := epIns.Exec(ep.Id, ep.TvshowId, ep.Title, ep.Year,
+			if existed, err := parseId(atoms, item, &ep.Id); existed {
+				return
+			} else if err != nil {
+				csql.Panic(err)
+			}
+			err := epIns.Exec(ep.Id, ep.TvshowId, ep.Year,
 				ep.Season, ep.EpisodeNum)
 			if err != nil {
 				logf("Full episode info (that failed to add): %#v", ep)
 				csql.Panic(ef("Could not add episode '%s': %s", ep, err))
+			}
+			if err = nameIns.Exec(ep.Id, ep.Title); err != nil {
+				logf("Full episode info (that failed to add): %#v", ep)
+				csql.Panic(ef("Could not add name '%s': %s", ep, err))
 			}
 			addedEpisodes++
 		default:

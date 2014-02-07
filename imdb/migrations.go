@@ -20,9 +20,12 @@ var migrations = map[string][]migration.Migrator{
 					hash BLOB NOT NULL,
 					PRIMARY KEY (id)
 				);
+				CREATE TABLE name (
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL
+				);
 				CREATE TABLE movie (
 					atom_id INTEGER NOT NULL,
-					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					sequence TEXT,
 					tv INTEGER NOT NULL,
@@ -31,7 +34,6 @@ var migrations = map[string][]migration.Migrator{
 				);
 				CREATE TABLE tvshow (
 					atom_id INTEGER NOT NULL,
-					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					sequence TEXT,
 					year_start INTEGER,
@@ -41,7 +43,6 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE episode (
 					atom_id INTEGER NOT NULL,
 					tvshow_atom_id INTEGER NOT NULL,
-					title TEXT NOT NULL,
 					year INTEGER NOT NULL,
 					season INTEGER NOT NULL,
 					episode_num INTEGER NOT NULL,
@@ -104,9 +105,12 @@ var migrations = map[string][]migration.Migrator{
 					hash BYTEA NOT NULL,
 					PRIMARY KEY (id)
 				);
+				CREATE TABLE name (
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL
+				);
 				CREATE TABLE movie (
 					atom_id INTEGER,
-					title TEXT NOT NULL,
 					year SMALLINT NOT NULL,
 					sequence TEXT,
 					tv BOOLEAN NOT NULL,
@@ -115,7 +119,6 @@ var migrations = map[string][]migration.Migrator{
 				);
 				CREATE TABLE tvshow (
 					atom_id INTEGER,
-					title TEXT NOT NULL,
 					year SMALLINT NOT NULL,
 					sequence TEXT,
 					year_start SMALLINT,
@@ -125,7 +128,6 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE episode (
 					atom_id INTEGER,
 					tvshow_atom_id INTEGER NOT NULL,
-					title TEXT NOT NULL,
 					year SMALLINT NOT NULL,
 					season SMALLINT NOT NULL,
 					episode_num INTEGER NOT NULL,
@@ -238,13 +240,7 @@ type index struct {
 
 var indices = []index{
 	{true, "atom", "", "", []string{"hash"}},
-	{true, "movie", "imdbpk", "", []string{
-		"title", "year", "sequence", "tv", "video"},
-	},
-	{true, "tvshow", "imdbpk", "", []string{"title", "year", "sequence"}},
-	{true, "episode", "imdbpk", "", []string{
-		"tvshow_atom_id", "title", "season", "episode_num"},
-	},
+	{false, "name", "", "", []string{"atom_id"}},
 	{false, "episode", "tv", "", []string{"tvshow_atom_id"}},
 	{false, "episode", "tvseason", "", []string{"tvshow_atom_id", "season"}},
 
@@ -267,9 +263,7 @@ var indices = []index{
 	{false, "quote", "", "", []string{"atom_id"}},
 	{false, "rating", "", "", []string{"atom_id"}},
 
-	{false, "movie", "trgm_title", "gin", []string{"title"}},
-	{false, "tvshow", "trgm_title", "gin", []string{"title"}},
-	{false, "episode", "trgm_title", "gin", []string{"title"}},
+	{false, "name", "trgm_name", "gin", []string{"name"}},
 	{false, "aka_title", "trgm_title", "gin", []string{"title"}},
 }
 

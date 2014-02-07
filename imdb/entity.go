@@ -112,33 +112,37 @@ func (e *Episode) Scan(rs csql.RowScanner) error {
 func AtomToMovie(db csql.Queryer, id Atom) (Movie, error) {
 	e := new(Movie)
 	err := e.Scan(db.QueryRow(`
-		SELECT atom_id, title, year, sequence, tv, video
-		FROM movie WHERE atom_id = $1`, id))
+		SELECT m.atom_id, n.name, m.year, m.sequence, m.tv, m.video
+		FROM movie AS m
+		LEFT JOIN name AS n ON n.atom_id = m.atom_id
+		WHERE m.atom_id = $1
+		`, id))
 	return *e, err
 }
 
 func AtomToTvshow(db csql.Queryer, id Atom) (Tvshow, error) {
 	e := new(Tvshow)
 	err := e.Scan(db.QueryRow(`
-		SELECT atom_id, title, year, sequence, year_start, year_end
-		FROM tvshow WHERE atom_id = $1`, id))
+		SELECT t.atom_id, n.name, t.year, t.sequence, t.year_start, t.year_end
+		FROM tvshow AS t
+		LEFT JOIN name AS n ON n.atom_id = t.atom_id
+		WHERE t.atom_id = $1
+		`, id))
 	return *e, err
 }
 
 func AtomToEpisode(db csql.Queryer, id Atom) (Episode, error) {
 	e := new(Episode)
 	err := e.Scan(db.QueryRow(`
-		SELECT atom_id, tvshow_atom_id, title, year, season, episode_num
-		FROM episode WHERE atom_id = $1`, id))
+		SELECT e.atom_id, e.tvshow_atom_id, n.name,
+			   e.year, e.season, e.episode_num
+		FROM episode AS e
+		LEFT JOIN name AS n ON n.atom_id = e.atom_id
+		WHERE e.atom_id = $1
+		`, id))
 	return *e, err
 }
 
 func (e Episode) Tvshow(db csql.Queryer) (Tvshow, error) {
-	r := db.QueryRow(`
-		SELECT atom_id, title, year, sequence, year_start, year_end
-		FROM tvshow
-		WHERE atom_id = $1`, e.TvshowId)
-	tv := new(Tvshow)
-	err := tv.Scan(r)
-	return *tv, err
+	return AtomToTvshow(db, e.TvshowId)
 }
