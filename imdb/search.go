@@ -126,7 +126,7 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 			s.debug = true
 		} else if name == "year" || name == "years" {
 			s.Years(intRange(val, 0, maxYear))
-		} else if name == "rate" || name == "rating" {
+		} else if name == "rank" || name == "rate" || name == "rating" {
 			s.Ratings(intRange(val, 0, maxRate))
 		} else if name == "votes" {
 			s.Votes(intRange(val, 0, maxVotes))
