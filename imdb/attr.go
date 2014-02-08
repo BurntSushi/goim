@@ -391,6 +391,10 @@ type Credit struct {
 	Attrs     string
 }
 
+func (c Credit) IsValid() bool {
+	return c.ActorId > 0 && c.MediaId > 0
+}
+
 func (c Credit) String() string {
 	s := c.Character
 	if len(c.Attrs) > 0 {

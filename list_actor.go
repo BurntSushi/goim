@@ -136,57 +136,29 @@ func parseActorName(idstr []byte, a *imdb.Actor) bool {
 }
 
 func parseCredit(atoms *imdb.Atomizer, row []byte, c *imdb.Credit) bool {
-	var f []byte
-	fields := bytes.Fields(row)
-	for i := len(fields) - 1; i >= 0; i-- {
-		f = fields[i]
+	pieces := bytes.Split(row, []byte{' ', ' '})
+	ent := bytes.TrimSpace(pieces[0])
+	if id, ok := atoms.AtomOnlyIfExist(ent); !ok {
+		warnf("Could not find media id for '%s'. Skipping.", ent)
+		return false
+	} else {
+		c.MediaId = id
+	}
+	for _, f := range pieces[1:] {
+		f = bytes.TrimSpace(f)
+		if len(f) < 3 {
+			continue
+		}
 		switch {
 		case f[0] == '<' && f[len(f)-1] == '>':
 			if err := parseInt(f[1:len(f)-1], &c.Position); err != nil {
-				// This is OK, sometimes there are '<junk>' elsewhere in the
-				// attributes. So just ignore it. parseId won't set the
-				// position if there was an error, so it retains its previous
-				// value.
-				continue
+				pef("Could not parse '%s' as integer in '%s': %s", f, row, err)
+				return false
 			}
 		case f[0] == '[' && f[len(f)-1] == ']':
 			c.Character = unicode(bytes.TrimSpace(f[1 : len(f)-1]))
-		case bytes.Equal(f, attrVg):
-			// video game, skip it without mention
-			return false
-		case bytes.Equal(f, attrTv):
-			// the TV attribute indicates a movie
-			fallthrough
-		case bytes.Equal(f, attrVid):
-			// the video attribute indicates a movie
-			fallthrough
-		case hasEntryYear(f):
-			// found the year, which is always the first attribute in a
-			// movie, tv show or episode entity name.
-			fallthrough
-		case f[len(f)-1] == '}':
-			// tv episode
-
-			// Now that we've fallen through to here, assume the rest is an
-			// entity name. So find its atom id and be done with it.
-			ent := bytes.TrimSpace(bytes.Join(fields[0:i+1], []byte{' '}))
-			if id, ok := atoms.AtomOnlyIfExist(ent); !ok {
-				warnf("Could not find media id for '%s'. Skipping.", ent)
-				return false
-			} else {
-				c.MediaId = id
-			}
-			return true
-		}
-	}
-	pef("Could not find entity name in '%s'.", row)
-	return false
-}
-
-func noEntryYears(fields [][]byte) bool {
-	for _, f := range fields {
-		if hasEntryYear(f) {
-			return false
+		case f[0] == '(' && f[len(f)-1] == ')':
+			c.Attrs = unicode(f)
 		}
 	}
 	return true

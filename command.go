@@ -23,6 +23,9 @@ var (
 	flagQuiet      = false
 	flagDb         = ""
 	flagConfig     = ""
+	flagSort = ""
+	flagOrder = "asc"
+	flagLimit = 30
 )
 
 func init() {
@@ -85,6 +88,16 @@ func (c *command) setCommonFlags() {
 	c.flags.BoolVar(&flagQuiet, "quiet", flagQuiet,
 		"When set, status messages about the progress of a command will be "+
 			"omitted.")
+}
+
+func (c *command) setSortingFlags(sortFields, defaultSort, defaultOrd string) {
+	flagSort, flagOrder = defaultSort, defaultOrd
+	c.flags.StringVar(&flagSort, "sort", flagSort,
+		"Sort results by field: " + sortFields)
+	c.flags.StringVar(&flagOrder, "order", flagOrder,
+		"The order to sort results. Only 'asc' or 'desc' are valid.")
+	c.flags.IntVar(&flagLimit, "limit", flagLimit,
+		"Limit the total number of results.")
 }
 
 func (c *command) dbinfo() (driver, dsn string) {
