@@ -11,6 +11,7 @@ import (
 const (
 	maxYear    = 3000
 	maxRate    = 100
+	maxVotes   = 1000000000
 	maxSeason  = 1000000
 	maxEpisode = 1000000
 )
@@ -53,8 +54,8 @@ type Searcher struct {
 	goodThreshold float64
 	chooser       SearchChooser
 
-	tvshow                        *subsearch
-	year, rating, season, episode *irange
+	tvshow, actor                        *subsearch
+	year, rating, votes, season, episode *irange
 }
 
 // SearchChooser corresponds to a function called by the searcher in this
@@ -107,6 +108,10 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 			s.debug = true
 		} else if name == "year" || name == "years" {
 			s.Years(intRange(val, 0, maxYear))
+		} else if name == "rate" || name == "rating" {
+			s.Ratings(intRange(val, 0, maxRate))
+		} else if name == "votes" {
+			s.Votes(intRange(val, 0, maxVotes))
 		} else if name == "s" || name == "season" || name == "seasons" {
 			s.Seasons(intRange(val, 0, maxSeason))
 		} else if name == "e" || name == "episode" || name == "episodes" {
@@ -120,6 +125,15 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 				return nil, ef("Error with sub-search for '%s': %s", name, err)
 			}
 			s.Tvshow(tvs)
+		} else if name == "actor" {
+			if len(val) == 0 {
+				return nil, ef("No query found for '%s'.", name)
+			}
+			actors, err := NewSearcher(s.db, val)
+			if err != nil {
+				return nil, ef("Error with sub-search for '%s': %s", name, err)
+			}
+			s.Actor(actors)
 		} else if name == "limit" {
 			n, err := strconv.Atoi(val)
 			if err != nil {
@@ -159,6 +173,11 @@ func (s *Searcher) Results() ([]SearchResult, error) {
 	var rs []SearchResult
 	if s.tvshow != nil {
 		if err := s.tvshow.choose(s.goodThreshold, s.chooser); err != nil {
+			return nil, err
+		}
+	}
+	if s.actor != nil {
+		if err := s.actor.choose(s.goodThreshold, s.chooser); err != nil {
 			return nil, err
 		}
 	}
@@ -274,6 +293,13 @@ func (s *Searcher) Ratings(min, max int) *Searcher {
 	return s
 }
 
+// Votes specifies that the results must be in the range of votes given.
+// The range is inclusive.
+func (s *Searcher) Votes(min, max int) *Searcher {
+	s.votes = &irange{min, max}
+	return s
+}
+
 // Tvshow specifies a sub-search that will be performed when Results is called.
 // The TV show returned by this sub-search will be used to filter the results
 // of its parent search. If no TV show is found, then the search quits and
@@ -285,6 +311,13 @@ func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 	s.tvshow = &subsearch{tvs, 0}
 	tvs.what = "TV show"
 	s.entities = []EntityKind{EntityEpisode}
+	return s
+}
+
+func (s *Searcher) Actor(actors *Searcher) *Searcher {
+	actors.Entity(EntityActor)
+	s.actor = &subsearch{actors, 0}
+	actors.what = "actor"
 	return s
 }
 
@@ -454,6 +487,9 @@ func (s *Searcher) sql() string {
 		LEFT JOIN episode AS e ON name.atom_id = e.atom_id
 		LEFT JOIN name AS et ON e.tvshow_atom_id = et.atom_id
 		LEFT JOIN actor AS a ON name.atom_id = a.atom_id
+		LEFT JOIN rating ON
+			COALESCE(m.atom_id, t.atom_id, e.atom_id) = rating.atom_id
+		%s
 		WHERE
 			COALESCE(m.atom_id, t.atom_id, e.atom_id, a.atom_id) IS NOT NULL
 			AND
@@ -462,17 +498,31 @@ func (s *Searcher) sql() string {
 		LIMIT %d
 		`,
 		s.entityColumn(), s.similarColumn("name.name"),
-		s.where(), s.orderby(), s.limit)
+		s.creditJoin(), s.where(), s.orderby(), s.limit)
 	if s.debug {
 		logf("%s", q)
 	}
 	return q
 }
 
+func (s *Searcher) creditJoin() string {
+	if s.actor == nil || s.actor.id == 0 {
+		return ""
+	}
+	return sf(`
+		LEFT JOIN credit AS c ON
+			COALESCE(m.atom_id, t.atom_id, e.atom_id) = c.media_atom_id
+			AND c.actor_atom_id = %d
+		`, s.actor.id)
+}
+
 func (s *Searcher) where() string {
 	var conj []string
 	if s.tvshow != nil && s.tvshow.id > 0 {
 		conj = append(conj, sf("e.tvshow_atom_id = %d", s.tvshow.id))
+	}
+	if s.actor != nil && s.actor.id > 0 {
+		conj = append(conj, sf("c.media_atom_id IS NOT NULL"))
 	}
 	if len(s.entities) > 0 {
 		var entsIn []string
@@ -484,6 +534,12 @@ func (s *Searcher) where() string {
 	}
 	if s.year != nil {
 		conj = append(conj, s.year.cond("COALESCE(m.year, t.year, e.year, 0)"))
+	}
+	if s.rating != nil {
+		conj = append(conj, s.rating.cond("rating.rank"))
+	}
+	if s.votes != nil {
+		conj = append(conj, s.votes.cond("rating.votes"))
 	}
 	if s.season != nil {
 		conj = append(conj, s.season.cond("e.season"))
@@ -512,11 +568,11 @@ func (s *Searcher) orderby() string {
 		if len(qualed) == 0 {
 			continue
 		}
-		q += sf("%s%s %s", prefix, qualed, ord.order)
+		q += sf("%s%s %s NULLS LAST", prefix, qualed, ord.order)
 		prefix = ", "
 	}
 	if s.fuzzy && len(s.name) > 0 {
-		return sf("ORDER BY similarity DESC%s %s", prefix, q)
+		return sf("ORDER BY similarity DESC NULLS LAST %s %s", prefix, q)
 	}
 	if len(q) == 0 {
 		return ""
@@ -552,20 +608,23 @@ var SearchResultColumns = map[string][]string{
 	"episode": {"season", "episode_num"},
 }
 
+var qualifiedColumns = map[string]string{
+	"entity":     "entity",
+	"atom_id":    "atom_id",
+	"title":      "title",
+	"year":       "year",
+	"attrs":      "attrs",
+	"similarity": "similarity",
+
+	"season":      "e.season",
+	"episode_num": "e.episode_num",
+
+	"rank":  "rating.rank",
+	"votes": "rating.votes",
+}
+
 func orderColumnQualified(column string) string {
-	switch {
-	case isValidColumn(EntityNone, column):
-		return column
-	case isValidColumn(EntityEpisode, column):
-		return sf("e.%s", column)
-	case isValidColumn(EntityMovie, column):
-		return sf("m.%s", column)
-	case isValidColumn(EntityTvshow, column):
-		return sf("t.%s", column)
-	case isValidColumn(EntityActor, column):
-		return sf("a.%s", column)
-	}
-	return ""
+	return qualifiedColumns[column]
 }
 
 func isValidColumn(ent EntityKind, column string) bool {

@@ -80,7 +80,7 @@ func listActs(
 				csql.Panic(ef("Could not add actor info '%#v' from '%s': %s",
 					a, line, err))
 			}
-			if err := nameIns.Exec(a.Id, a.Name); err != nil {
+			if err := nameIns.Exec(a.Id, a.FullName); err != nil {
 				csql.Panic(ef("Could not add actor name '%s' from '%s': %s",
 					idstr, line, err))
 			}

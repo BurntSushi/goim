@@ -165,7 +165,7 @@ func listAttrRows(
 	atoms *imdb.Atomizer,
 	do func(line, id, row []byte),
 ) {
-	var curAtom []byte
+	curAtom := make([]byte, 0, 20)
 	actorDone := []byte("SUBMITTING UPDATES")
 	done := false
 	listLinesSuspended(list, true, func(line []byte) {
@@ -192,10 +192,11 @@ func listAttrRows(
 				}
 				entity = bytes.TrimSpace(entity[0:sep])
 			}
-			curAtom = entity
+			curAtom = curAtom[:0]
+			curAtom = append(curAtom, entity...)
 
 			if bytes.Contains(curAtom, attrSuspended) {
-				curAtom = nil
+				curAtom = curAtom[:0]
 				return
 			}
 			if bytes.HasPrefix(curAtom, actorDone) {
