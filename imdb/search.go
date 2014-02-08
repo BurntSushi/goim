@@ -172,12 +172,12 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 func (s *Searcher) Results() ([]SearchResult, error) {
 	var rs []SearchResult
 	if s.tvshow != nil {
-		if err := s.tvshow.choose(s.goodThreshold, s.chooser); err != nil {
+		if err := s.tvshow.choose(s, s.chooser); err != nil {
 			return nil, err
 		}
 	}
 	if s.actor != nil {
-		if err := s.actor.choose(s.goodThreshold, s.chooser); err != nil {
+		if err := s.actor.choose(s, s.chooser); err != nil {
 			return nil, err
 		}
 	}
@@ -223,12 +223,14 @@ func (s *Searcher) Pick(rs []SearchResult) (*SearchResult, error) {
 	return r, nil
 }
 
-func (sub *subsearch) choose(diff float64, chooser SearchChooser) error {
+func (sub *subsearch) choose(parent *Searcher, chooser SearchChooser) error {
 	rs, err := sub.Results()
 	if err != nil {
 		return ef("Error with %s sub-search: %s", sub.what, err)
 	}
-	sub.goodThreshold = diff
+	sub.goodThreshold = parent.goodThreshold
+	sub.chooser = parent.chooser
+	sub.debug = parent.debug
 	r, err := sub.Pick(rs)
 	if err != nil {
 		return ef("Error picking %s result: %s", sub.what, err)
