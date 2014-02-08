@@ -12,7 +12,7 @@ func listSoundMixes(db *imdb.DB, r io.ReadCloser) {
 		"atom_id", "mix", "attrs")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var attrs []byte
 
 		fields := splitListLine(row)
@@ -30,7 +30,7 @@ func listGenres(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "genre", "atom_id", "name")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		fields := splitListLine(row)
 		if len(fields) == 0 {
 			return
@@ -43,7 +43,7 @@ func listLanguages(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "language", "atom_id", "name", "attrs")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var attrs []byte
 		fields := splitListLine(row)
 		if len(fields) == 0 {
@@ -60,7 +60,7 @@ func listLocations(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "location", "atom_id", "place", "attrs")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var attrs []byte
 		fields := splitListLine(row)
 		if len(fields) == 0 {

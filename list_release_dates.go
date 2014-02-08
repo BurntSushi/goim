@@ -13,7 +13,7 @@ func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
 		"atom_id", "country", "released", "attrs")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var (
 			country string
 			date    time.Time

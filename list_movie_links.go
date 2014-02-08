@@ -12,7 +12,7 @@ func listMovieLinks(db *imdb.DB, r io.ReadCloser) {
 		"link_type", "link_atom_id", "entity")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var (
 			linkType   string
 			linkAtom   imdb.Atom

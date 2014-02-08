@@ -28,9 +28,24 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 	if err != nil {
 		return err
 	}
-	defer list.Close()
 	defer gzlist.Close()
 	return csql.Safe(func() { handler(db, gzlist) })
+}
+
+type listHandler2 func(db *imdb.DB, list1, list2 io.ReadCloser)
+
+func listLoad2(db *imdb.DB, list1, list2 io.ReadCloser, h listHandler2) error {
+	gzlist1, err := gzip.NewReader(list1)
+	if err != nil {
+		return err
+	}
+	gzlist2, err := gzip.NewReader(list2)
+	if err != nil {
+		return err
+	}
+	defer gzlist1.Close()
+	defer gzlist2.Close()
+	return csql.Safe(func() { h(db, gzlist1, gzlist2) })
 }
 
 // listPrefixItems is a convenience function for reading IMDb lists of the
@@ -104,7 +119,7 @@ func listPrefixItems(
 	add() // don't forget the last one!
 }
 
-// listAttrRows is a convenience function for traversing lines in IMDb
+// listAttrRowIds is a convenience function for traversing lines in IMDb
 // lists that provide multiple instances of attributes for any particular
 // entity. For example, the 'aka-titles' list has this format:
 //
@@ -124,26 +139,43 @@ func listPrefixItems(
 //
 // (Note the tab character following "Mysteries of Egypt (1998)".)
 //
-// Finally, if an atom ID cannot be found, the entry is skipped.
+// Finally, if an atom ID cannot be found, the entry is skipped and a warning
+// message is emitted.
 //
 // (For the particular format described above, you'll likely find
 // 'parseNamedAttr' useful.)
-func listAttrRows(
+func listAttrRowIds(
 	list io.ReadCloser,
 	atoms *imdb.Atomizer,
 	do func(id imdb.Atom, line, entity, row []byte),
 ) {
-	var curEntity []byte
-	var curAtom imdb.Atom
-	var ok bool
+	listAttrRows(list, atoms, func(line, id, row []byte) {
+		if curAtom, ok := atoms.AtomOnlyIfExist(id); !ok {
+			warnf("Could not find id for '%s'. Skipping.", id)
+		} else {
+			do(curAtom, line, id, row)
+		}
+	})
+}
+
+// listAttrRows is just like listAttrRowIds, except entity names are not
+// atomized. Instead, the bytes are passed directly to the 'do' function.
+func listAttrRows(
+	list io.ReadCloser,
+	atoms *imdb.Atomizer,
+	do func(line, id, row []byte),
+) {
+	var curAtom []byte
+	actorDone := []byte("SUBMITTING UPDATES")
+	done := false
 	listLinesSuspended(list, true, func(line []byte) {
+		if done {
+			return
+		}
+
 		// Safe to ignore new lines here, since we can tell where we are by
 		// the character in the first column.
 		if len(line) == 0 {
-			return
-		}
-		if bytes.Contains(line, attrSuspended) {
-			curAtom, curEntity = 0, nil
 			return
 		}
 
@@ -160,15 +192,24 @@ func listAttrRows(
 				}
 				entity = bytes.TrimSpace(entity[0:sep])
 			}
-			if curAtom, ok = atoms.AtomOnlyIfExist(entity); !ok {
-				warnf("Could not find id for '%s'. Skipping.", entity)
-				curAtom, curEntity = 0, nil // indicates skipping
-			} else {
-				curEntity = entity
+			curAtom = entity
+
+			if bytes.Contains(curAtom, attrSuspended) {
+				curAtom = nil
+				return
+			}
+			if bytes.HasPrefix(curAtom, actorDone) {
+				done = true
+				return
 			}
 		}
+		if bytes.Contains(row, attrSuspended) {
+			row = nil
+			return
+		}
+
 		// If no atom could be found, then we're skipping.
-		if curAtom == 0 {
+		if len(curAtom) == 0 {
 			warnf("No atom id found, so skipping: '%s'", line)
 			return
 		}
@@ -176,7 +217,7 @@ func listAttrRows(
 		// line as the entity (delimited by a tab).
 		if len(row) > 0 {
 			// line != row when row is on same line as entity.
-			do(curAtom, line, curEntity, row)
+			do(line, curAtom, row)
 		}
 	})
 }
@@ -390,7 +431,22 @@ func unicode(latin1 []byte) string {
 // hasEntryYear returns true if and only if
 // 'f' is of the form '(YYYY[/RomanNumeral])'.
 func hasEntryYear(f []byte) bool {
-	return len(f) >= 6 && f[0] == '(' && f[len(f)-1] == ')'
+	if f[0] != '(' || f[len(f)-1] != ')' {
+		return false
+	}
+	if len(f) < 6 {
+		return false
+	}
+	for _, b := range f[1 : len(f)-1] {
+		if b >= '0' && b <= '9' {
+			continue
+		}
+		if b == '?' || b == '/' || b == 'I' || b == 'V' || b == 'X' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func entityType(listName string, item []byte) imdb.EntityKind {

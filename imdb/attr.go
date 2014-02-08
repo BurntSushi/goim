@@ -382,3 +382,19 @@ func Rating(db csql.Queryer, e Entity) (UserRating, error) {
 	}
 	return rates[0], err
 }
+
+type Credit struct {
+	ActorId   Atom `imdb_name:"actor_atom_id"`
+	MediaId   Atom `imdb_name:"media_atom_id"`
+	Character string
+	Position  int
+	Attrs     string
+}
+
+func (c Credit) String() string {
+	s := c.Character
+	if len(c.Attrs) > 0 {
+		s += " " + c.Attrs
+	}
+	return s
+}

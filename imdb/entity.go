@@ -11,12 +11,14 @@ const (
 	EntityMovie
 	EntityTvshow
 	EntityEpisode
+	EntityActor
 )
 
 var Entities = map[string]EntityKind{
 	"movie":   EntityMovie,
 	"tvshow":  EntityTvshow,
 	"episode": EntityEpisode,
+	"actor":   EntityActor,
 }
 
 func EntityKindFromString(e string) EntityKind {
@@ -35,6 +37,8 @@ func (e EntityKind) String() string {
 		return "tvshow"
 	case EntityEpisode:
 		return "episode"
+	case EntityActor:
+		return "actor"
 	}
 	panic(sf("unrecognized entity %d", e))
 }
@@ -71,6 +75,12 @@ type Episode struct {
 	Season, EpisodeNum int
 }
 
+type Actor struct {
+	Id       Atom
+	FullName string
+	Sequence string
+}
+
 func (e Movie) Ident() Atom      { return e.Id }
 func (e Movie) Type() EntityKind { return EntityMovie }
 func (e Movie) Name() string     { return e.Title }
@@ -85,6 +95,11 @@ func (e Episode) Ident() Atom      { return e.Id }
 func (e Episode) Type() EntityKind { return EntityEpisode }
 func (e Episode) Name() string     { return e.Title }
 func (e Episode) String() string   { return sf("%s %d", e.Title, e.Year) }
+
+func (e Actor) Ident() Atom      { return e.Id }
+func (e Actor) Type() EntityKind { return EntityActor }
+func (e Actor) Name() string     { return e.FullName }
+func (e Actor) String() string   { return e.FullName }
 
 func (e *Movie) Scan(rs csql.RowScanner) error {
 	if e == nil {
@@ -107,6 +122,13 @@ func (e *Episode) Scan(rs csql.RowScanner) error {
 	}
 	return rs.Scan(&e.Id, &e.TvshowId, &e.Title,
 		&e.Year, &e.Season, &e.EpisodeNum)
+}
+
+func (e *Actor) Scan(rs csql.RowScanner) error {
+	if e == nil {
+		e = new(Actor)
+	}
+	return rs.Scan(&e.Id, &e.FullName, &e.Sequence)
 }
 
 func AtomToMovie(db csql.Queryer, id Atom) (Movie, error) {
@@ -139,6 +161,17 @@ func AtomToEpisode(db csql.Queryer, id Atom) (Episode, error) {
 		FROM episode AS e
 		LEFT JOIN name AS n ON n.atom_id = e.atom_id
 		WHERE e.atom_id = $1
+		`, id))
+	return *e, err
+}
+
+func AtomToActor(db csql.Queryer, id Atom) (Actor, error) {
+	e := new(Actor)
+	err := e.Scan(db.QueryRow(`
+		SELECT a.atom_id, n.name, a.sequence
+		FROM actor AS a
+		LEFT JOIN name AS n ON n.atom_id = a.atom_id
+		WHERE a.atom_id = $1
 		`, id))
 	return *e, err
 }

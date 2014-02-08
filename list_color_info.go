@@ -12,7 +12,7 @@ func listColorInfo(db *imdb.DB, r io.ReadCloser) {
 		"atom_id", "color", "attrs")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var (
 			color bool
 			attrs []byte

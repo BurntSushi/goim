@@ -21,7 +21,8 @@ var (
 // on the command line. (This is important because tables like 'movies' should
 // always be updated before their corresponding attribute tables.)
 var loadLists = []string{
-	"movies", "release-dates", "running-times", "aka-titles",
+	"movies", "actors",
+	"release-dates", "running-times", "aka-titles",
 	"alternate-versions", "color-info", "mpaa-ratings-reasons", "sound-mix",
 	"genres", "taglines", "trivia", "goofs", "language", "literature",
 	"locations", "movie-links", "quotes", "plot", "ratings",
@@ -47,6 +48,8 @@ var loaders = map[string]listHandler{
 	"quotes":               listQuotes,
 	"plot":                 listPlots,
 	"ratings":              listRatings,
+	// the function for loading actors/actresses is an anomaly, so it's
+	// not included here. it's special cased, unfortunately.
 }
 
 var namedFtp = map[string]string{
@@ -116,25 +119,37 @@ func load(c *command) bool {
 			continue
 		}
 		ok := func() bool {
-			list := fetch.list(name)
-			defer list.Close()
-
 			if len(flagLoadDownload) > 0 {
-				saveto := path.Join(flagLoadDownload, sf("%s.list.gz", name))
-				logf("Downloading %s to %s...", name, saveto)
-				f := createFile(saveto)
-				if _, err := io.Copy(f, list); err != nil {
-					fatalf("Could not save '%s' to disk: %s", name, err)
+				downloadList(fetch, name)
+				if name == "actors" {
+					downloadList(fetch, "actresses")
 				}
 				return true
 			}
-			if ld := loaders[name]; ld != nil {
+
+			list := fetch.list(name)
+			defer list.Close()
+
+			if name == "actors" {
+				list2 := fetch.list("actresses")
+				defer list2.Close()
+
 				db := openDb(driver, dsn)
 				defer closeDb(db)
 
-				if err := listLoad(db, list, ld); err != nil {
-					pef("Could not store %s list: %s", name, err)
+				if err := listLoad2(db, list, list2, listActors); err != nil {
+					pef("Could not store actors/actresses list: %s", err)
 					return false
+				}
+			} else {
+				if ld := loaders[name]; ld != nil {
+					db := openDb(driver, dsn)
+					defer closeDb(db)
+
+					if err := listLoad(db, list, ld); err != nil {
+						pef("Could not store %s list: %s", name, err)
+						return false
+					}
 				}
 			}
 			return true
@@ -144,6 +159,18 @@ func load(c *command) bool {
 		}
 	}
 	return true
+}
+
+func downloadList(fetch fetcher, name string) {
+	list := fetch.list(name)
+	defer list.Close()
+
+	saveto := path.Join(flagLoadDownload, sf("%s.list.gz", name))
+	logf("Downloading %s to %s...", name, saveto)
+	f := createFile(saveto)
+	if _, err := io.Copy(f, list); err != nil {
+		fatalf("Could not save '%s' to disk: %s", name, err)
+	}
 }
 
 func loaderIn(name, commaSep string) bool {

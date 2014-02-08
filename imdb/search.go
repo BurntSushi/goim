@@ -412,9 +412,9 @@ func (s *Searcher) sql() string {
 	q := sf(`
 		SELECT
 			%s AS entity,
-			COALESCE(m.atom_id, t.atom_id, e.atom_id) AS atom_id,
+			COALESCE(m.atom_id, t.atom_id, e.atom_id, a.atom_id) AS atom_id,
 			name.name AS name,
-			COALESCE(m.year, t.year, e.year) AS year,
+			COALESCE(m.year, t.year, e.year, 0) AS year,
 			%s,
 			CASE
 				WHEN m.atom_id IS NOT NULL THEN
@@ -444,6 +444,7 @@ func (s *Searcher) sql() string {
 						ELSE ''
 					END
 					|| ')'
+				WHEN a.atom_id IS NOT NULL THEN ''
 				ELSE ''
 			END
 			AS attrs
@@ -452,7 +453,11 @@ func (s *Searcher) sql() string {
 		LEFT JOIN tvshow AS t ON name.atom_id = t.atom_id
 		LEFT JOIN episode AS e ON name.atom_id = e.atom_id
 		LEFT JOIN name AS et ON e.tvshow_atom_id = et.atom_id
-		WHERE 1 = 1 AND %s
+		LEFT JOIN actor AS a ON name.atom_id = a.atom_id
+		WHERE
+			COALESCE(m.atom_id, t.atom_id, e.atom_id, a.atom_id) IS NOT NULL
+			AND
+			%s
 		%s
 		LIMIT %d
 		`,
@@ -478,7 +483,7 @@ func (s *Searcher) where() string {
 		conj = append(conj, in)
 	}
 	if s.year != nil {
-		conj = append(conj, s.year.cond("COALESCE(m.year, t.year, e.year)"))
+		conj = append(conj, s.year.cond("COALESCE(m.year, t.year, e.year, 0)"))
 	}
 	if s.season != nil {
 		conj = append(conj, s.season.cond("e.season"))
@@ -525,6 +530,7 @@ func (s *Searcher) entityColumn() string {
 				WHEN m.atom_id IS NOT NULL THEN 'movie'
 				WHEN t.atom_id IS NOT NULL THEN 'tvshow'
 				WHEN e.atom_id IS NOT NULL THEN 'episode'
+				WHEN a.atom_id IS NOT NULL THEN 'actor'
 				ELSE ''
 			END`
 }
@@ -556,6 +562,8 @@ func orderColumnQualified(column string) string {
 		return sf("m.%s", column)
 	case isValidColumn(EntityTvshow, column):
 		return sf("t.%s", column)
+	case isValidColumn(EntityActor, column):
+		return sf("a.%s", column)
 	}
 	return ""
 }

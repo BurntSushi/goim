@@ -109,6 +109,17 @@ var migrations = map[string][]migration.Migrator{
 					atom_id INTEGER NOT NULL,
 					name TEXT NOT NULL
 				);
+				CREATE TABLE actor (
+					atom_id INTEGER,
+					sequence TEXT
+				);
+				CREATE TABLE credit (
+					actor_atom_id INTEGER NOT NULL,
+					media_atom_id INTEGER NOT NULL,
+					character TEXT,
+					position INTEGER,
+					attrs TEXT
+				);
 				CREATE TABLE movie (
 					atom_id INTEGER,
 					year SMALLINT NOT NULL,
@@ -240,7 +251,6 @@ type index struct {
 
 var indices = []index{
 	{true, "atom", "", "", []string{"hash"}},
-	{false, "name", "", "", []string{"atom_id"}},
 	{false, "episode", "tv", "", []string{"tvshow_atom_id"}},
 	{false, "episode", "tvseason", "", []string{"tvshow_atom_id", "season"}},
 
@@ -262,6 +272,10 @@ var indices = []index{
 	{false, "plot", "", "", []string{"atom_id"}},
 	{false, "quote", "", "", []string{"atom_id"}},
 	{false, "rating", "", "", []string{"atom_id"}},
+	{false, "name", "", "", []string{"atom_id"}},
+	{false, "actor", "", "", []string{"atom_id"}},
+	{false, "credit", "", "", []string{"actor_atom_id"}},
+	{false, "credit", "", "", []string{"media_atom_id"}},
 
 	{false, "name", "trgm_name", "gist", []string{"name"}},
 	{false, "aka_title", "trgm_title", "gist", []string{"title"}},

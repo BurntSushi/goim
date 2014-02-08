@@ -11,7 +11,7 @@ func listAkaTitles(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "aka_title", "atom_id", "title", "attrs")
 	defer table.done()
 
-	listAttrRows(r, table.atoms, func(id imdb.Atom, line, entity, row []byte) {
+	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
 		var (
 			title string
 			attrs []byte
