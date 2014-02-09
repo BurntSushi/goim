@@ -391,7 +391,7 @@ type Credit struct {
 	Attrs     string
 }
 
-func (c Credit) IsValid() bool {
+func (c Credit) Valid() bool {
 	return c.ActorId > 0 && c.MediaId > 0
 }
 
