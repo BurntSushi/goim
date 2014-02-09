@@ -196,12 +196,27 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "search_result" }}
-	{{ printf "%3d. %-9s %s (%d)" .A.Index .X.Entity .X.Name .X.Year }}
+	{{ printf "%3d. %-8s" .A.Index .X.Entity }}
+	{{ if gt .X.Similarity -1.0 }}
+		{{ printf " (%0.2f) " .X.Similarity }}
+	{{ end }}
+	{{ printf " %s" .X.Name }}
+	{{ if and (gt .X.Year 0) (ne .X.Entity.String "tvshow") }}
+		{{ printf " (%d)" .X.Year }}
+	{{ end }}
 	{{ if .X.Attrs }}
 		{{ printf " %s" .X.Attrs }}
 	{{ end }}
-	{{ if gt .X.Similarity -1.0 }}
-		{{ printf " (score: %0.2f)" .X.Similarity }}
+	{{ if not .X.Rating.Unrated }}
+		{{ printf " (rank: %d/100)" .X.Rating.Rank }}
+	{{ end }}
+	{{ if .X.Credit.Valid }}
+		{{ if gt (len .X.Credit.Character) 0 }}
+			{{ printf " [%s]" .X.Credit.Character }}
+		{{ end }}
+		{{ if gt .X.Credit.Position 0 }}
+			{{ printf " <%d>" .X.Credit.Position }}
+		{{ end }}
 	{{ end }}
 
 {{ end }}

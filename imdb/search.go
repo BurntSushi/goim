@@ -12,6 +12,7 @@ const (
 	maxYear    = 3000
 	maxRate    = 100
 	maxVotes   = 1000000000
+	maxBilled  = 1000000
 	maxSeason  = 1000000
 	maxEpisode = 1000000
 )
@@ -45,6 +46,9 @@ type SearchResult struct {
 	// SQLite or Postgres when the 'pg_trgm' extension isn't enabled).
 	Similarity float64
 
+	// If a rating exists for a search result, it will be stored here.
+	Rating UserRating
+
 	// If the search accesses credit information, then it will be stored here.
 	Credit Credit
 }
@@ -62,8 +66,10 @@ type Searcher struct {
 	goodThreshold float64
 	chooser       SearchChooser
 
-	subMovie, subTvshow, subEpisode, subActor *subsearch
-	year, rating, votes, season, episode      *irange
+	subMovie, subTvshow, subEpisode, subActor     *subsearch
+	year, rating, votes, season, episode, billing *irange
+
+	noTvMovie, noVideoMovie bool
 }
 
 // SearchChooser corresponds to a function called by the searcher in this
@@ -130,10 +136,16 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 			s.Ratings(intRange(val, 0, maxRate))
 		} else if name == "votes" {
 			s.Votes(intRange(val, 0, maxVotes))
+		} else if name == "billing" || name == "billed" {
+			s.Billed(intRange(val, 0, maxBilled))
 		} else if name == "s" || name == "season" || name == "seasons" {
 			s.Seasons(intRange(val, 0, maxSeason))
 		} else if name == "e" || name == "episodes" {
 			s.Episodes(intRange(val, 0, maxEpisode))
+		} else if name == "notv" {
+			s.NoTvMovies()
+		} else if name == "novideo" {
+			s.NoVideoMovies()
 		} else if isSubSearch(name) {
 			sub, err := s.subSearcher(name, val)
 			if err != nil {
@@ -229,6 +241,7 @@ func (s *Searcher) Results() ([]SearchResult, error) {
 			var ent string
 			csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
 				&r.Similarity, &r.Attrs,
+				&r.Rating.Votes, &r.Rating.Rank,
 				&r.Credit.ActorId, &r.Credit.MediaId, &r.Credit.Character,
 				&r.Credit.Position, &r.Credit.Attrs)
 			r.Entity = Entities[ent]
@@ -324,6 +337,18 @@ func (s *Searcher) Episodes(min, max int) *Searcher {
 	return s
 }
 
+// NoTvMovies filters out "made for TV" movies from a search.
+func (s *Searcher) NoTvMovies() *Searcher {
+	s.noTvMovie = true
+	return s
+}
+
+// NoVideoMovies filters out "made for video" movies from a search.
+func (s *Searcher) NoVideoMovies() *Searcher {
+	s.noVideoMovie = true
+	return s
+}
+
 // Ratings specifies that the results must be in the range of ratings given.
 // The range is inclusive.
 // Note that the minimum rating is 0 and the maximum is 100.
@@ -336,6 +361,16 @@ func (s *Searcher) Ratings(min, max int) *Searcher {
 // The range is inclusive.
 func (s *Searcher) Votes(min, max int) *Searcher {
 	s.votes = &irange{min, max}
+	return s
+}
+
+// Billed specifies that the results---when they correspond to credits---must
+// be in the billed range provided. For example, when showing credits for an
+// actor, this will restrict the results to movies where the actor has a billed
+// position in this range. Similarly for showing credits for a movie.
+// The range is inclusive.
+func (s *Searcher) Billed(min, max int) *Searcher {
+	s.billing = &irange{min, max}
 	return s
 }
 
@@ -551,6 +586,8 @@ func (s *Searcher) sql() string {
 				ELSE ''
 			END
 			AS attrs,
+			COALESCE(rating.votes, 0) AS votes,
+			COALESCE(rating.rank, 0) AS rank,
 			%s
 		FROM name
 		LEFT JOIN movie AS m ON name.atom_id = m.atom_id
@@ -645,18 +682,7 @@ func (s *Searcher) creditAttrs() string {
 
 func (s *Searcher) where() string {
 	var conj []string
-	switch {
-	case !s.subMovie.empty():
-		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
-	case !s.subTvshow.empty():
-		cond := "(e.tvshow_atom_id = %d OR c_media.actor_atom_id IS NOT NULL)"
-		conj = append(conj, sf(cond, s.subTvshow.id))
-	case !s.subEpisode.empty():
-		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
-	}
-	if !s.subActor.empty() {
-		conj = append(conj, sf("c_actor.media_atom_id IS NOT NULL"))
-	}
+	conj = append(conj, s.whereCredits()...)
 	if len(s.entities) > 0 {
 		var entsIn []string
 		for _, e := range s.entities {
@@ -675,10 +701,19 @@ func (s *Searcher) where() string {
 		conj = append(conj, s.votes.cond("rating.votes"))
 	}
 	if s.season != nil {
-		conj = append(conj, s.season.cond("e.season"))
+		cond := sf("(e.atom_id IS NULL OR %s)", s.season.cond("e.season"))
+		conj = append(conj, cond)
 	}
 	if s.episode != nil {
-		conj = append(conj, s.episode.cond("e.episode_num"))
+		cond := sf("(e.atom_id IS NULL OR %s)", s.episode.cond("e.episode_num"))
+		conj = append(conj, cond)
+	}
+	if s.noTvMovie {
+		conj = append(conj, "(m.atom_id IS NULL OR m.tv = cast(0 as boolean))")
+	}
+	if s.noVideoMovie {
+		conj = append(conj,
+			"(m.atom_id IS NULL OR m.video = cast(0 as boolean))")
 	}
 	if len(s.name) > 0 {
 		if s.fuzzy {
@@ -692,6 +727,31 @@ func (s *Searcher) where() string {
 		}
 	}
 	return strings.Join(conj, " AND ")
+}
+
+func (s *Searcher) whereCredits() []string {
+	var conj []string
+	joined := ""
+	switch {
+	case !s.subMovie.empty():
+		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
+		joined = "c_media"
+	case !s.subTvshow.empty():
+		cond := "(e.tvshow_atom_id = %d OR c_media.actor_atom_id IS NOT NULL)"
+		conj = append(conj, sf(cond, s.subTvshow.id))
+		joined = "c_media"
+	case !s.subEpisode.empty():
+		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
+		joined = "c_media"
+	}
+	if !s.subActor.empty() {
+		conj = append(conj, sf("c_actor.media_atom_id IS NOT NULL"))
+		joined = "c_actor"
+	}
+	if len(joined) > 0 && s.billing != nil {
+		conj = append(conj, s.billing.cond(sf("%s.position", joined)))
+	}
+	return conj
 }
 
 func (s *Searcher) orderby() string {
@@ -750,12 +810,14 @@ var qualifiedColumns = map[string]string{
 	"similarity": "similarity",
 
 	"season":      "e.season",
+	"episode":     "e.episode_num",
 	"episode_num": "e.episode_num",
 
 	"rank":  "rating.rank",
 	"votes": "rating.votes",
 
 	"billing": "c_media.position",
+	"billed":  "c_media.position",
 }
 
 func orderColumnQualified(column string) string {
