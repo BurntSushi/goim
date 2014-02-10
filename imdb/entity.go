@@ -131,7 +131,7 @@ func (e *Actor) Scan(rs csql.RowScanner) error {
 	return rs.Scan(&e.Id, &e.FullName, &e.Sequence)
 }
 
-func AtomToMovie(db csql.Queryer, id Atom) (Movie, error) {
+func AtomToMovie(db csql.Queryer, id Atom) (*Movie, error) {
 	e := new(Movie)
 	err := e.Scan(db.QueryRow(`
 		SELECT m.atom_id, n.name, m.year, m.sequence, m.tv, m.video
@@ -139,10 +139,10 @@ func AtomToMovie(db csql.Queryer, id Atom) (Movie, error) {
 		LEFT JOIN name AS n ON n.atom_id = m.atom_id
 		WHERE m.atom_id = $1
 		`, id))
-	return *e, err
+	return e, err
 }
 
-func AtomToTvshow(db csql.Queryer, id Atom) (Tvshow, error) {
+func AtomToTvshow(db csql.Queryer, id Atom) (*Tvshow, error) {
 	e := new(Tvshow)
 	err := e.Scan(db.QueryRow(`
 		SELECT t.atom_id, n.name, t.year, t.sequence, t.year_start, t.year_end
@@ -150,10 +150,10 @@ func AtomToTvshow(db csql.Queryer, id Atom) (Tvshow, error) {
 		LEFT JOIN name AS n ON n.atom_id = t.atom_id
 		WHERE t.atom_id = $1
 		`, id))
-	return *e, err
+	return e, err
 }
 
-func AtomToEpisode(db csql.Queryer, id Atom) (Episode, error) {
+func AtomToEpisode(db csql.Queryer, id Atom) (*Episode, error) {
 	e := new(Episode)
 	err := e.Scan(db.QueryRow(`
 		SELECT e.atom_id, e.tvshow_atom_id, n.name,
@@ -162,10 +162,10 @@ func AtomToEpisode(db csql.Queryer, id Atom) (Episode, error) {
 		LEFT JOIN name AS n ON n.atom_id = e.atom_id
 		WHERE e.atom_id = $1
 		`, id))
-	return *e, err
+	return e, err
 }
 
-func AtomToActor(db csql.Queryer, id Atom) (Actor, error) {
+func AtomToActor(db csql.Queryer, id Atom) (*Actor, error) {
 	e := new(Actor)
 	err := e.Scan(db.QueryRow(`
 		SELECT a.atom_id, n.name, a.sequence
@@ -173,9 +173,9 @@ func AtomToActor(db csql.Queryer, id Atom) (Actor, error) {
 		LEFT JOIN name AS n ON n.atom_id = a.atom_id
 		WHERE a.atom_id = $1
 		`, id))
-	return *e, err
+	return e, err
 }
 
-func (e Episode) Tvshow(db csql.Queryer) (Tvshow, error) {
+func (e Episode) Tvshow(db csql.Queryer) (*Tvshow, error) {
 	return AtomToTvshow(db, e.TvshowId)
 }

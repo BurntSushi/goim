@@ -53,6 +53,25 @@ type SearchResult struct {
 	Credit Credit
 }
 
+func (sr SearchResult) GetEntity(db csql.Queryer) (Entity, error) {
+	return fromAtom(db, sr.Entity, sr.Id)
+}
+
+func fromAtom(db csql.Queryer, ent EntityKind, id Atom) (Entity, error) {
+	switch ent {
+	case EntityMovie:
+		return AtomToMovie(db, id)
+	case EntityTvshow:
+		return AtomToTvshow(db, id)
+	case EntityEpisode:
+		return AtomToEpisode(db, id)
+	case EntityActor:
+		return AtomToActor(db, id)
+	}
+	fatalf("Unrecognized entity type: %s", ent)
+	panic("unreachable")
+}
+
 // Searcher represents the parameters of a search.
 type Searcher struct {
 	db            *DB

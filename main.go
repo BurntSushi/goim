@@ -16,6 +16,8 @@ var commands = []*command{
 	cmdSearch,
 	cmdSize,
 	cmdWriteConfig,
+
+	cmdPlot,
 }
 
 func usage() {

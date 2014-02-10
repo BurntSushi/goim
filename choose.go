@@ -9,6 +9,14 @@ import (
 	"github.com/BurntSushi/goim/tpl"
 )
 
+func (c *command) oneResult(db *imdb.DB) (*imdb.SearchResult, bool) {
+	rs, ok := c.results(db, true)
+	if !ok || len(rs) == 0 {
+		return nil, false
+	}
+	return &rs[0], true
+}
+
 func (c *command) results(db *imdb.DB, one bool) ([]imdb.SearchResult, bool) {
 	searcher, err := imdb.NewSearcher(db, strings.Join(c.flags.Args(), " "))
 	if err != nil {

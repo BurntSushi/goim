@@ -41,7 +41,19 @@ func assertTwo(v interface{}, err error) interface{} {
 // If there was a problem translating the value, Goim will quit with an error
 // message.
 func FromSearchResult(db *imdb.DB, sr imdb.SearchResult) interface{} {
-	return fromAtom(db, sr.Entity, sr.Id)
+	ent, err := sr.GetEntity(db)
+	assert(err)
+	switch ent := ent.(type) {
+	case *imdb.Movie:
+		return Movie{db, ent}
+	case *imdb.Tvshow:
+		return Tvshow{db, ent}
+	case *imdb.Episode:
+		return Episode{db, ent}
+	case *imdb.Actor:
+		return Actor{db, ent}
+	}
+	return ent
 }
 
 func fromAtom(db *imdb.DB, ent imdb.EntityKind, id imdb.Atom) interface{} {
@@ -49,15 +61,19 @@ func fromAtom(db *imdb.DB, ent imdb.EntityKind, id imdb.Atom) interface{} {
 	case imdb.EntityMovie:
 		m, err := imdb.AtomToMovie(db, id)
 		assert(err)
-		return Movie{db, &m}
+		return Movie{db, m}
 	case imdb.EntityTvshow:
 		t, err := imdb.AtomToTvshow(db, id)
 		assert(err)
-		return Tvshow{db, &t}
+		return Tvshow{db, t}
 	case imdb.EntityEpisode:
 		e, err := imdb.AtomToEpisode(db, id)
 		assert(err)
-		return Episode{db, &e}
+		return Episode{db, e}
+	case imdb.EntityActor:
+		a, err := imdb.AtomToActor(db, id)
+		assert(err)
+		return Actor{db, a}
 	}
 	fatalf("Unrecognized entity type: %s", ent)
 	panic("unreachable")
@@ -78,10 +94,15 @@ type Episode struct {
 	*imdb.Episode
 }
 
+type Actor struct {
+	db *imdb.DB
+	*imdb.Actor
+}
+
 func (e Episode) Tvshow() Tvshow {
 	tv, err := e.Episode.Tvshow(e.db)
 	assert(err)
-	return Tvshow{e.db, &tv}
+	return Tvshow{e.db, tv}
 }
 
 func (e Tvshow) CountSeasons() (count int) {
