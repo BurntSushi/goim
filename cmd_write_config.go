@@ -61,7 +61,7 @@ parameters, along with a set of template files used to control the various
 output formats of Goim.
 `,
 	flags: flag.NewFlagSet("write-config", flag.ExitOnError),
-	run:   writeConfig,
+	run:   cmd_writeConfig,
 	addFlags: func(c *command) {
 		c.flags.BoolVar(&flagConfigOverwrite, "overwrite", flagConfigOverwrite,
 			"When set, the config file will be written regardless of\n"+
@@ -69,7 +69,7 @@ output formats of Goim.
 	},
 }
 
-func writeConfig(c *command) bool {
+func cmd_writeConfig(c *command) bool {
 	var dir string
 	if arg := strings.TrimSpace(c.flags.Arg(0)); len(arg) > 0 {
 		dir = arg

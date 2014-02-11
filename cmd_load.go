@@ -83,7 +83,7 @@ Because of that, it's generally recommended to rebuild the database by using
 the 'clean' command and then running 'load'.
 `,
 	flags: flag.NewFlagSet("load", flag.ExitOnError),
-	run:   load,
+	run:   cmd_load,
 	addFlags: func(c *command) {
 		c.flags.StringVar(&flagLoadDownload, "download", flagLoadDownload,
 			"When set, the data retrieved will be stored in the directory\n"+
@@ -103,7 +103,7 @@ the 'clean' command and then running 'load'.
 	},
 }
 
-func load(c *command) bool {
+func cmd_load(c *command) bool {
 	driver, dsn := c.dbinfo()
 
 	getFrom := c.flags.Arg(0)
