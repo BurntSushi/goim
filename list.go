@@ -363,7 +363,7 @@ func parseNamedAttr(namedAttr []byte) ([]byte, []byte, bool) {
 //
 // If there was an error, it is returned and the atom is considered to not
 // have existed.
-func parseId(az imdb.Atomer, idStr []byte, id *imdb.Atom) (bool, error) {
+func parseId(az *imdb.Atomizer, idStr []byte, id *imdb.Atom) (bool, error) {
 	atom, existed, err := az.Atom(idStr)
 	if err != nil {
 		return false, ef("Could not atomize '%s': %s", idStr, err)

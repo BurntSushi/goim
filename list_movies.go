@@ -167,7 +167,7 @@ func parseTvshowRange(years []byte, tv *imdb.Tvshow) bool {
 	return true
 }
 
-func parseEpisode(az imdb.Atomer, episode []byte, ep *imdb.Episode) bool {
+func parseEpisode(az *imdb.Atomizer, episode []byte, ep *imdb.Episode) bool {
 	if episode[len(episode)-1] != '}' {
 		pef("Episodes must end with '}' but '%s' does not.", episode)
 		return false

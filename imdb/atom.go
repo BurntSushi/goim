@@ -8,10 +8,6 @@ import (
 	"github.com/BurntSushi/csql"
 )
 
-type Atomer interface {
-	Atom(key []byte) (Atom, bool, error)
-}
-
 type Atom int32
 
 type atomMap map[[md5.Size]byte]Atom
