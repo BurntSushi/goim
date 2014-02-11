@@ -8,8 +8,6 @@ import (
 
 	"github.com/BurntSushi/ty/fun"
 
-	"github.com/BurntSushi/csql"
-
 	"github.com/BurntSushi/goim/imdb"
 )
 
@@ -93,25 +91,4 @@ func intRange(s string, min, max int) (int, int) {
 		}
 	}
 	return start, end
-}
-
-type indices struct {
-	db     *imdb.DB
-	tables []string
-}
-
-func idxs(db *imdb.DB, tables ...string) indices {
-	return indices{db, tables}
-}
-
-func (ins indices) drop() indices {
-	logf("Dropping indices for %s...", strings.Join(ins.tables, ", "))
-	csql.Panic(imdb.DropIndices(ins.db, ins.tables...))
-	return ins
-}
-
-func (ins indices) create() indices {
-	logf("Creating indices for %s...", strings.Join(ins.tables, ", "))
-	csql.Panic(imdb.CreateIndices(ins.db, ins.tables...))
-	return ins
 }
