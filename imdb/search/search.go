@@ -98,7 +98,7 @@ type Searcher struct {
 	order         []searchOrder
 	limit         int
 	goodThreshold float64
-	chooser       SearchChooser
+	chooser       Chooser
 
 	subMovie, subTvshow, subEpisode, subActor     *subsearch
 	year, rating, votes, season, episode, billing *irange
@@ -106,7 +106,7 @@ type Searcher struct {
 	noTvMovie, noVideoMovie bool
 }
 
-// SearchChooser corresponds to a function called by the searcher in this
+// Chooser corresponds to a function called by the searcher in this
 // package to resolve ambiguous query parameters. For example, if a TV show
 // is specified with '{tvshow:supernatural}' and there is more than one good
 // hit, then the chooser function will be called.
@@ -123,7 +123,7 @@ type Searcher struct {
 //
 // The string provided to the chooser function is a short noun phrase that
 // represents the thing being searched. (e.g., "TV show".)
-type SearchChooser func([]Result, string) (*Result, error)
+type Chooser func([]Result, string) (*Result, error)
 
 type searchOrder struct {
 	column, order string
@@ -332,7 +332,7 @@ func (s *Searcher) Pick(rs []Result) (*Result, error) {
 	return r, nil
 }
 
-func (sub *subsearch) choose(parent *Searcher, chooser SearchChooser) error {
+func (sub *subsearch) choose(parent *Searcher, chooser Chooser) error {
 	sub.goodThreshold = parent.goodThreshold
 	sub.chooser = parent.chooser
 	sub.debug = parent.debug
@@ -437,7 +437,7 @@ func (s *Searcher) Billed(min, max int) *Searcher {
 // of its parent search. If no movie is found, then the search quits and
 // returns no results. If more than one good matching movie is found, then
 // the searcher's "chooser" is called. (See the documentation for the
-// SearchChooser type.)
+// Chooser type.)
 func (s *Searcher) Movie(movies *Searcher) *Searcher {
 	movies.Entity(imdb.EntityMovie)
 	movies.what = "movie"
@@ -450,7 +450,7 @@ func (s *Searcher) Movie(movies *Searcher) *Searcher {
 // of its parent search. If no TV show is found, then the search quits and
 // returns no results. If more than one good matching TV show is found, then
 // the searcher's "chooser" is called. (See the documentation for the
-// SearchChooser type.)
+// Chooser type.)
 func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 	tvs.Entity(imdb.EntityTvshow)
 	tvs.what = "TV show"
@@ -463,7 +463,7 @@ func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 // of its parent search. If no episode is found, then the search quits and
 // returns no results. If more than one good matching episode is found, then
 // the searcher's "chooser" is called. (See the documentation for the
-// SearchChooser type.)
+// Chooser type.)
 func (s *Searcher) Episode(episodes *Searcher) *Searcher {
 	episodes.Entity(imdb.EntityEpisode)
 	episodes.what = "episode"
@@ -476,7 +476,7 @@ func (s *Searcher) Episode(episodes *Searcher) *Searcher {
 // of its parent search. If no actor is found, then the search quits and
 // returns no results. If more than one good matching actor is found, then
 // the searcher's "chooser" is called. (See the documentation for the
-// SearchChooser type.)
+// Chooser type.)
 func (s *Searcher) Actor(actors *Searcher) *Searcher {
 	actors.Entity(imdb.EntityActor)
 	actors.what = "actor"
@@ -500,8 +500,8 @@ func (s *Searcher) Sort(column, order string) *Searcher {
 }
 
 // Chooser specifies the function to call when a sub-search returns 2 or more
-// good hits. See the documentation for the SearchChooser type for details.
-func (s *Searcher) Chooser(chooser SearchChooser) *Searcher {
+// good hits. See the documentation for the Chooser type for details.
+func (s *Searcher) Chooser(chooser Chooser) *Searcher {
 	s.chooser = chooser
 	return s
 }
