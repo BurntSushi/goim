@@ -178,5 +178,12 @@ func loaderIn(name, commaSep string) bool {
 	if len(commaSep) == 0 || commaSep == "all" {
 		return true
 	}
-	return strings.Contains(commaSep, name)
+	name = strings.ToLower(name)
+	for _, load := range strings.Split(commaSep, ",") {
+		load = strings.TrimSpace(load)
+		if name == strings.ToLower(load) {
+			return true
+		}
+	}
+	return false
 }
