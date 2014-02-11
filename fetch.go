@@ -92,7 +92,12 @@ type ftpRetrCloser struct {
 }
 
 // Close closes the file download and the FTP connection.
-func (r ftpRetrCloser) Close() error {
+func (r *ftpRetrCloser) Close() error {
+	defer func() { r.ReadCloser = nil }()
+
+	if r.ReadCloser == nil {
+		return nil
+	}
 	if err := r.ReadCloser.Close(); err != nil {
 		pef("Problem closing FTP reader: %s", err)
 		return ef("Problem closing FTP reader: %s", err)
@@ -135,7 +140,7 @@ func (ff ftpFetcher) list(name string) io.ReadCloser {
 	if err != nil {
 		fatalf("Could not retrieve '%s' from '%s': %s", namePath, ff.Host, err)
 	}
-	return ftpRetrCloser{r, ftpConn}
+	return &ftpRetrCloser{r, ftpConn}
 }
 
 // bufCloser makes a bytes.Buffer satisfy the io.ReadCloser interface.

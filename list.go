@@ -22,6 +22,31 @@ var (
 	openHash = []byte{'(', '#'}
 )
 
+type gzipCloser struct {
+	*gzip.Reader
+	underlying io.ReadCloser
+}
+
+func (gc *gzipCloser) Close() error {
+	defer func() {
+		gc.Reader = nil
+		gc.underlying = nil
+	}()
+
+	if gc.Reader == nil || gc.underlying == nil {
+		return nil
+	}
+
+	var err error
+	if err = gc.Reader.Close(); err != nil {
+		pef("Error closing gzip reader: %s", err)
+	}
+	if err = gc.underlying.Close(); err != nil {
+		pef("Error closing initial source: %s", err)
+	}
+	return err
+}
+
 type listHandler func(db *imdb.DB, list io.ReadCloser)
 
 func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
@@ -29,8 +54,11 @@ func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
 	if err != nil {
 		return err
 	}
-	defer gzlist.Close()
-	return csql.Safe(func() { handler(db, gzlist) })
+
+	gzlistc := &gzipCloser{gzlist, list}
+	defer gzlistc.Close()
+
+	return csql.Safe(func() { handler(db, gzlistc) })
 }
 
 type listHandler2 func(db *imdb.DB, list1, list2 io.ReadCloser)
@@ -44,9 +72,13 @@ func listLoad2(db *imdb.DB, list1, list2 io.ReadCloser, h listHandler2) error {
 	if err != nil {
 		return err
 	}
-	defer gzlist1.Close()
-	defer gzlist2.Close()
-	return csql.Safe(func() { h(db, gzlist1, gzlist2) })
+
+	gzlistc1 := &gzipCloser{gzlist1, list1}
+	gzlistc2 := &gzipCloser{gzlist2, list2}
+	defer gzlistc1.Close()
+	defer gzlistc2.Close()
+
+	return csql.Safe(func() { h(db, gzlistc1, gzlistc2) })
 }
 
 // listPrefixItems is a convenience function for reading IMDb lists of the
@@ -272,6 +304,9 @@ func listLinesSuspended(list io.ReadCloser, suspended bool, do func([]byte)) {
 		do(line)
 	}
 	csql.Panic(scanner.Err())
+	if err := list.Close(); err != nil {
+		pef("Error closing: %s", err)
+	}
 }
 
 // splitListLine returns fields of the given line determined by tab characters.
