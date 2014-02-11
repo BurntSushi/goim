@@ -15,6 +15,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"github.com/BurntSushi/goim/imdb"
+	"github.com/BurntSushi/goim/imdb/search"
 	"github.com/BurntSushi/goim/tpl"
 )
 
@@ -151,7 +152,7 @@ func (c *command) config() (conf config, err error) {
 	return
 }
 
-func (c *command) oneResult(db *imdb.DB) (*imdb.SearchResult, bool) {
+func (c *command) oneResult(db *imdb.DB) (*search.Result, bool) {
 	rs, ok := c.results(db, true)
 	if !ok || len(rs) == 0 {
 		return nil, false
@@ -159,8 +160,8 @@ func (c *command) oneResult(db *imdb.DB) (*imdb.SearchResult, bool) {
 	return &rs[0], true
 }
 
-func (c *command) results(db *imdb.DB, one bool) ([]imdb.SearchResult, bool) {
-	searcher, err := imdb.NewSearcher(db, strings.Join(c.flags.Args(), " "))
+func (c *command) results(db *imdb.DB, one bool) ([]search.Result, bool) {
+	searcher, err := search.New(db, strings.Join(c.flags.Args(), " "))
 	if err != nil {
 		pef("%s\n", err)
 		return nil, false
@@ -186,15 +187,15 @@ func (c *command) results(db *imdb.DB, one bool) ([]imdb.SearchResult, bool) {
 			pef("No results to pick from.\n")
 			return nil, false
 		}
-		return []imdb.SearchResult{*r}, true
+		return []search.Result{*r}, true
 	}
 	return results, true
 }
 
 func (c *command) chooser(
-	results []imdb.SearchResult,
+	results []search.Result,
 	what string,
-) (*imdb.SearchResult, error) {
+) (*search.Result, error) {
 	pf("%s is ambiguous. Please choose one:\n", what)
 	template := c.tpl("search_result")
 	for i, result := range results {

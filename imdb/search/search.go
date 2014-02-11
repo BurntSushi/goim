@@ -1,11 +1,15 @@
-package imdb
+package search
 
 import (
 	"database/sql"
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/csql"
+
+	"github.com/BurntSushi/goim/imdb"
 )
 
 const (
@@ -15,6 +19,14 @@ const (
 	maxBilled  = 1000000
 	maxSeason  = 1000000
 	maxEpisode = 1000000
+)
+
+var (
+	sf  = fmt.Sprintf
+	ef  = fmt.Errorf
+	pef = func(f string, v ...interface{}) {
+		fmt.Fprintf(os.Stderr, f, v...)
+	}
 )
 
 var defaultOrders = map[string]string{
@@ -28,10 +40,10 @@ var defaultOrders = map[string]string{
 	"billing": "asc",
 }
 
-// SearchResult represents the data returned for each result of a search.
-type SearchResult struct {
-	Entity EntityKind
-	Id     Atom
+// Result represents the data returned for each result of a search.
+type Result struct {
+	Entity imdb.EntityKind
+	Id     imdb.Atom
 	Name   string
 	Year   int
 
@@ -47,39 +59,42 @@ type SearchResult struct {
 	Similarity float64
 
 	// If a rating exists for a search result, it will be stored here.
-	Rating UserRating
+	Rating imdb.UserRating
 
 	// If the search accesses credit information, then it will be stored here.
-	Credit Credit
+	Credit imdb.Credit
 }
 
-func (sr SearchResult) GetEntity(db csql.Queryer) (Entity, error) {
+func (sr Result) GetEntity(db csql.Queryer) (imdb.Entity, error) {
 	return fromAtom(db, sr.Entity, sr.Id)
 }
 
-func fromAtom(db csql.Queryer, ent EntityKind, id Atom) (Entity, error) {
+func fromAtom(
+	db csql.Queryer,
+	ent imdb.EntityKind,
+	id imdb.Atom,
+) (imdb.Entity, error) {
 	switch ent {
-	case EntityMovie:
-		return AtomToMovie(db, id)
-	case EntityTvshow:
-		return AtomToTvshow(db, id)
-	case EntityEpisode:
-		return AtomToEpisode(db, id)
-	case EntityActor:
-		return AtomToActor(db, id)
+	case imdb.EntityMovie:
+		return imdb.AtomToMovie(db, id)
+	case imdb.EntityTvshow:
+		return imdb.AtomToTvshow(db, id)
+	case imdb.EntityEpisode:
+		return imdb.AtomToEpisode(db, id)
+	case imdb.EntityActor:
+		return imdb.AtomToActor(db, id)
 	}
-	fatalf("Unrecognized entity type: %s", ent)
-	panic("unreachable")
+	return nil, ef("Unrecognized entity type: %s", ent)
 }
 
 // Searcher represents the parameters of a search.
 type Searcher struct {
-	db            *DB
+	db            *imdb.DB
 	fuzzy         bool
 	name          string
 	what          string
 	debug         bool
-	entities      []EntityKind
+	entities      []imdb.EntityKind
 	order         []searchOrder
 	limit         int
 	goodThreshold float64
@@ -108,7 +123,7 @@ type Searcher struct {
 //
 // The string provided to the chooser function is a short noun phrase that
 // represents the thing being searched. (e.g., "TV show".)
-type SearchChooser func([]SearchResult, string) (*SearchResult, error)
+type SearchChooser func([]Result, string) (*Result, error)
 
 type searchOrder struct {
 	column, order string
@@ -120,10 +135,10 @@ type irange struct {
 
 type subsearch struct {
 	*Searcher
-	id Atom
+	id imdb.Atom
 }
 
-func NewSearcher(db *DB, query string) (*Searcher, error) {
+func New(db *imdb.DB, query string) (*Searcher, error) {
 	s := &Searcher{
 		db:            db,
 		fuzzy:         db.IsFuzzyEnabled(),
@@ -145,22 +160,46 @@ func NewSearcher(db *DB, query string) (*Searcher, error) {
 	var qname []string
 	for _, arg := range queryTokens(query) {
 		name, val := argOption(arg)
-		if ent, ok := Entities[name]; len(val) == 0 && ok {
+		if ent, ok := imdb.Entities[name]; len(val) == 0 && ok {
 			s.Entity(ent)
 		} else if name == "debug" {
 			s.debug = true
 		} else if name == "year" || name == "years" {
-			s.Years(intRange(val, 0, maxYear))
+			if mn, mx, err := intRange(val, 0, maxYear); err != nil {
+				return nil, err
+			} else {
+				s.Years(mn, mx)
+			}
 		} else if name == "rank" || name == "rate" || name == "rating" {
-			s.Ratings(intRange(val, 0, maxRate))
+			if mn, mx, err := intRange(val, 0, maxRate); err != nil {
+				return nil, err
+			} else {
+				s.Ratings(mn, mx)
+			}
 		} else if name == "votes" {
-			s.Votes(intRange(val, 0, maxVotes))
+			if mn, mx, err := intRange(val, 0, maxVotes); err != nil {
+				return nil, err
+			} else {
+				s.Votes(mn, mx)
+			}
 		} else if name == "billing" || name == "billed" {
-			s.Billed(intRange(val, 0, maxBilled))
+			if mn, mx, err := intRange(val, 0, maxBilled); err != nil {
+				return nil, err
+			} else {
+				s.Billed(mn, mx)
+			}
 		} else if name == "s" || name == "season" || name == "seasons" {
-			s.Seasons(intRange(val, 0, maxSeason))
+			if mn, mx, err := intRange(val, 0, maxSeason); err != nil {
+				return nil, err
+			} else {
+				s.Seasons(mn, mx)
+			}
 		} else if name == "e" || name == "episodes" {
-			s.Episodes(intRange(val, 0, maxEpisode))
+			if mn, mx, err := intRange(val, 0, maxEpisode); err != nil {
+				return nil, err
+			} else {
+				s.Episodes(mn, mx)
+			}
 		} else if name == "notv" {
 			s.NoTvMovies()
 		} else if name == "novideo" {
@@ -218,7 +257,7 @@ func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
 	if len(query) == 0 {
 		return nil, ef("No query found for '%s'.", name)
 	}
-	sub, err := NewSearcher(s.db, query)
+	sub, err := New(s.db, query)
 	if err != nil {
 		return nil, ef("Error with sub-search for %s: %s", name, err)
 	}
@@ -226,8 +265,8 @@ func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
 }
 
 // Results executes the parameters of the search and returns the results.
-func (s *Searcher) Results() ([]SearchResult, error) {
-	var rs []SearchResult
+func (s *Searcher) Results() ([]Result, error) {
+	var rs []Result
 	if s.subMovie != nil {
 		if err := s.subMovie.choose(s, s.chooser); err != nil {
 			return nil, err
@@ -256,21 +295,21 @@ func (s *Searcher) Results() ([]SearchResult, error) {
 			rows = csql.Query(s.db, s.sql(), s.name)
 		}
 		csql.Panic(csql.ForRow(rows, func(scanner csql.RowScanner) {
-			var r SearchResult
+			var r Result
 			var ent string
 			csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
 				&r.Similarity, &r.Attrs,
 				&r.Rating.Votes, &r.Rating.Rank,
 				&r.Credit.ActorId, &r.Credit.MediaId, &r.Credit.Character,
 				&r.Credit.Position, &r.Credit.Attrs)
-			r.Entity = Entities[ent]
+			r.Entity = imdb.Entities[ent]
 			rs = append(rs, r)
 		}))
 	})
 	return rs, err
 }
 
-func (s *Searcher) Pick(rs []SearchResult) (*SearchResult, error) {
+func (s *Searcher) Pick(rs []Result) (*Result, error) {
 	if len(rs) == 0 {
 		return nil, nil
 	} else if len(rs) == 1 {
@@ -330,7 +369,7 @@ func (s *Searcher) GoodThreshold(diff float64) *Searcher {
 
 // Entity adds the given entity to the search. Results only belonging to the
 // entities in the search will be returned.
-func (s *Searcher) Entity(e EntityKind) *Searcher {
+func (s *Searcher) Entity(e imdb.EntityKind) *Searcher {
 	s.entities = append(s.entities, e)
 	return s
 }
@@ -400,7 +439,7 @@ func (s *Searcher) Billed(min, max int) *Searcher {
 // the searcher's "chooser" is called. (See the documentation for the
 // SearchChooser type.)
 func (s *Searcher) Movie(movies *Searcher) *Searcher {
-	movies.Entity(EntityMovie)
+	movies.Entity(imdb.EntityMovie)
 	movies.what = "movie"
 	s.subMovie = &subsearch{movies, 0}
 	return s
@@ -413,7 +452,7 @@ func (s *Searcher) Movie(movies *Searcher) *Searcher {
 // the searcher's "chooser" is called. (See the documentation for the
 // SearchChooser type.)
 func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
-	tvs.Entity(EntityTvshow)
+	tvs.Entity(imdb.EntityTvshow)
 	tvs.what = "TV show"
 	s.subTvshow = &subsearch{tvs, 0}
 	return s
@@ -426,7 +465,7 @@ func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 // the searcher's "chooser" is called. (See the documentation for the
 // SearchChooser type.)
 func (s *Searcher) Episode(episodes *Searcher) *Searcher {
-	episodes.Entity(EntityEpisode)
+	episodes.Entity(imdb.EntityEpisode)
 	episodes.what = "episode"
 	s.subEpisode = &subsearch{episodes, 0}
 	return s
@@ -439,7 +478,7 @@ func (s *Searcher) Episode(episodes *Searcher) *Searcher {
 // the searcher's "chooser" is called. (See the documentation for the
 // SearchChooser type.)
 func (s *Searcher) Actor(actors *Searcher) *Searcher {
-	actors.Entity(EntityActor)
+	actors.Entity(imdb.EntityActor)
 	actors.what = "actor"
 	s.subActor = &subsearch{actors, 0}
 	return s
@@ -530,39 +569,39 @@ func argOption(arg string) (name, val string) {
 // as integers. If given only "x", then intRange returns x and x. If given
 // "x-", then intRange returns x and max. If given "-x", then intRange returns
 // min and x.
-func intRange(s string, min, max int) (int, int) {
+func intRange(s string, min, max int) (int, int, error) {
 	s = strings.TrimSpace(s)
 	if len(s) == 0 {
-		return min, max
+		return min, max, nil
 	}
 	if !strings.Contains(s, "-") {
 		n, err := strconv.Atoi(s)
 		if err != nil {
-			fatalf("Could not parse '%s' as integer: %s", s, err)
+			return 0, 0, ef("Could not parse '%s' as integer: %s", s, err)
 		}
-		return n, n
+		return n, n, nil
 	}
 
-	var pieces []string
+	var pcs []string
 	for _, p := range strings.SplitN(s, "-", 2) {
-		pieces = append(pieces, strings.TrimSpace(p))
+		pcs = append(pcs, strings.TrimSpace(p))
 	}
 
 	start, end := min, max
 	var err error
-	if len(pieces[0]) > 0 {
-		start, err = strconv.Atoi(pieces[0])
+	if len(pcs[0]) > 0 {
+		start, err = strconv.Atoi(pcs[0])
 		if err != nil {
-			fatalf("Could not parse '%s' as integer: %s", pieces[0], err)
+			return 0, 0, ef("Could not parse '%s' as integer: %s", pcs[0], err)
 		}
 	}
-	if len(pieces[1]) > 0 {
-		end, err = strconv.Atoi(pieces[1])
+	if len(pcs[1]) > 0 {
+		end, err = strconv.Atoi(pcs[1])
 		if err != nil {
-			fatalf("Could not parse '%s' as integer: %s", pieces[1], err)
+			return 0, 0, ef("Could not parse '%s' as integer: %s", pcs[1], err)
 		}
 	}
-	return start, end
+	return start, end, nil
 }
 
 func (s *Searcher) sql() string {
@@ -626,7 +665,7 @@ func (s *Searcher) sql() string {
 		s.entityColumn(), s.similarColumn("name.name"), s.creditAttrs(),
 		s.creditJoin(), s.where(), s.orderby(), s.limit)
 	if s.debug {
-		logf("%s", q)
+		pef("%s\n", q)
 	}
 	return q
 }
@@ -640,7 +679,7 @@ func (s *Searcher) creditJoin() string {
 			AND c_actor.actor_atom_id = %d
 		`, s.subActor.id)
 	}
-	var mediaId Atom
+	var mediaId imdb.Atom
 	switch {
 	case !s.subMovie.empty():
 		mediaId = s.subMovie.id
@@ -815,7 +854,7 @@ func (ir *irange) cond(col string) string {
 	return sf("%s >= %d AND %s <= %d", col, ir.min, col, ir.max)
 }
 
-var SearchResultColumns = map[string][]string{
+var ResultColumns = map[string][]string{
 	"all":     {"entity", "atom_id", "title", "year", "attrs", "similarity"},
 	"episode": {"season", "episode_num"},
 }
@@ -843,7 +882,7 @@ func orderColumnQualified(column string) string {
 	return qualifiedColumns[column]
 }
 
-func isValidColumn(ent EntityKind, column string) bool {
+func isValidColumn(ent imdb.EntityKind, column string) bool {
 	for _, c := range validColumns(ent) {
 		if c == column {
 			return true
@@ -852,17 +891,17 @@ func isValidColumn(ent EntityKind, column string) bool {
 	return false
 }
 
-func validColumns(ent EntityKind) []string {
-	if ent != EntityNone {
+func validColumns(ent imdb.EntityKind) []string {
+	if ent != imdb.EntityNone {
 		var cols []string
-		for _, col := range SearchResultColumns["all"] {
+		for _, col := range ResultColumns["all"] {
 			cols = append(cols, col)
 		}
-		for _, col := range SearchResultColumns[ent.String()] {
+		for _, col := range ResultColumns[ent.String()] {
 			cols = append(cols, col)
 		}
 		return cols
 	} else {
-		return SearchResultColumns["all"]
+		return ResultColumns["all"]
 	}
 }

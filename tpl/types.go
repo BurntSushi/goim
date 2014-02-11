@@ -6,6 +6,7 @@ import (
 
 	"github.com/BurntSushi/csql"
 	"github.com/BurntSushi/goim/imdb"
+	"github.com/BurntSushi/goim/imdb/search"
 )
 
 var (
@@ -40,7 +41,7 @@ func assertTwo(v interface{}, err error) interface{} {
 //
 // If there was a problem translating the value, Goim will quit with an error
 // message.
-func FromSearchResult(db *imdb.DB, sr imdb.SearchResult) interface{} {
+func FromSearchResult(db *imdb.DB, sr search.Result) interface{} {
 	ent, err := sr.GetEntity(db)
 	assert(err)
 	switch ent := ent.(type) {
