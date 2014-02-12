@@ -350,10 +350,10 @@ func doIndices(db *DB, getSql func(index, *DB) string, tables ...string) error {
 	})
 }
 
-func CreateIndices(db *DB, tables ...string) error {
+func (db *DB) CreateIndices(tables ...string) error {
 	return doIndices(db, index.sqlCreate, tables...)
 }
 
-func DropIndices(db *DB, tables ...string) error {
+func (db *DB) DropIndices(tables ...string) error {
 	return doIndices(db, index.sqlDrop, tables...)
 }
