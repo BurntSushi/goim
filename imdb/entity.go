@@ -4,6 +4,12 @@ import (
 	"github.com/BurntSushi/csql"
 )
 
+type Atom int32
+
+func (a Atom) String() string {
+	return sf("%d", a)
+}
+
 type EntityKind int
 
 const (

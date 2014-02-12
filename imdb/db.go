@@ -30,8 +30,7 @@ var (
 // clients may run their own queries.
 type DB struct {
 	*sql.DB
-	Driver    string
-	inserters []*Inserter
+	Driver string
 }
 
 func Open(driver, dsn string) (*DB, error) {
@@ -44,27 +43,10 @@ func Open(driver, dsn string) (*DB, error) {
 			return nil, fmt.Errorf("Could set timezone to UTC: %s", err)
 		}
 	}
-	return &DB{db, driver, nil}, nil
-}
-
-func (db *DB) CloseInserters() error {
-	for _, ins := range db.inserters {
-		if err := ins.Exec(); err != nil {
-			return err
-		}
-	}
-	for _, ins := range db.inserters {
-		if err := ins.Close(); err != nil {
-			return err
-		}
-	}
-	return nil
+	return &DB{db, driver}, nil
 }
 
 func (db *DB) Close() error {
-	if err := db.CloseInserters(); err != nil {
-		return err
-	}
 	return db.DB.Close()
 }
 
@@ -92,51 +74,10 @@ func (db *DB) Empty() bool {
 	return empty
 }
 
-func (db *DB) Begin() (*Tx, error) {
-	tx, err := db.DB.Begin()
-	if err != nil {
-		return nil, err
-	}
-	return &Tx{db, false, tx}, nil
-}
-
 func (db *DB) IsFuzzyEnabled() bool {
 	_, err := db.Exec("SELECT similarity('a', 'a')")
 	if err == nil {
 		return true
 	}
 	return false
-}
-
-type Tx struct {
-	db     *DB
-	closed bool
-	*sql.Tx
-}
-
-func (tx *Tx) Another() (*Tx, error) {
-	if tx.db.Driver == "sqlite3" {
-		return tx, nil
-	}
-	txx, err := tx.db.Begin()
-	if err != nil {
-		return nil, err
-	}
-	return txx, nil
-}
-
-func (tx *Tx) Commit() error {
-	if tx.closed {
-		return nil
-	}
-	tx.closed = true
-	return tx.Tx.Commit()
-}
-
-func (tx *Tx) Rollback() error {
-	if tx.closed {
-		return nil
-	}
-	tx.closed = true
-	return tx.Tx.Rollback()
 }

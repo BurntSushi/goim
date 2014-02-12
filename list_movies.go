@@ -15,39 +15,51 @@ var attrUnknownYear, attrSuspended = []byte("????"), []byte("{{SUSPENDED}}")
 
 func listMovies(db *imdb.DB, movies io.ReadCloser) {
 	defer idxs(db, "atom", "name", "movie", "tvshow", "episode").drop().create()
-	defer func() { csql.Panic(db.CloseInserters()) }()
 
 	logf("Reading movies list...")
 	addedMovies, addedTvshows, addedEpisodes := 0, 0, 0
 
-	// Postgresql wants different transactions for each inserter.
-	// SQLite can't handle them.
-	txmovie, err := db.Begin()
-	csql.Panic(err)
-	txtv, err := txmovie.Another()
-	csql.Panic(err)
-	txepisode, err := txmovie.Another()
-	csql.Panic(err)
-	txname, err := txmovie.Another()
-	csql.Panic(err)
-	txatom, err := txmovie.Another()
+	// PostgreSQL wants different transactions for each inserter.
+	// SQLite can't handle them. The wrapper type here ensures that
+	// PostgreSQL gets multiple transactions while SQLite only gets one.
+	tx, err := db.Begin()
 	csql.Panic(err)
 
-	batchSize := 50
-	mvIns, err := db.NewInserter(txmovie, batchSize, "movie",
+	txmovie := wrapTx(db, tx)
+	txtv := txmovie.another()
+	txepisode := txmovie.another()
+	txname := txmovie.another()
+	txatom := txmovie.another()
+
+	batch := 50
+	mvIns, err := csql.NewInserter(txmovie.Tx, db.Driver, batch, "movie",
 		"atom_id", "year", "sequence", "tv", "video")
 	csql.Panic(err)
-	tvIns, err := db.NewInserter(txtv, batchSize, "tvshow",
+	tvIns, err := csql.NewInserter(txtv.Tx, db.Driver, batch, "tvshow",
 		"atom_id", "year", "sequence", "year_start", "year_end")
 	csql.Panic(err)
-	epIns, err := db.NewInserter(txepisode, batchSize, "episode",
+	epIns, err := csql.NewInserter(txepisode.Tx, db.Driver, batch, "episode",
 		"atom_id", "tvshow_atom_id", "year", "season", "episode_num")
 	csql.Panic(err)
-	nameIns, err := db.NewInserter(txname, batchSize, "name",
+	nameIns, err := csql.NewInserter(txname.Tx, db.Driver, batch, "name",
 		"atom_id", "name")
 	csql.Panic(err)
-	atoms, err := db.NewAtomizer(txatom)
+	atoms, err := newAtomizer(db, txatom.Tx)
 	csql.Panic(err)
+
+	defer func() {
+		csql.Panic(mvIns.Exec())
+		csql.Panic(tvIns.Exec())
+		csql.Panic(epIns.Exec())
+		csql.Panic(nameIns.Exec())
+		csql.Panic(atoms.Close())
+
+		csql.Panic(txmovie.Commit())
+		csql.Panic(txtv.Commit())
+		csql.Panic(txepisode.Commit())
+		csql.Panic(txname.Commit())
+		csql.Panic(txatom.Commit())
+	}()
 
 	listLines(movies, func(line []byte) {
 		line = bytes.TrimSpace(line)
@@ -167,7 +179,7 @@ func parseTvshowRange(years []byte, tv *imdb.Tvshow) bool {
 	return true
 }
 
-func parseEpisode(az *imdb.Atomizer, episode []byte, ep *imdb.Episode) bool {
+func parseEpisode(az *atomizer, episode []byte, ep *imdb.Episode) bool {
 	if episode[len(episode)-1] != '}' {
 		pef("Episodes must end with '}' but '%s' does not.", episode)
 		return false
@@ -180,7 +192,7 @@ func parseEpisode(az *imdb.Atomizer, episode []byte, ep *imdb.Episode) bool {
 
 	if az != nil {
 		var err error
-		ep.TvshowId, _, err = az.Atom(episode[0:openBrace])
+		ep.TvshowId, _, err = az.atom(episode[0:openBrace])
 		if err != nil {
 			pef("Could not atomize TV show '%s' from episode '%s': %s",
 				episode[0:openBrace], episode, err)

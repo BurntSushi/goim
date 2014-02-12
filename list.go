@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BurntSushi/ty/fun"
-
 	"github.com/BurntSushi/csql"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -104,7 +102,7 @@ func listLoad2(db *imdb.DB, list1, list2 io.ReadCloser, h listHandler2) error {
 // any non-empty line.
 func listPrefixItems(
 	list io.ReadCloser,
-	atoms *imdb.Atomizer,
+	atoms *atomizer,
 	entPrefix, itemPrefix []byte,
 	do func(id imdb.Atom, item []byte),
 ) {
@@ -129,7 +127,7 @@ func listPrefixItems(
 		if bytes.HasPrefix(line, entPrefix) {
 			add()
 			entity := bytes.TrimSpace(line[len(entPrefix):])
-			if curAtom, ok = atoms.AtomOnlyIfExist(entity); !ok {
+			if curAtom, ok = atoms.atomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
 				curAtom, curItem = 0, nil
 			}
@@ -179,11 +177,11 @@ func listPrefixItems(
 // 'parseNamedAttr' useful.)
 func listAttrRowIds(
 	list io.ReadCloser,
-	atoms *imdb.Atomizer,
+	atoms *atomizer,
 	do func(id imdb.Atom, line, entity, row []byte),
 ) {
 	listAttrRows(list, atoms, func(line, id, row []byte) {
-		if curAtom, ok := atoms.AtomOnlyIfExist(id); !ok {
+		if curAtom, ok := atoms.atomOnlyIfExist(id); !ok {
 			warnf("Could not find id for '%s'. Skipping.", id)
 		} else {
 			do(curAtom, line, id, row)
@@ -195,7 +193,7 @@ func listAttrRowIds(
 // atomized. Instead, the bytes are passed directly to the 'do' function.
 func listAttrRows(
 	list io.ReadCloser,
-	atoms *imdb.Atomizer,
+	atoms *atomizer,
 	do func(line, id, row []byte),
 ) {
 	curAtom := make([]byte, 0, 20)
@@ -398,8 +396,8 @@ func parseNamedAttr(namedAttr []byte) ([]byte, []byte, bool) {
 //
 // If there was an error, it is returned and the atom is considered to not
 // have existed.
-func parseId(az *imdb.Atomizer, idStr []byte, id *imdb.Atom) (bool, error) {
-	atom, existed, err := az.Atom(idStr)
+func parseId(az *atomizer, idStr []byte, id *imdb.Atom) (bool, error) {
+	atom, existed, err := az.atom(idStr)
 	if err != nil {
 		return false, ef("Could not atomize '%s': %s", idStr, err)
 	}
@@ -440,21 +438,6 @@ func parseFloat(bs []byte, store *float64) error {
 	}
 	*store = n
 	return nil
-}
-
-func assertInsert(
-	ins *imdb.Inserter,
-	line []byte,
-	what string,
-	args ...interface{},
-) {
-	if err := ins.Exec(args...); err != nil {
-		toStr := func(v interface{}) string { return sf("%#v", v) }
-		logf("Full %s info (that failed to add): %s",
-			what, fun.Map(toStr, args).([]string))
-		logf("Context: %s", line)
-		csql.Panic(ef("Error adding to %s table: %s", what, err))
-	}
 }
 
 func unicode(latin1 []byte) string {
@@ -524,37 +507,4 @@ func (ins indices) create() indices {
 	csql.Panic(imdb.CreateIndices(ins.db, ins.tables...))
 	logf("done.")
 	return ins
-}
-
-type simpleLoad struct {
-	db    *imdb.DB
-	table string
-	count int
-	ins   *imdb.Inserter
-	atoms *imdb.Atomizer
-}
-
-func startSimpleLoad(db *imdb.DB, table string, columns ...string) *simpleLoad {
-	logf("Reading list to populate table %s...", table)
-	idxs(db, table).drop()
-
-	tx, err := db.Begin()
-	csql.Panic(err)
-	csql.Panic(csql.Truncate(tx, db.Driver, table))
-	ins, err := db.NewInserter(tx, 50, table, columns...)
-	csql.Panic(err)
-	atoms, err := db.NewAtomizer(nil) // read only
-	csql.Panic(err)
-	return &simpleLoad{db, table, 0, ins, atoms}
-}
-
-func (sl *simpleLoad) add(line []byte, args ...interface{}) {
-	assertInsert(sl.ins, line, sl.table, args...)
-	sl.count++
-}
-
-func (sl *simpleLoad) done() {
-	csql.Panic(sl.db.CloseInserters()) // must come first (to let idxs get lock)
-	idxs(sl.db, sl.table).create()
-	logf("Done with table %s. Inserted %d rows.", sl.table, sl.count)
 }

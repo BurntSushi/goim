@@ -10,36 +10,47 @@ import (
 
 func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) {
 	defer idxs(db, "atom", "name", "actor", "credit").drop().create()
-	defer func() { csql.Panic(db.CloseInserters()) }()
 
 	logf("Reading actors list...")
 
-	// Postgresql wants different transactions for each inserter.
-	// SQLite can't handle them.
-	txactor, err := db.Begin()
+	// PostgreSQL wants different transactions for each inserter.
+	// SQLite can't handle them. The wrapper type here ensures that
+	// PostgreSQL gets multiple transactions while SQLite only gets one.
+	tx, err := db.Begin()
 	csql.Panic(err)
-	txcredit, err := txactor.Another()
-	csql.Panic(err)
-	txname, err := txactor.Another()
-	csql.Panic(err)
-	txatom, err := txactor.Another()
-	csql.Panic(err)
+
+	txactor := wrapTx(db, tx)
+	txcredit := txactor.another()
+	txname := txactor.another()
+	txatom := txactor.another()
 
 	// We don't refresh the actor table, but we do need to rebuild credits.
-	csql.Panic(csql.Truncate(txcredit, db.Driver, "credit"))
+	csql.Panic(csql.Truncate(txcredit.Tx, db.Driver, "credit"))
 
-	batchSize := 50
-	actIns, err := db.NewInserter(txactor, batchSize, "actor",
+	batch := 50
+	actIns, err := csql.NewInserter(txactor.Tx, db.Driver, batch, "actor",
 		"atom_id", "sequence")
 	csql.Panic(err)
-	credIns, err := db.NewInserter(txcredit, batchSize, "credit",
+	credIns, err := csql.NewInserter(txcredit.Tx, db.Driver, batch, "credit",
 		"actor_atom_id", "media_atom_id", "character", "position", "attrs")
 	csql.Panic(err)
-	nameIns, err := db.NewInserter(txname, batchSize, "name",
+	nameIns, err := csql.NewInserter(txname.Tx, db.Driver, batch, "name",
 		"atom_id", "name")
 	csql.Panic(err)
-	atoms, err := db.NewAtomizer(txatom)
+	atoms, err := newAtomizer(db, txatom.Tx)
 	csql.Panic(err)
+
+	defer func() {
+		csql.Panic(actIns.Exec())
+		csql.Panic(credIns.Exec())
+		csql.Panic(nameIns.Exec())
+		csql.Panic(atoms.Close())
+
+		csql.Panic(txactor.Commit())
+		csql.Panic(txcredit.Commit())
+		csql.Panic(txname.Commit())
+		csql.Panic(txatom.Commit())
+	}()
 
 	var nacts1, ncreds1, nacts2, ncreds2 int
 	nacts1, ncreds1 = listActs(db, ractress, atoms, actIns, credIns, nameIns)
@@ -52,8 +63,8 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) {
 func listActs(
 	db *imdb.DB,
 	r io.ReadCloser,
-	atoms *imdb.Atomizer,
-	actIns, credIns, nameIns *imdb.Inserter,
+	atoms *atomizer,
+	actIns, credIns, nameIns *csql.Inserter,
 ) (addedActors, addedCredits int) {
 	bunkName, bunkTitles := []byte("Name"), []byte("Titles")
 	bunkLines1, bunkLines2 := []byte("----"), []byte("------")
@@ -135,10 +146,10 @@ func parseActorName(idstr []byte, a *imdb.Actor) bool {
 	return true
 }
 
-func parseCredit(atoms *imdb.Atomizer, row []byte, c *imdb.Credit) bool {
+func parseCredit(atoms *atomizer, row []byte, c *imdb.Credit) bool {
 	pieces := bytes.Split(row, []byte{' ', ' '})
 	ent := bytes.TrimSpace(pieces[0])
-	if id, ok := atoms.AtomOnlyIfExist(ent); !ok {
+	if id, ok := atoms.atomOnlyIfExist(ent); !ok {
 		warnf("Could not find media id for '%s'. Skipping.", ent)
 		return false
 	} else {

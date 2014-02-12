@@ -2,12 +2,58 @@ package main
 
 import (
 	"bytes"
+	"database/sql"
 	"io"
 	"strconv"
 	"time"
 
+	"github.com/BurntSushi/ty/fun"
+
+	"github.com/BurntSushi/csql"
+
 	"github.com/BurntSushi/goim/imdb"
 )
+
+type simpleLoad struct {
+	db    *imdb.DB
+	tx    *sql.Tx
+	table string
+	count int
+	ins   *csql.Inserter
+	atoms *atomizer
+}
+
+func startSimpleLoad(db *imdb.DB, table string, columns ...string) *simpleLoad {
+	logf("Reading list to populate table %s...", table)
+	idxs(db, table).drop()
+
+	tx, err := db.Begin()
+	csql.Panic(err)
+	csql.Panic(csql.Truncate(tx, db.Driver, table))
+	ins, err := csql.NewInserter(tx, db.Driver, 50, table, columns...)
+	csql.Panic(err)
+	atoms, err := newAtomizer(db, nil) // read only
+	csql.Panic(err)
+	return &simpleLoad{db, tx, table, 0, ins, atoms}
+}
+
+func (sl *simpleLoad) add(line []byte, args ...interface{}) {
+	if err := sl.ins.Exec(args...); err != nil {
+		toStr := func(v interface{}) string { return sf("%#v", v) }
+		logf("Full %s info (that failed to add): %s",
+			sl.table, fun.Map(toStr, args).([]string))
+		logf("Context: %s", line)
+		csql.Panic(ef("Error adding to %s table: %s", sl.table, err))
+	}
+	sl.count++
+}
+
+func (sl *simpleLoad) done() {
+	csql.Panic(sl.ins.Exec()) // inserts anything left in the buffer
+	csql.Panic(sl.tx.Commit())
+	idxs(sl.db, sl.table).create()
+	logf("Done with table %s. Inserted %d rows.", sl.table, sl.count)
+}
 
 func listSoundMixes(db *imdb.DB, r io.ReadCloser) {
 	table := startSimpleLoad(db, "sound_mix",
@@ -216,7 +262,7 @@ func listRatings(db *imdb.DB, r io.ReadCloser) {
 		}
 
 		entity := bytes.Join(fields[3:], []byte{' '})
-		if id, ok = table.atoms.AtomOnlyIfExist(entity); !ok {
+		if id, ok = table.atoms.atomOnlyIfExist(entity); !ok {
 			warnf("Could not find id for '%s'. Skipping.", entity)
 			return
 		}
@@ -281,7 +327,7 @@ func listMovieLinks(db *imdb.DB, r io.ReadCloser) {
 	defer table.done()
 
 	parseMovieLink := func(
-		atoms *imdb.Atomizer,
+		atoms *atomizer,
 		text []byte,
 		linkType *string,
 		linkAtom *imdb.Atom,
@@ -292,7 +338,7 @@ func listMovieLinks(db *imdb.DB, r io.ReadCloser) {
 			logf("Could not parse named attribute '%s'. Skipping.", text)
 			return false
 		}
-		id, ok := atoms.AtomOnlyIfExist(data)
+		id, ok := atoms.atomOnlyIfExist(data)
 		if !ok {
 			warnf("Could not find id for '%s'. Skipping.", data)
 			return false
@@ -399,7 +445,7 @@ func listMPAARatings(db *imdb.DB, r io.ReadCloser) {
 		if bytes.HasPrefix(line, []byte("MV: ")) {
 			add(line)
 			entity := bytes.TrimSpace(line[3:])
-			if curAtom, ok = table.atoms.AtomOnlyIfExist(entity); !ok {
+			if curAtom, ok = table.atoms.atomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
 				reset()
 			}
@@ -518,7 +564,7 @@ func listQuotes(db *imdb.DB, r io.ReadCloser) {
 		if bytes.HasPrefix(line, []byte{'#'}) {
 			add(line)
 			entity := bytes.TrimSpace(line[1:])
-			if curAtom, ok = table.atoms.AtomOnlyIfExist(entity); !ok {
+			if curAtom, ok = table.atoms.atomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
 				curAtom, curQuote = 0, nil
 			}
@@ -562,7 +608,7 @@ func listPlots(db *imdb.DB, r io.ReadCloser) {
 				add(line)
 			}
 			entity := bytes.TrimSpace(line[3:])
-			if curAtom, ok = table.atoms.AtomOnlyIfExist(entity); !ok {
+			if curAtom, ok = table.atoms.atomOnlyIfExist(entity); !ok {
 				warnf("Could not find id for '%s'. Skipping.", entity)
 				curAtom, curPlot, curBy = 0, nil, nil
 			}
