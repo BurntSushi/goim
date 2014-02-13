@@ -2,8 +2,8 @@ build:
 	go install
 
 fmt:
-	gofmt -w *.go */*.go
-	colcheck *.go */*.go
+	find ./ -name '*.go' -print0 | xargs -0 gofmt -w
+	find ./ -name '*.go' -print0 | xargs -0 colcheck
 
 tags:
 	find ./ -name '*.go' -print0 | xargs -0 gotags > TAGS
