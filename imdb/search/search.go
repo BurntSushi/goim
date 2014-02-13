@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/BurntSushi/ty/fun"
+
 	"github.com/BurntSushi/csql"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -14,7 +16,7 @@ import (
 
 const (
 	maxYear    = 3000
-	maxRate    = 100
+	maxRank    = 100
 	maxVotes   = 1000000000
 	maxBilled  = 1000000
 	maxSeason  = 1000000
@@ -147,101 +149,12 @@ func New(db *imdb.DB, query string) (*Searcher, error) {
 		what:          "entity",
 	}
 
-	subsearches := []string{"movie", "tv", "tvshow", "episode", "actor"}
-	isSubSearch := func(name string) bool {
-		for _, sub := range subsearches {
-			if sub == name {
-				return true
-			}
-		}
-		return false
-	}
-
 	var qname []string
+	var err error
 	for _, arg := range queryTokens(query) {
-		name, val := argOption(arg)
-		if ent, ok := imdb.Entities[name]; len(val) == 0 && ok {
-			s.Entity(ent)
-		} else if name == "debug" {
-			s.debug = true
-		} else if name == "year" || name == "years" {
-			if mn, mx, err := intRange(val, 0, maxYear); err != nil {
-				return nil, err
-			} else {
-				s.Years(mn, mx)
-			}
-		} else if name == "rank" || name == "rate" || name == "rating" {
-			if mn, mx, err := intRange(val, 0, maxRate); err != nil {
-				return nil, err
-			} else {
-				s.Ratings(mn, mx)
-			}
-		} else if name == "votes" {
-			if mn, mx, err := intRange(val, 0, maxVotes); err != nil {
-				return nil, err
-			} else {
-				s.Votes(mn, mx)
-			}
-		} else if name == "billing" || name == "billed" {
-			if mn, mx, err := intRange(val, 0, maxBilled); err != nil {
-				return nil, err
-			} else {
-				s.Billed(mn, mx)
-			}
-		} else if name == "s" || name == "season" || name == "seasons" {
-			if mn, mx, err := intRange(val, 0, maxSeason); err != nil {
-				return nil, err
-			} else {
-				s.Seasons(mn, mx)
-			}
-		} else if name == "e" || name == "episodes" {
-			if mn, mx, err := intRange(val, 0, maxEpisode); err != nil {
-				return nil, err
-			} else {
-				s.Episodes(mn, mx)
-			}
-		} else if name == "notv" {
-			s.NoTvMovies()
-		} else if name == "novideo" {
-			s.NoVideoMovies()
-		} else if isSubSearch(name) {
-			sub, err := s.subSearcher(name, val)
-			if err != nil {
-				return nil, err
-			}
-			switch name {
-			case "movie":
-				s.Movie(sub)
-			case "tv", "tvshow":
-				s.Tvshow(sub)
-			case "episode":
-				s.Episode(sub)
-			case "actor":
-				s.Actor(sub)
-			}
-		} else if name == "limit" {
-			n, err := strconv.Atoi(val)
-			if err != nil {
-				return nil, ef("Invalid integer '%s' for limit: %s", val, err)
-			}
-			s.Limit(int(n))
-		} else if name == "sort" {
-			fields := strings.Fields(val)
-			if len(fields) == 0 || len(fields) > 2 {
-				return nil, ef("Invalid sort format: '%s'", val)
-			}
-			var order string
-			if len(fields) > 1 {
-				order = fields[1]
-			} else {
-				order = defaultOrders[fields[0]]
-				if len(order) == 0 {
-					order = "asc"
-				}
-			}
-			s.Sort(fields[0], order)
-		} else {
-			qname = append(qname, arg)
+		qname, err = s.addToken(qname, arg)
+		if err != nil {
+			return nil, err
 		}
 	}
 	s.name = strings.Join(qname, " ")
@@ -251,6 +164,41 @@ func New(db *imdb.DB, query string) (*Searcher, error) {
 		s.fuzzy = false
 	}
 	return s, nil
+}
+
+func (s *Searcher) addToken(queryName []string, arg string) ([]string, error) {
+	subsearches := []string{"movie", "tv", "tvshow", "episode", "actor"}
+	name, val := argOption(arg)
+
+	// First check if it's specifying a particular entity or a subsearch of
+	// an entity.
+	if ent, ok := imdb.Entities[name]; len(val) == 0 && ok {
+		s.Entity(ent)
+		return queryName, nil
+	} else if fun.In(name, subsearches) {
+		sub, err := s.subSearcher(name, val)
+		if err != nil {
+			return nil, err
+		}
+		switch name {
+		case "movie":
+			s.Movie(sub)
+		case "tv", "tvshow":
+			s.Tvshow(sub)
+		case "episode":
+			s.Episode(sub)
+		case "actor":
+			s.Actor(sub)
+		}
+		return queryName, nil
+	} else if cmd, ok := commands[name]; ok {
+		return queryName, cmd.add(s, val)
+	} else {
+		if len(name) > 0 {
+			return nil, ef("Unrecognized sort option: %s", name)
+		}
+		return append(queryName, arg), nil
+	}
 }
 
 func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
@@ -407,10 +355,10 @@ func (s *Searcher) NoVideoMovies() *Searcher {
 	return s
 }
 
-// Ratings specifies that the results must be in the range of ratings given.
+// Ranks specifies that the results must be in the range of ranks given.
 // The range is inclusive.
-// Note that the minimum rating is 0 and the maximum is 100.
-func (s *Searcher) Ratings(min, max int) *Searcher {
+// Note that the minimum rank is 0 and the maximum is 100.
+func (s *Searcher) Ranks(min, max int) *Searcher {
 	s.rating = &irange{min, max}
 	return s
 }
@@ -683,8 +631,6 @@ func (s *Searcher) creditJoin() string {
 	switch {
 	case !s.subMovie.empty():
 		mediaId = s.subMovie.id
-	case !s.subTvshow.empty():
-		mediaId = s.subTvshow.id
 	case !s.subEpisode.empty():
 		mediaId = s.subEpisode.id
 	}
@@ -700,7 +646,7 @@ func (s *Searcher) creditJoin() string {
 
 func (s *Searcher) creditAttrs() string {
 	act := !s.subActor.empty()
-	med := !s.subMovie.empty() || !s.subTvshow.empty() || !s.subEpisode.empty()
+	med := !s.subMovie.empty() || !s.subEpisode.empty()
 	switch {
 	case !act && !med:
 		return `
@@ -749,6 +695,9 @@ func (s *Searcher) where() string {
 		in := sf("%s IN(%s)", s.entityColumn(), strings.Join(entsIn, ", "))
 		conj = append(conj, in)
 	}
+	if !s.subTvshow.empty() {
+		conj = append(conj, sf("e.tvshow_atom_id = %d", s.subTvshow.id))
+	}
 	if s.year != nil {
 		conj = append(conj, s.year.cond("COALESCE(m.year, t.year, e.year, 0)"))
 	}
@@ -793,10 +742,6 @@ func (s *Searcher) whereCredits() []string {
 	switch {
 	case !s.subMovie.empty():
 		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
-		joined = "c_media"
-	case !s.subTvshow.empty():
-		cond := "(e.tvshow_atom_id = %d OR c_media.actor_atom_id IS NOT NULL)"
-		conj = append(conj, sf(cond, s.subTvshow.id))
 		joined = "c_media"
 	case !s.subEpisode.empty():
 		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
