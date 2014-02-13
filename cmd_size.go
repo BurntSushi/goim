@@ -42,7 +42,7 @@ func size(c *command) bool {
 		return false
 	}
 	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 4, ' ', 0)
-	err := csql.Safe(func() {
+	err := csql.SafeFunc(func() {
 		rows := csql.Query(db, q)
 		csql.ForRow(rows, func(rs csql.RowScanner) {
 			var table string

@@ -265,8 +265,9 @@ func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
 }
 
 // Results executes the parameters of the search and returns the results.
-func (s *Searcher) Results() ([]Result, error) {
-	var rs []Result
+func (s *Searcher) Results() (rs []Result, err error) {
+	defer csql.Safe(&err)
+
 	if s.subMovie != nil {
 		if err := s.subMovie.choose(s, s.chooser); err != nil {
 			return nil, err
@@ -287,26 +288,25 @@ func (s *Searcher) Results() ([]Result, error) {
 			return nil, err
 		}
 	}
-	err := csql.Safe(func() {
-		var rows *sql.Rows
-		if len(s.name) == 0 {
-			rows = csql.Query(s.db, s.sql())
-		} else {
-			rows = csql.Query(s.db, s.sql(), s.name)
-		}
-		csql.Panic(csql.ForRow(rows, func(scanner csql.RowScanner) {
-			var r Result
-			var ent string
-			csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
-				&r.Similarity, &r.Attrs,
-				&r.Rating.Votes, &r.Rating.Rank,
-				&r.Credit.ActorId, &r.Credit.MediaId, &r.Credit.Character,
-				&r.Credit.Position, &r.Credit.Attrs)
-			r.Entity = imdb.Entities[ent]
-			rs = append(rs, r)
-		}))
-	})
-	return rs, err
+
+	var rows *sql.Rows
+	if len(s.name) == 0 {
+		rows = csql.Query(s.db, s.sql())
+	} else {
+		rows = csql.Query(s.db, s.sql(), s.name)
+	}
+	csql.Panic(csql.ForRow(rows, func(scanner csql.RowScanner) {
+		var r Result
+		var ent string
+		csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
+			&r.Similarity, &r.Attrs,
+			&r.Rating.Votes, &r.Rating.Rank,
+			&r.Credit.ActorId, &r.Credit.MediaId, &r.Credit.Character,
+			&r.Credit.Position, &r.Credit.Attrs)
+		r.Entity = imdb.Entities[ent]
+		rs = append(rs, r)
+	}))
+	return
 }
 
 func (s *Searcher) Pick(rs []Result) (*Result, error) {

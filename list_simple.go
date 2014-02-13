@@ -25,7 +25,6 @@ type simpleLoad struct {
 
 func startSimpleLoad(db *imdb.DB, table string, columns ...string) *simpleLoad {
 	logf("Reading list to populate table %s...", table)
-	idxs(db, table).drop()
 
 	tx, err := db.Begin()
 	csql.Panic(err)
@@ -51,13 +50,12 @@ func (sl *simpleLoad) add(line []byte, args ...interface{}) {
 func (sl *simpleLoad) done() {
 	csql.Panic(sl.ins.Exec()) // inserts anything left in the buffer
 	csql.Panic(sl.tx.Commit())
-	idxs(sl.db, sl.table).create()
 	logf("Done with table %s. Inserted %d rows.", sl.table, sl.count)
 }
 
-func listSoundMixes(db *imdb.DB, r io.ReadCloser) {
-	table := startSimpleLoad(db, "sound_mix",
-		"atom_id", "mix", "attrs")
+func listSoundMixes(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
+	table := startSimpleLoad(db, "sound_mix", "atom_id", "mix", "attrs")
 	defer table.done()
 
 	listAttrRowIds(r, table.atoms, func(id imdb.Atom, line, ent, row []byte) {
@@ -72,9 +70,11 @@ func listSoundMixes(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, unicode(fields[0]), unicode(attrs))
 	})
+	return
 }
 
-func listGenres(db *imdb.DB, r io.ReadCloser) {
+func listGenres(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "genre", "atom_id", "name")
 	defer table.done()
 
@@ -85,9 +85,11 @@ func listGenres(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, unicode(fields[0]))
 	})
+	return
 }
 
-func listLanguages(db *imdb.DB, r io.ReadCloser) {
+func listLanguages(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "language", "atom_id", "name", "attrs")
 	defer table.done()
 
@@ -102,9 +104,11 @@ func listLanguages(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, unicode(fields[0]), unicode(attrs))
 	})
+	return
 }
 
-func listLocations(db *imdb.DB, r io.ReadCloser) {
+func listLocations(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "location", "atom_id", "place", "attrs")
 	defer table.done()
 
@@ -119,9 +123,11 @@ func listLocations(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, unicode(fields[0]), unicode(attrs))
 	})
+	return
 }
 
-func listTrivia(db *imdb.DB, r io.ReadCloser) {
+func listTrivia(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "trivia", "atom_id", "entry")
 	defer table.done()
 
@@ -129,9 +135,15 @@ func listTrivia(db *imdb.DB, r io.ReadCloser) {
 		table.add(item, id, unicode(item))
 	}
 	listPrefixItems(r, table.atoms, []byte{'#'}, []byte{'-'}, do)
+	return
 }
 
-func listAlternateVersions(db *imdb.DB, r io.ReadCloser) {
+func listAlternateVersions(
+	db *imdb.DB,
+	atoms *atomizer,
+	r io.ReadCloser,
+) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "alternate_version", "atom_id", "about")
 	defer table.done()
 
@@ -139,9 +151,11 @@ func listAlternateVersions(db *imdb.DB, r io.ReadCloser) {
 		table.add(item, id, unicode(item))
 	}
 	listPrefixItems(r, table.atoms, []byte{'#'}, []byte{'-'}, do)
+	return
 }
 
-func listTaglines(db *imdb.DB, r io.ReadCloser) {
+func listTaglines(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "tagline", "atom_id", "tag")
 	defer table.done()
 
@@ -149,9 +163,11 @@ func listTaglines(db *imdb.DB, r io.ReadCloser) {
 		table.add(item, id, unicode(item))
 	}
 	listPrefixItems(r, table.atoms, []byte{'#'}, []byte{'\t'}, do)
+	return
 }
 
-func listGoofs(db *imdb.DB, r io.ReadCloser) {
+func listGoofs(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "goof", "atom_id", "goof_type", "entry")
 	defer table.done()
 
@@ -166,9 +182,11 @@ func listGoofs(db *imdb.DB, r io.ReadCloser) {
 		table.add(item, id, unicode(goofType), unicode(item))
 	}
 	listPrefixItems(r, table.atoms, []byte{'#'}, []byte{'-'}, do)
+	return
 }
 
-func listLiterature(db *imdb.DB, r io.ReadCloser) {
+func listLiterature(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "literature", "atom_id", "lit_type", "ref")
 	defer table.done()
 
@@ -183,9 +201,15 @@ func listLiterature(db *imdb.DB, r io.ReadCloser) {
 		table.add(item, id, unicode(litType), unicode(item))
 	}
 	listPrefixItems(r, table.atoms, []byte("MOVI:"), nil, do)
+	return
 }
 
-func listRunningTimes(db *imdb.DB, r io.ReadCloser) {
+func listRunningTimes(
+	db *imdb.DB,
+	atoms *atomizer,
+	r io.ReadCloser,
+) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "running_time",
 		"atom_id", "country", "minutes", "attrs")
 	defer table.done()
@@ -231,9 +255,11 @@ func listRunningTimes(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, country, minutes, unicode(attrs))
 	})
+	return
 }
 
-func listRatings(db *imdb.DB, r io.ReadCloser) {
+func listRatings(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "rating", "atom_id", "votes", "rank")
 	defer table.done()
 
@@ -276,9 +302,11 @@ func listRatings(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, votes, int(10*rank))
 	})
+	return
 }
 
-func listAkaTitles(db *imdb.DB, r io.ReadCloser) {
+func listAkaTitles(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "aka_title", "atom_id", "title", "attrs")
 	defer table.done()
 
@@ -319,9 +347,11 @@ func listAkaTitles(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, title, unicode(attrs))
 	})
+	return
 }
 
-func listMovieLinks(db *imdb.DB, r io.ReadCloser) {
+func listMovieLinks(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "link", "atom_id",
 		"link_type", "link_atom_id", "entity")
 	defer table.done()
@@ -375,9 +405,11 @@ func listMovieLinks(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, linkType, linkAtom, linkEntity.String())
 	})
+	return
 }
 
-func listColorInfo(db *imdb.DB, r io.ReadCloser) {
+func listColorInfo(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "color_info",
 		"atom_id", "color", "attrs")
 	defer table.done()
@@ -418,9 +450,15 @@ func listColorInfo(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, color, unicode(attrs))
 	})
+	return
 }
 
-func listMPAARatings(db *imdb.DB, r io.ReadCloser) {
+func listMPAARatings(
+	db *imdb.DB,
+	atoms *atomizer,
+	r io.ReadCloser,
+) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "mpaa_rating", "atom_id", "rating", "reason")
 	defer table.done()
 
@@ -488,9 +526,15 @@ func listMPAARatings(db *imdb.DB, r io.ReadCloser) {
 		curReason = append(curReason, ' ')
 	})
 	add([]byte("UNKNOWN (last line?)"))
+	return
 }
 
-func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
+func listReleaseDates(
+	db *imdb.DB,
+	atoms *atomizer,
+	r io.ReadCloser,
+) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "release_date",
 		"atom_id", "country", "released", "attrs")
 	defer table.done()
@@ -545,9 +589,11 @@ func listReleaseDates(db *imdb.DB, r io.ReadCloser) {
 		}
 		table.add(line, id, country, date, attrs)
 	})
+	return
 }
 
-func listQuotes(db *imdb.DB, r io.ReadCloser) {
+func listQuotes(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "quote", "atom_id", "entry")
 	defer table.done()
 
@@ -584,9 +630,11 @@ func listQuotes(db *imdb.DB, r io.ReadCloser) {
 		curQuote = append(curQuote, ' ')
 	})
 	add([]byte("UNKNOWN (last line?)"))
+	return
 }
 
-func listPlots(db *imdb.DB, r io.ReadCloser) {
+func listPlots(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 	table := startSimpleLoad(db, "plot", "atom_id", "entry", "by")
 	defer table.done()
 
@@ -629,4 +677,5 @@ func listPlots(db *imdb.DB, r io.ReadCloser) {
 		}
 	})
 	add([]byte("UNKNOWN (last line?)"))
+	return
 }

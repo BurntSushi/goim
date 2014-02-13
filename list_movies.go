@@ -13,8 +13,8 @@ import (
 var attrTv, attrVid, attrVg = []byte("(TV)"), []byte("(V)"), []byte("(VG)")
 var attrUnknownYear, attrSuspended = []byte("????"), []byte("{{SUSPENDED}}")
 
-func listMovies(db *imdb.DB, movies io.ReadCloser) {
-	defer idxs(db, "atom", "name", "movie", "tvshow", "episode").drop().create()
+func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 
 	logf("Reading movies list...")
 	addedMovies, addedTvshows, addedEpisodes := 0, 0, 0
@@ -143,6 +143,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) {
 	})
 	logf("Done. Added %d movies, %d tv shows and %d episodes.",
 		addedMovies, addedTvshows, addedEpisodes)
+	return
 }
 
 func parseTvshow(tvshow []byte, tv *imdb.Tvshow) bool {

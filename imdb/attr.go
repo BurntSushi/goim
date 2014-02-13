@@ -25,7 +25,9 @@ func attrs(
 	e Entity,
 	tableName string,
 	extra string,
-) (interface{}, error) {
+) (v interface{}, err error) {
+	defer csql.Safe(&err)
+
 	rz := reflect.ValueOf(zero).Elem()
 	tz := rz.Type()
 	nfields := tz.NumField()
@@ -41,25 +43,24 @@ func attrs(
 	tattrs := reflect.SliceOf(tz)
 	vattrs := reflect.MakeSlice(tattrs, 0, 10)
 
-	err := csql.Safe(func() {
-		q := sf("SELECT %s FROM %s WHERE atom_id = $1 %s",
-			strings.Join(columns, ", "), tableName, extra)
-		rs := csql.Query(db, q, e.Ident())
-		csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
-			loadCols := make([]interface{}, nfields)
-			for i := 0; i < nfields; i++ {
-				loadCols[i] = reflect.New(tz.Field(i).Type).Interface()
-			}
-			csql.Scan(s, loadCols...)
+	q := sf("SELECT %s FROM %s WHERE atom_id = $1 %s",
+		strings.Join(columns, ", "), tableName, extra)
+	rs := csql.Query(db, q, e.Ident())
+	csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+		loadCols := make([]interface{}, nfields)
+		for i := 0; i < nfields; i++ {
+			loadCols[i] = reflect.New(tz.Field(i).Type).Interface()
+		}
+		csql.Scan(s, loadCols...)
 
-			row := reflect.New(tz).Elem()
-			for i := 0; i < nfields; i++ {
-				row.Field(i).Set(reflect.ValueOf(loadCols[i]).Elem())
-			}
-			vattrs = reflect.Append(vattrs, row)
-		}))
-	})
-	return vattrs.Interface(), err
+		row := reflect.New(tz).Elem()
+		for i := 0; i < nfields; i++ {
+			row.Field(i).Set(reflect.ValueOf(loadCols[i]).Elem())
+		}
+		vattrs = reflect.Append(vattrs, row)
+	}))
+	v = vattrs.Interface()
+	return
 }
 
 type RunningTime struct {

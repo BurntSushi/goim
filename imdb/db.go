@@ -50,20 +50,21 @@ func (db *DB) Close() error {
 	return db.DB.Close()
 }
 
-func (db *DB) Clean() error {
+func (db *DB) Clean() (err error) {
+	defer csql.Safe(&err)
+
 	tables := []string{"atom", "movie", "tvshow", "episode", "release"}
-	return csql.Safe(func() {
-		for _, table := range tables {
-			csql.Panic(csql.Truncate(db, db.Driver, table))
-		}
-	})
+	for _, table := range tables {
+		csql.Panic(csql.Truncate(db, db.Driver, table))
+	}
+	return
 }
 
 // Empty returns true if and only if the database does not have any data.
 // (At the moment, it determines this by only checking the movie table.)
 func (db *DB) Empty() bool {
 	empty := true
-	csql.Safe(func() { // ignore the error, return true
+	csql.SafeFunc(func() { // ignore the error, return true
 		var count int
 		r := db.QueryRow("SELECT COUNT(*) AS count FROM movie")
 		csql.Scan(r, &count)

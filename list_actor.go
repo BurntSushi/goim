@@ -8,8 +8,8 @@ import (
 	"github.com/BurntSushi/goim/imdb"
 )
 
-func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) {
-	defer idxs(db, "atom", "name", "actor", "credit").drop().create()
+func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
+	defer csql.Safe(&err)
 
 	logf("Reading actors list...")
 
@@ -58,6 +58,7 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) {
 
 	logf("Done. Added %d actors/actresses and %d credits.",
 		nacts1+nacts2, ncreds1+ncreds2)
+	return
 }
 
 func listActs(

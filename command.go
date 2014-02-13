@@ -36,10 +36,9 @@ var (
 		fmt.Fprintf(os.Stderr, f+"\n", v...)
 	}
 	logf = func(format string, v ...interface{}) {
-		if flagQuiet {
-			return
+		if !flagQuiet {
+			pef(format, v...)
 		}
-		pef(format, v...)
 	}
 	warnf = func(format string, v ...interface{}) {
 		if flagWarnings {
@@ -288,14 +287,6 @@ func (c *command) assertLeastNArg(n int) {
 
 func createFile(fpath string) *os.File {
 	f, err := os.Create(fpath)
-	if err != nil {
-		fatalf(err.Error())
-	}
-	return f
-}
-
-func openFile(fpath string) *os.File {
-	f, err := os.Open(fpath)
 	if err != nil {
 		fatalf(err.Error())
 	}

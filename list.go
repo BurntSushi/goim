@@ -3,10 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"io"
 	"strconv"
-	"strings"
 
 	"github.com/BurntSushi/csql"
 
@@ -19,65 +17,6 @@ var (
 	hypen    = []byte{'-'}
 	openHash = []byte{'(', '#'}
 )
-
-type gzipCloser struct {
-	*gzip.Reader
-	underlying io.ReadCloser
-}
-
-func (gc *gzipCloser) Close() error {
-	defer func() {
-		gc.Reader = nil
-		gc.underlying = nil
-	}()
-
-	if gc.Reader == nil || gc.underlying == nil {
-		return nil
-	}
-
-	var err error
-	if err = gc.Reader.Close(); err != nil {
-		pef("Error closing gzip reader: %s", err)
-	}
-	if err = gc.underlying.Close(); err != nil {
-		pef("Error closing initial source: %s", err)
-	}
-	return err
-}
-
-type listHandler func(db *imdb.DB, list io.ReadCloser)
-
-func listLoad(db *imdb.DB, list io.ReadCloser, handler listHandler) error {
-	gzlist, err := gzip.NewReader(list)
-	if err != nil {
-		return err
-	}
-
-	gzlistc := &gzipCloser{gzlist, list}
-	defer gzlistc.Close()
-
-	return csql.Safe(func() { handler(db, gzlistc) })
-}
-
-type listHandler2 func(db *imdb.DB, list1, list2 io.ReadCloser)
-
-func listLoad2(db *imdb.DB, list1, list2 io.ReadCloser, h listHandler2) error {
-	gzlist1, err := gzip.NewReader(list1)
-	if err != nil {
-		return err
-	}
-	gzlist2, err := gzip.NewReader(list2)
-	if err != nil {
-		return err
-	}
-
-	gzlistc1 := &gzipCloser{gzlist1, list1}
-	gzlistc2 := &gzipCloser{gzlist2, list2}
-	defer gzlistc1.Close()
-	defer gzlistc2.Close()
-
-	return csql.Safe(func() { h(db, gzlistc1, gzlistc2) })
-}
 
 // listPrefixItems is a convenience function for reading IMDb lists of the
 // format:
@@ -302,9 +241,6 @@ func listLinesSuspended(list io.ReadCloser, suspended bool, do func([]byte)) {
 		do(line)
 	}
 	csql.Panic(scanner.Err())
-	if err := list.Close(); err != nil {
-		pef("Error closing: %s", err)
-	}
 }
 
 // splitListLine returns fields of the given line determined by tab characters.
@@ -484,27 +420,4 @@ func entityType(listName string, item []byte) imdb.EntityKind {
 		}
 	}
 	panic("BUG: unrecognized list name " + listName)
-}
-
-type indices struct {
-	db     *imdb.DB
-	tables []string
-}
-
-func idxs(db *imdb.DB, tables ...string) indices {
-	return indices{db, tables}
-}
-
-func (ins indices) drop() indices {
-	logf("Dropping indices for %s...", strings.Join(ins.tables, ", "))
-	csql.Panic(ins.db.DropIndices(ins.tables...))
-	logf("done.")
-	return ins
-}
-
-func (ins indices) create() indices {
-	logf("Creating indices for %s...", strings.Join(ins.tables, ", "))
-	csql.Panic(ins.db.CreateIndices(ins.tables...))
-	logf("done.")
-	return ins
 }

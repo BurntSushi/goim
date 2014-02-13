@@ -107,7 +107,7 @@ func (e Episode) Tvshow() Tvshow {
 }
 
 func (e Tvshow) CountSeasons() (count int) {
-	assert(csql.Safe(func() {
+	assert(csql.SafeFunc(func() {
 		count = csql.Count(e.db, `
 			SELECT COUNT(*) AS count
 			FROM (
@@ -121,7 +121,7 @@ func (e Tvshow) CountSeasons() (count int) {
 }
 
 func (e Tvshow) CountEpisodes() (count int) {
-	assert(csql.Safe(func() {
+	assert(csql.SafeFunc(func() {
 		count = csql.Count(e.db, `
 			SELECT COUNT(*) AS count
 			FROM episode

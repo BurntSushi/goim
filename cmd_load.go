@@ -7,6 +7,10 @@ import (
 	"strings"
 
 	"github.com/kr/text"
+
+	"github.com/BurntSushi/ty/fun"
+
+	"github.com/BurntSushi/goim/imdb"
 )
 
 var (
@@ -28,8 +32,9 @@ var loadLists = []string{
 	"locations", "movie-links", "quotes", "plot", "ratings",
 }
 
-var loaders = map[string]listHandler{
-	"movies":               listMovies,
+type listHandler func(*imdb.DB, *atomizer, io.ReadCloser) error
+
+var simpleLoaders = map[string]listHandler{
 	"release-dates":        listReleaseDates,
 	"running-times":        listRunningTimes,
 	"aka-titles":           listAkaTitles,
@@ -48,8 +53,8 @@ var loaders = map[string]listHandler{
 	"quotes":               listQuotes,
 	"plot":                 listPlots,
 	"ratings":              listRatings,
-	// the function for loading actors/actresses is an anomaly, so it's
-	// not included here. it's special cased, unfortunately.
+	// Functions for loading movies and actors are excluded from this list
+	// since they require some special attention.
 }
 
 var namedFtp = map[string]string{
@@ -65,11 +70,11 @@ var cmdLoad = &command{
 		"ftp://... | http://... | dir ]",
 	shortHelp: "populates fresh database with IMDB data",
 	help: `
-This command loads the current database with the contents of the IMDB
+This command loads the current database with the contents of the IMDb
 database given. It may be a named FTP location, an FTP url, an HTTP url or
 a directory on the local file system. Regardless of how the location is
 specified, it must point to a directory (whether remote or local) containing 
-IMDB gzipped list files.
+IMDb gzipped list files.
 
 By default, the 'berlin' public FTP site is used.
 
@@ -105,7 +110,27 @@ the 'clean' command and then running 'load'.
 
 func cmd_load(c *command) bool {
 	driver, dsn := c.dbinfo()
+	db := openDb(driver, dsn)
+	defer closeDb(db)
 
+	// Figure out which lists we're loading and make sure each list name is
+	// valid before proceeding.
+	var userLoadLists []string
+	if flagLoadLists == "all" {
+		userLoadLists = loadLists
+	} else {
+		for _, name := range strings.Split(flagLoadLists, ",") {
+			name = strings.ToLower(strings.TrimSpace(name))
+			if !fun.In(name, loadLists) {
+				pef("%s is not a valid list name. See 'goim help load'.", name)
+				return false
+			}
+			userLoadLists = append(userLoadLists, name)
+		}
+	}
+
+	// Build the "fetcher" to retrieve lists (whether it be from the file
+	// system, HTTP or FTP).
 	getFrom := c.flags.Arg(0)
 	if len(getFrom) == 0 {
 		getFrom = "berlin"
@@ -114,72 +139,161 @@ func cmd_load(c *command) bool {
 	if fetch == nil {
 		return false
 	}
-	for _, name := range loadLists {
-		if !loaderIn(name, flagLoadLists) {
-			continue
-		}
-		ok := func() bool {
-			if len(flagLoadDownload) > 0 {
-				downloadList(fetch, name)
-				if name == "actors" {
-					downloadList(fetch, "actresses")
-				}
-				return true
+
+	// If we're downloading, then just do that and quit.
+	if len(flagLoadDownload) > 0 {
+		for _, name := range userLoadLists {
+			if err := downloadList(fetch, name); err != nil {
+				pef("%s", err)
+				return false
 			}
-
-			list := fetch.list(name)
-			defer list.Close()
-
 			if name == "actors" {
-				list2 := fetch.list("actresses")
-				defer list2.Close()
-
-				db := openDb(driver, dsn)
-				defer closeDb(db)
-
-				if err := listLoad2(db, list, list2, listActors); err != nil {
-					pef("Could not store actors/actresses list: %s", err)
+				if err := downloadList(fetch, "actresses"); err != nil {
+					pef("%s", err)
 					return false
 				}
-			} else {
-				if ld := loaders[name]; ld != nil {
-					db := openDb(driver, dsn)
-					defer closeDb(db)
-
-					if err := listLoad(db, list, ld); err != nil {
-						pef("Could not store %s list: %s", name, err)
-						return false
-					}
-				}
 			}
-			return true
-		}()
+		}
+		return true
+	}
+
+	// Figure out which tables we'll be modifying and drop the indices for
+	// those tables.
+	var tables []string
+	for _, name := range userLoadLists {
+		tablesForList, ok := listTables[name]
 		if !ok {
+			pef("BUG: Could not find tables to modify for list %s", name)
 			return false
 		}
+		tables = append(tables, tablesForList...)
+	}
+	tables = fun.Keys(fun.Set(tables)).([]string)
+
+	logf("Dropping indices for: %s", strings.Join(tables, ", "))
+	if err := db.DropIndices(tables...); err != nil {
+		pef("Could not drop indices: %s", err)
+		return false
+	}
+
+	// Before launching into loading---which can be done in parallel---we need
+	// to load movies and actors first since they insert data that most of the
+	// other lists depend on. Also, they cannot be loaded in parallel since
+	// they are the only loaders that *add* atoms to the database.
+	if loaderIn("movies", userLoadLists) {
+		if err := loadMovies(driver, dsn, fetch); err != nil {
+			pef("%s", err)
+			return false
+		}
+	}
+	if loaderIn("actors", userLoadLists) {
+		if err := loadActors(driver, dsn, fetch); err != nil {
+			pef("%s", err)
+			return false
+		}
+	}
+
+	// This must be done after movies/actors are loaded so that we get all
+	// of their atoms.
+	logf("Reading atom identifiers from database...")
+	atoms, err := newAtomizer(db, nil) // read-only
+	if err != nil {
+		pef("%s", err)
+		return false
+	}
+	simpleLoad := func(name string) bool {
+		if !loaderIn(name, userLoadLists) {
+			return false
+		}
+		loader := simpleLoaders[name]
+		if loader == nil {
+			// could be "movies" or "actors", which are loaded ^^^
+			return true
+		}
+
+		db := openDb(driver, dsn)
+		defer closeDb(db)
+
+		list, err := fetch.list(name)
+		if err != nil {
+			pef("%s", err)
+			return false
+		}
+		defer list.Close()
+
+		if err := loader(db, atoms, list); err != nil {
+			pef("Could not store %s list: %s", name, err)
+			return false
+		}
+		return true
+	}
+	fun.ParMapN(simpleLoad, loadLists, flagCpu)
+
+	logf("Creating indices for: %s", strings.Join(tables, ", "))
+	if err := db.CreateIndices(tables...); err != nil {
+		pef("Could not create indices: %s", err)
+		return false
 	}
 	return true
 }
 
-func downloadList(fetch fetcher, name string) {
-	list := fetch.list(name)
+func downloadList(fetch fetcher, name string) error {
+	list, err := fetch.list(name)
+	if err != nil {
+		return err
+	}
 	defer list.Close()
 
 	saveto := path.Join(flagLoadDownload, sf("%s.list.gz", name))
 	logf("Downloading %s to %s...", name, saveto)
 	f := createFile(saveto)
 	if _, err := io.Copy(f, list); err != nil {
-		fatalf("Could not save '%s' to disk: %s", name, err)
+		return ef("Could not save '%s' to disk: %s", name, err)
 	}
+	return nil
 }
 
-func loaderIn(name, commaSep string) bool {
-	commaSep = strings.TrimSpace(commaSep)
-	if len(commaSep) == 0 || commaSep == "all" {
-		return true
+func loadMovies(driver, dsn string, fetch fetcher) error {
+	list, err := fetch.list("movies")
+	if err != nil {
+		return err
 	}
+	defer list.Close()
+
+	db := openDb(driver, dsn)
+	defer closeDb(db)
+
+	if err := listMovies(db, list); err != nil {
+		return ef("Could not store movies list: %s", err)
+	}
+	return nil
+}
+
+func loadActors(driver, dsn string, fetch fetcher) error {
+	list1, err := fetch.list("actors")
+	if err != nil {
+		return err
+	}
+	defer list1.Close()
+
+	list2, err := fetch.list("actresses")
+	if err != nil {
+		return err
+	}
+	defer list2.Close()
+
+	db := openDb(driver, dsn)
+	defer closeDb(db)
+
+	if err := listActors(db, list1, list2); err != nil {
+		return ef("Could not store actors/actresses list: %s", err)
+	}
+	return nil
+}
+
+func loaderIn(name string, userList []string) bool {
 	name = strings.ToLower(name)
-	for _, load := range strings.Split(commaSep, ",") {
+	for _, load := range userList {
 		load = strings.TrimSpace(load)
 		if name == strings.ToLower(load) {
 			return true

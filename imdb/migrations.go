@@ -325,29 +325,34 @@ func (in index) sqlDrop(db *DB) string {
 	return sf("DROP INDEX IF EXISTS %s", in.sqlName())
 }
 
-func doIndices(db *DB, getSql func(index, *DB) string, tables ...string) error {
+func doIndices(
+	db *DB,
+	getSql func(index, *DB) string,
+	tables ...string,
+) (err error) {
+	defer csql.Safe(&err)
+
 	trgmEnabled := db.IsFuzzyEnabled()
-	return csql.Safe(func() {
-		var q string
-		var ok bool
-		for _, idx := range indices {
-			if idx.isFulltext() && !trgmEnabled {
-				// Only show the error message if we're on PostgreSQL.
-				if db.Driver == "postgres" {
-					logf("Skipping fulltext index '%s' since "+
-						"the pg_trgm extension is not enabled.", idx.sqlName())
-				}
-				continue
+	var q string
+	var ok bool
+	for _, idx := range indices {
+		if idx.isFulltext() && !trgmEnabled {
+			// Only show the error message if we're on PostgreSQL.
+			if db.Driver == "postgres" {
+				logf("Skipping fulltext index '%s' since "+
+					"the pg_trgm extension is not enabled.", idx.sqlName())
 			}
-			if len(tables) == 0 || fun.In(idx.table, tables) {
-				q += getSql(idx, db) + "; "
-				ok = true
-			}
+			continue
 		}
-		if ok {
-			csql.Exec(db, q)
+		if len(tables) == 0 || fun.In(idx.table, tables) {
+			q += getSql(idx, db) + "; "
+			ok = true
 		}
-	})
+	}
+	if ok {
+		csql.Exec(db, q)
+	}
+	return
 }
 
 func (db *DB) CreateIndices(tables ...string) error {
