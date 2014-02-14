@@ -68,25 +68,7 @@ type Result struct {
 }
 
 func (sr Result) GetEntity(db csql.Queryer) (imdb.Entity, error) {
-	return fromAtom(db, sr.Entity, sr.Id)
-}
-
-func fromAtom(
-	db csql.Queryer,
-	ent imdb.EntityKind,
-	id imdb.Atom,
-) (imdb.Entity, error) {
-	switch ent {
-	case imdb.EntityMovie:
-		return imdb.AtomToMovie(db, id)
-	case imdb.EntityTvshow:
-		return imdb.AtomToTvshow(db, id)
-	case imdb.EntityEpisode:
-		return imdb.AtomToEpisode(db, id)
-	case imdb.EntityActor:
-		return imdb.AtomToActor(db, id)
-	}
-	return nil, ef("Unrecognized entity type: %s", ent)
+	return imdb.FromAtom(db, sr.Entity, sr.Id)
 }
 
 // Searcher represents the parameters of a search.

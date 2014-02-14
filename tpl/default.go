@@ -27,6 +27,27 @@ type Formatted struct {
 var Defaults = defaults
 
 var defaults = strings.TrimSpace(`
+{{ define "links" }}
+	{{ $links := links .E | sort }}
+	{{ if eq 0 (len $links) }}
+		Could not find any links for "{{ .E }}".
+	{{ else }}
+
+		{{ printf "Links for %s" .E | underlined "=" }}
+
+		{{ $ent := .E }}
+		{{ range $lk := $links }}
+			{{ if eq $ent.Type $lk.Entity.Type }}
+				{{ printf "%s %s" $lk.Type $lk.Entity }}
+			{{ else }}
+				{{ printf "%s %s (%s)" $lk.Type $lk.Entity $lk.Entity.Type }}
+			{{ end }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
 {{ define "plots" }}
 	{{ $plots := plots .E }}
 	{{ if eq 0 (len $plots) }}

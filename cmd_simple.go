@@ -89,32 +89,38 @@ func cmd_full(c *command) bool {
 	return true
 }
 
-var (
-	cmdPlots = &command{
-		name:            "plots",
-		positionalUsage: "query",
-		shortHelp:       "show plot summaries for media",
-		help:            "",
-		flags:           flag.NewFlagSet("plots", flag.ExitOnError),
-		run:             cmd_attr("plots"),
+var attrCommands = map[string]string{
+	"running-times":      "show running times (by region) for media",
+	"release-dates":      "show release dates (by region) for media",
+	"aka-titles":         "show AKA titles for media",
+	"alternate-versions": "show alternate versions for media",
+	"color-info":         "show color info for media",
+	"mpaa":               "show MPAA rating for media",
+	"sound-mix":          "show sound mix information for media",
+	"taglines":           "show taglines for media",
+	"trivia":             "show trivia for media",
+	"genres":             "show genres tags for media",
+	"goofs":              "show goofs for media",
+	"language":           "show language information for media",
+	"literature":         "show literature references for media",
+	"locations":          "show geography locations for media",
+	"links":              "show links (prequels, sequels, versions) of media",
+	"plots":              "show plot summaries for media",
+	"quotes":             "show quotes for media",
+	"rank":               "show user rank/votes for media",
+}
+
+func init() {
+	for name, help := range attrCommands {
+		commands = append(commands, &command{
+			name:            name,
+			positionalUsage: "query",
+			shortHelp:       help,
+			flags:           flag.NewFlagSet(name, flag.ExitOnError),
+			run:             cmd_attr(name),
+		})
 	}
-	cmdQuotes = &command{
-		name:            "quotes",
-		positionalUsage: "query",
-		shortHelp:       "show quotes for media",
-		help:            "",
-		flags:           flag.NewFlagSet("quotes", flag.ExitOnError),
-		run:             cmd_attr("quotes"),
-	}
-	cmdRank = &command{
-		name:            "rank",
-		positionalUsage: "query",
-		shortHelp:       "show user rank/votes for media",
-		help:            "",
-		flags:           flag.NewFlagSet("rank", flag.ExitOnError),
-		run:             cmd_attr("rank"),
-	}
-)
+}
 
 func cmd_attr(name string) func(*command) bool {
 	return func(c *command) bool {

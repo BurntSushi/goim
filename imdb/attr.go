@@ -71,6 +71,13 @@ func attrs(
 	return
 }
 
+// RunningTime represents the running time of an entity in minutes. It may
+// also include a country and some miscellaneous attributes.
+// A given entity may have more than one running time because running times
+// may differ depending upon the country they were released in.
+// IMDb's data guides claim that more than one running time should only exist
+// if there is a significant (> 5 minutes) difference, but in practice, this
+// does not appear true.
 type RunningTime struct {
 	Country string
 	Minutes int
@@ -88,12 +95,27 @@ func (r RunningTime) String() string {
 	return sf("%d minutes%s%s", r.Minutes, country, attrs)
 }
 
-func RunningTimes(db csql.Queryer, e Entity) ([]RunningTime, error) {
+// RunningTimes corresponds to a list of running times, usually for one
+// particular entity.
+// *RunningTimes satisfies the Attributer interface.
+type RunningTimes []RunningTime
+
+func (as *RunningTimes) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all running times corresponding to the entity
+// given.
+// Note that the list returned is ordered by country. As a result, the running
+// time without a country comes first---which IMDb claims *should* be the
+// default.
+func (as *RunningTimes) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(RunningTime), db, e,
 		"running_time", "ORDER BY country ASC")
-	return rows.([]RunningTime), err
+	*as = rows.([]RunningTime)
+	return err
 }
 
+// ReleaseDate represents the date that a media item was released, along with
+// the region and miscellaneous attributes.
 type ReleaseDate struct {
 	Country  string
 	Released time.Time
@@ -120,12 +142,25 @@ func (r ReleaseDate) String() string {
 	return full
 }
 
-func ReleaseDates(db csql.Queryer, e Entity) ([]ReleaseDate, error) {
+// ReleaseDates corresponds to a list of release dates, usually for one
+// particular entity.
+// *ReleaseDates satisfies the Attributer interface.
+type ReleaseDates []ReleaseDate
+
+func (as *ReleaseDates) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all release dates corresponding to the entity
+// given.
+// Note that the list returned is sorted by release date in ascending order.
+func (as *ReleaseDates) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(ReleaseDate), db, e, "release_date",
 		"ORDER BY released")
-	return rows.([]ReleaseDate), err
+	*as = rows.([]ReleaseDate)
+	return err
 }
 
+// AkaTitle represents the alternative title of a media item with optional
+// attributes.
 type AkaTitle struct {
 	Title string
 	Attrs string
@@ -139,11 +174,23 @@ func (at AkaTitle) String() string {
 	return s
 }
 
-func AkaTitles(db csql.Queryer, e Entity) ([]AkaTitle, error) {
+// AkaTitles corresponds to a list of AKA titles, usually for one particular
+// entity.
+// *AkaTitles satisfies the Attributer interface.
+type AkaTitles []AkaTitle
+
+func (as *AkaTitles) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all AKA titles corresponding to the entity given.
+// The list returned is sorted alphabetically in ascending order.
+func (as *AkaTitles) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(AkaTitle), db, e, "aka_title", "ORDER BY title")
-	return rows.([]AkaTitle), err
+	*as = rows.([]AkaTitle)
+	return err
 }
 
+// AlternateVersion represents a description of an alternative version of
+// an entity.
 type AlternateVersion struct {
 	About string
 }
@@ -152,11 +199,24 @@ func (av AlternateVersion) String() string {
 	return av.About
 }
 
-func AlternateVersions(db csql.Queryer, e Entity) ([]AlternateVersion, error) {
+// AlternativeVersions corresponds to a list of alternative versions, usually
+// for one particular entity.
+// *AlternateVersions satisfies the Attributer interface.
+type AlternateVersions []AlternateVersion
+
+func (as *AlternateVersions) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all alternative versions corresponding to the
+// entity given.
+func (as *AlternateVersions) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(AlternateVersion), db, e, "alternate_version", "")
-	return rows.([]AlternateVersion), err
+	*as = rows.([]AlternateVersion)
+	return err
 }
 
+// ColorInfo represents the color information of media. Generally this
+// indicates whether the film is in black and white or not, along with some
+// miscellaneous attributes.
 type ColorInfo struct {
 	Color bool
 	Attrs string
@@ -173,16 +233,30 @@ func (ci ColorInfo) String() string {
 	return s
 }
 
-func ColorInfos(db csql.Queryer, e Entity) ([]ColorInfo, error) {
+// ColorInfos corresponds to a list of color information, usually for one
+// particular entity.
+// *ColorInfos satisfies the Attributer interface.
+type ColorInfos []ColorInfo
+
+func (as *ColorInfos) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all color information corresponding to the entity
+// given.
+func (as *ColorInfos) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(ColorInfo), db, e, "color_info", "")
-	return rows.([]ColorInfo), err
+	*as = rows.([]ColorInfo)
+	return err
 }
 
+// RatingReason represents an MPAA standard rating and the reason for which
+// that rating was given.
+// *RatingReason satisfies the Attributer interface.
 type RatingReason struct {
 	Rating string
 	Reason string
 }
 
+// Unrated returns true if and only if there is no MPAA rating.
 func (mr RatingReason) Unrated() bool {
 	return len(mr.Rating) == 0
 }
@@ -198,15 +272,29 @@ func (mr RatingReason) String() string {
 	return sf("Rated %s%s", mr.Rating, reason)
 }
 
-func MPAARating(db csql.Queryer, e Entity) (RatingReason, error) {
-	rows, err := attrs(new(RatingReason), db, e, "mpaa_rating", "LIMIT 1")
-	reasons := rows.([]RatingReason)
-	if len(reasons) == 0 {
-		return RatingReason{}, err
+// Len is 0 if there is no rating or if it is unrated. Otherwise, the Len is 1.
+func (mr *RatingReason) Len() int {
+	if mr == nil || mr.Unrated() {
+		return 0
+	} else {
+		return 1
 	}
-	return reasons[0], err
 }
 
+// ForEntity fills 'mr' with an MPAA rating if it exists. Otherwise, it remains
+// nil.
+func (mr *RatingReason) ForEntity(db csql.Queryer, e Entity) error {
+	rows, err := attrs(new(RatingReason), db, e, "mpaa_rating", "LIMIT 1")
+	reasons := rows.([]RatingReason)
+	if len(reasons) > 0 {
+		*mr = reasons[0]
+	}
+	return err
+}
+
+// SoundMix represents the type of sound mix used for a particular entity, like
+// "Stereo" or "Dolby Digital". A sound mix may also have miscellaneous
+// attributes.
 type SoundMix struct {
 	Mix   string
 	Attrs string
@@ -220,11 +308,22 @@ func (sm SoundMix) String() string {
 	return s
 }
 
-func SoundMixes(db csql.Queryer, e Entity) ([]SoundMix, error) {
+// SoundMixes corresponds to a list of sound mixes, usually for one particular
+// entity.
+// *SoundMixes satisfies the Attributer interface.
+type SoundMixes []SoundMix
+
+func (as *SoundMixes) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all sound mixes corresponding to the entity given.
+func (as *SoundMixes) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(SoundMix), db, e, "sound_mix", "")
-	return rows.([]SoundMix), err
+	*as = rows.([]SoundMix)
+	return err
 }
 
+// Tagline represents one tagline about an entity, which is usually a very
+// short quip.
 type Tagline struct {
 	Tag string
 }
@@ -233,11 +332,22 @@ func (t Tagline) String() string {
 	return t.Tag
 }
 
-func Taglines(db csql.Queryer, e Entity) ([]Tagline, error) {
+// Taglines corresponds to a list of taglines, usually for one particular
+// entity.
+// *Taglines satisfies the Attributer interface.
+type Taglines []Tagline
+
+func (as *Taglines) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all taglines corresponding to the entity given.
+func (as *Taglines) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Tagline), db, e, "tagline", "")
-	return rows.([]Tagline), err
+	*as = rows.([]Tagline)
+	return err
 }
 
+// Trivia corresponds to a single piece of trivia about an entity. The text
+// is guaranteed not to have any new lines.
 type Trivia struct {
 	Entry string
 }
@@ -246,11 +356,20 @@ func (t Trivia) String() string {
 	return t.Entry
 }
 
-func Trivias(db csql.Queryer, e Entity) ([]Trivia, error) {
+// Trivias corresponds to a list of trivia, usually for one particular entity.
+// *Trivias satisfies the Attributer interface.
+type Trivias []Trivia
+
+func (as *Trivias) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all trivia corresponding to the entity given.
+func (as *Trivias) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Trivia), db, e, "trivia", "")
-	return rows.([]Trivia), err
+	*as = rows.([]Trivia)
+	return err
 }
 
+// Genre represents a single genre tag for an entity.
 type Genre struct {
 	Name string
 }
@@ -259,11 +378,23 @@ func (g Genre) String() string {
 	return g.Name
 }
 
-func Genres(db csql.Queryer, e Entity) ([]Genre, error) {
+// Genres corresponds to a list of genre tags, usually for one particular
+// entity.
+// *Genres satisfies the Attributer interface.
+type Genres []Genre
+
+func (as *Genres) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all genre tags correspondings to the entity given.
+// Note that genres are sorted alphabetically in ascending order.
+func (as *Genres) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Genre), db, e, "genre", "ORDER BY name ASC")
-	return rows.([]Genre), err
+	*as = rows.([]Genre)
+	return err
 }
 
+// Goof represents a single goof for an entity. There are several types of
+// goofs, and each goof is labeled with a single type.
 type Goof struct {
 	Type  string `imdb_name:"goof_type"`
 	Entry string
@@ -273,11 +404,21 @@ func (g Goof) String() string {
 	return sf("(%s) %s", g.Type, g.Entry)
 }
 
-func Goofs(db csql.Queryer, e Entity) ([]Goof, error) {
+// Goofs corresponds to a list of goofs, usually for one particular entity.
+// *Goofs satisfies the Attributer interface.
+type Goofs []Goof
+
+func (as *Goofs) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all goofs corresponding to the entity given.
+func (as *Goofs) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Goof), db, e, "goof", "")
-	return rows.([]Goof), err
+	*as = rows.([]Goof)
+	return err
 }
 
+// Language represents the language for a particular entity. Each language
+// label may have miscellaneous attributes.
 type Language struct {
 	Name  string
 	Attrs string
@@ -291,11 +432,24 @@ func (lang Language) String() string {
 	return s
 }
 
-func Languages(db csql.Queryer, e Entity) ([]Language, error) {
+// Languages corresponds to a list of languages, usually for one particular
+// entity.
+// *Languages satisfies the Attributer interface.
+type Languages []Language
+
+func (as *Languages) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all language labels corresponding to the entity
+// given.
+func (as *Languages) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Language), db, e, "language", "")
-	return rows.([]Language), err
+	*as = rows.([]Language)
+	return err
 }
 
+// Literature represents a single written reference to an entity. There are
+// different types of references, and each reference is tagged with a single
+// type.
 type Literature struct {
 	Type string `imdb_name:"lit_type"`
 	Ref  string
@@ -305,11 +459,24 @@ func (lit Literature) String() string {
 	return sf("(%s) %s", lit.Type, lit.Ref)
 }
 
-func Literatures(db csql.Queryer, e Entity) ([]Literature, error) {
+// Literatures corresponds to a list of literature references, usually for one
+// particular entity.
+// *Literatures satisfies the Attributer interface.
+type Literatures []Literature
+
+func (as *Literatures) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all literature references corresponding to the
+// entity given.
+func (as *Literatures) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Literature), db, e, "literature", "")
-	return rows.([]Literature), err
+	*as = rows.([]Literature)
+	return err
 }
 
+// Location represents a geographic location for a particular entity, usually
+// corresponding to a filming location. Each location may have miscellaneous
+// attributes.
 type Location struct {
 	Place string
 	Attrs string
@@ -323,24 +490,79 @@ func (loc Location) String() string {
 	return s
 }
 
-func Locations(db csql.Queryer, e Entity) ([]Location, error) {
+// Locations corresponds to a list of locations, usually for one particular
+// entity.
+// *Locations satisfies the Attributer interface.
+type Locations []Location
+
+func (as *Locations) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all locations corresponding to the entity given.
+func (as *Locations) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Location), db, e, "location", "")
-	return rows.([]Location), err
+	*as = rows.([]Location)
+	return err
 }
 
+// Link represents a link between two entities of the same type. For example,
+// they can describe movie prequels or sequels. Each link has a corresponding
+// type (e.g., "followed by", "follows", ...) and the linked entity itself
 type Link struct {
-	Type   string `imdb_name:"link_type"`
-	Id     Atom   `imdb_name:"link_atom_id"`
-	Entity string
+	Type   string
+	Entity Entity
 }
 
 func (lk Link) String() string {
-	return sf("%s %d (%s)", lk.Type, lk.Id, lk.Entity)
+	return sf("%s %d (%s)", lk.Type, lk.Entity, lk.Entity.Type())
 }
 
-func Links(db csql.Queryer, e Entity) ([]Link, error) {
-	rows, err := attrs(new(Link), db, e, "link", "")
-	return rows.([]Link), err
+// Links corresponds to a list of connections between entities, usually
+// originating from one particular entity.
+// Links satisfies the sort.Interface interface.
+// *Links satisfies the Attributer interface.
+type Links []Link
+
+func (as Links) Swap(i, j int) { as[i], as[j] = as[j], as[i] }
+func (as Links) Less(i, j int) bool {
+	iyear, jyear := as[i].Entity.EntityYear(), as[j].Entity.EntityYear()
+	// move entity with a 0 year to bottom (usually indicates an entity that
+	// is speculated to be released).
+	if iyear == 0 {
+		return false
+	}
+	if jyear == 0 {
+		return true
+	}
+	return iyear < jyear
+}
+
+func (as *Links) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all links corresponding to the entity given.
+func (as *Links) ForEntity(db csql.Queryer, e Entity) error {
+	type link struct {
+		Type   string `imdb_name:"link_type"`
+		Id     Atom   `imdb_name:"link_atom_id"`
+		Entity string
+	}
+	rows, err := attrs(new(link), db, e, "link", "")
+
+	// Blech, map entity strings to typed entity kinds...
+	links := rows.([]link)
+	typedLinks := make([]Link, len(links))
+	for i := range links {
+		kind := EntityKindFromString(links[i].Entity)
+		ent, err := FromAtom(db, kind, links[i].Id)
+		if err != nil {
+			return err
+		}
+		typedLinks[i] = Link{
+			Type:   links[i].Type,
+			Entity: ent,
+		}
+	}
+	*as = typedLinks
+	return err
 }
 
 // Plot represents the text of a plot summary---and it's author---for a movie,

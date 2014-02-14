@@ -53,8 +53,23 @@ type Entity interface {
 	Ident() Atom
 	Type() EntityKind
 	Name() string
+	EntityYear() int
 	Attrs(csql.Queryer, Attributer) error
 	Scan(rs csql.RowScanner) error
+}
+
+func FromAtom(db csql.Queryer, ent EntityKind, id Atom) (Entity, error) {
+	switch ent {
+	case EntityMovie:
+		return AtomToMovie(db, id)
+	case EntityTvshow:
+		return AtomToTvshow(db, id)
+	case EntityEpisode:
+		return AtomToEpisode(db, id)
+	case EntityActor:
+		return AtomToActor(db, id)
+	}
+	return nil, ef("Unrecognized entity type: %s", ent)
 }
 
 type Movie struct {
@@ -91,6 +106,7 @@ type Actor struct {
 func (e *Movie) Ident() Atom      { return e.Id }
 func (e *Movie) Type() EntityKind { return EntityMovie }
 func (e *Movie) Name() string     { return e.Title }
+func (e *Movie) EntityYear() int  { return e.Year }
 func (e *Movie) String() string   { return sf("%s (%d)", e.Title, e.Year) }
 func (e *Movie) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)
@@ -99,6 +115,7 @@ func (e *Movie) Attrs(db csql.Queryer, attrs Attributer) error {
 func (e *Tvshow) Ident() Atom      { return e.Id }
 func (e *Tvshow) Type() EntityKind { return EntityTvshow }
 func (e *Tvshow) Name() string     { return e.Title }
+func (e *Tvshow) EntityYear() int  { return e.Year }
 func (e *Tvshow) String() string   { return sf("%s (%d)", e.Title, e.Year) }
 func (e *Tvshow) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)
@@ -107,6 +124,7 @@ func (e *Tvshow) Attrs(db csql.Queryer, attrs Attributer) error {
 func (e *Episode) Ident() Atom      { return e.Id }
 func (e *Episode) Type() EntityKind { return EntityEpisode }
 func (e *Episode) Name() string     { return e.Title }
+func (e *Episode) EntityYear() int  { return e.Year }
 func (e *Episode) String() string   { return sf("%s %d", e.Title, e.Year) }
 func (e *Episode) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)
@@ -115,6 +133,7 @@ func (e *Episode) Attrs(db csql.Queryer, attrs Attributer) error {
 func (e *Actor) Ident() Atom      { return e.Id }
 func (e *Actor) Type() EntityKind { return EntityActor }
 func (e *Actor) Name() string     { return e.FullName }
+func (e *Actor) EntityYear() int  { return 0 }
 func (e *Actor) String() string   { return e.FullName }
 func (e *Actor) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)

@@ -2,6 +2,7 @@ package tpl
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -15,10 +16,25 @@ var Helpers = template.FuncMap{
 	"lines":      lines,
 	"wrap":       wrap,
 	"underlined": underlined,
+	"sort":       sorted,
 
-	"plots":  attrGetter(new(imdb.Plots)),
-	"quotes": attrGetter(new(imdb.Quotes)),
-	"rank":   attrGetter(new(imdb.UserRank)),
+	"running_times":      attrGetter(new(imdb.RunningTimes)),
+	"release_dates":      attrGetter(new(imdb.ReleaseDates)),
+	"aka_titles":         attrGetter(new(imdb.AkaTitles)),
+	"alternate_versions": attrGetter(new(imdb.AlternateVersions)),
+	"color_info":         attrGetter(new(imdb.ColorInfos)),
+	"mpaa":               attrGetter(new(imdb.RatingReason)),
+	"sound_mixes":        attrGetter(new(imdb.SoundMixes)),
+	"taglines":           attrGetter(new(imdb.Taglines)),
+	"trivia":             attrGetter(new(imdb.Trivias)),
+	"genres":             attrGetter(new(imdb.Genres)),
+	"languages":          attrGetter(new(imdb.Languages)),
+	"literature":         attrGetter(new(imdb.Literatures)),
+	"locations":          attrGetter(new(imdb.Locations)),
+	"links":              attrGetter(new(imdb.Links)),
+	"plots":              attrGetter(new(imdb.Plots)),
+	"quotes":             attrGetter(new(imdb.Quotes)),
+	"rank":               attrGetter(new(imdb.UserRank)),
 }
 
 // Combine provides a way to compose values during template execution.
@@ -63,6 +79,11 @@ func lines(s interface{}) []string {
 func underlined(rep string, is interface{}) string {
 	s := sf("%s", is)
 	return sf("%s\n%s", s, strings.Repeat(rep, len(s)))
+}
+
+func sorted(xs sort.Interface) interface{} {
+	sort.Sort(xs)
+	return xs
 }
 
 // attrGetter does some fancy reflection footwork to automatically build
