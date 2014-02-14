@@ -13,6 +13,12 @@ Notably, fuzzy searching with trigrams only works with PostgreSQL.
 (SQLite still supports wild card searching.)
 
 
+Database size
+=============
+A complete database (with indices) for PostgreSQL appears to take approximately 
+5-6GB of space on disk.
+
+
 Under construction
 ==================
 Goim is currently under construction, but if you install it, you can see a list 
