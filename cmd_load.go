@@ -68,7 +68,7 @@ var cmdLoad = &command{
 	name: "load",
 	positionalUsage: "[ berlin | digital | funet | uiuc | " +
 		"ftp://... | http://... | dir ]",
-	shortHelp: "populates fresh database with IMDB data",
+	shortHelp: "creates/updates database with IMDb data",
 	help: `
 This command loads the current database with the contents of the IMDb
 database given. It may be a named FTP location, an FTP url, an HTTP url or

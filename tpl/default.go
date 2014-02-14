@@ -27,14 +27,251 @@ type Formatted struct {
 var Defaults = defaults
 
 var defaults = strings.TrimSpace(`
+{{ define "running-times" }}
+
+	{{ printf "Running times for %s" .E | underlined "=" }}
+
+	{{ $runtimes := running_times .E }}
+	{{ if eq 0 (len $runtimes) }}
+		None found.
+
+	{{ else }}
+		{{ range $runtime := $runtimes }}
+			{{ $runtime }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "release-dates" }}
+
+	{{ printf "Release dates for %s" .E | underlined "=" }}
+
+	{{ $dates := release_dates .E }}
+	{{ if eq 0 (len $dates) }}
+		None found.
+
+	{{ else }}
+		{{ range $date := $dates }}
+			{{ $date }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "aka-titles" }}
+
+	{{ printf "AKA titles for %s" .E | underlined "=" }}
+
+	{{ $akas := aka_titles .E }}
+	{{ if eq 0 (len $akas) }}
+		None found.
+
+	{{ else }}
+		{{ range $aka := $akas }}
+			{{ $aka }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "alternate-versions" }}
+
+	{{ printf "Alternate versions for %s" .E | underlined "=" }}
+
+	{{ $alts := alternate_versions .E }}
+	{{ if eq 0 (len $alts) }}
+		None found.
+
+	{{ else }}
+		{{ range $alt := $alts }}
+			{{ $alt | wrap 80 }}
+
+
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "color-info" }}
+
+	{{ printf "Color information for %s" .E | underlined "=" }}
+
+	{{ $colors := color_info .E }}
+	{{ if eq 0 (len $colors) }}
+		None found.
+
+	{{ else }}
+		{{ range $color := $colors }}
+			{{ $color }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "mpaa" }}
+
+	{{ printf "Rating for %s" .E | underlined "=" }}
+
+	{{ $mpaa := mpaa .E }}
+	{{ if $mpaa.Unrated }}
+		None found.
+
+	{{ else }}
+		{{ $mpaa }}
+
+
+	{{ end }}
+{{ end }}
+
+{{ define "sound-mix" }}
+
+	{{ printf "Sound mixes for %s" .E | underlined "=" }}
+
+	{{ $mixs := sound_mixes .E }}
+	{{ if eq 0 (len $mixs) }}
+		None found.
+
+	{{ else }}
+		{{ range $mix := $mixs }}
+			{{ $mix }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "taglines" }}
+
+	{{ printf "Taglines for %s" .E | underlined "=" }}
+
+	{{ $tags := taglines .E }}
+	{{ if eq 0 (len $tags) }}
+		None found.
+
+	{{ else }}
+		{{ range $tag := $tags }}
+			{{ $tag | wrap 80}}
+
+
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "trivia" }}
+
+	{{ printf "Trivia for %s" .E | underlined "=" }}
+
+	{{ $trivias := trivia .E }}
+	{{ if eq 0 (len $trivias) }}
+		None found.
+
+	{{ else }}
+		{{ range $trivia := $trivias }}
+			{{ $trivia | wrap 80}}
+
+
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "genres" }}
+
+	{{ printf "Genre tags for %s" .E | underlined "=" }}
+
+	{{ $genres := genres .E }}
+	{{ if eq 0 (len $genres) }}
+		None found.
+
+	{{ else }}
+		{{ range $genre := $genres }}
+			{{ $genre }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "goofs" }}
+
+	{{ printf "Goofs for %s" .E | underlined "=" }}
+
+	{{ $goofs := goofs .E }}
+	{{ if eq 0 (len $goofs) }}
+		None found.
+
+	{{ else }}
+		{{ range $goof := $goofs }}
+			{{ $goof | wrap 80}}
+
+
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "languages" }}
+
+	{{ printf "Languages for %s" .E | underlined "=" }}
+
+	{{ $langs := languages .E }}
+	{{ if eq 0 (len $langs) }}
+		None found.
+
+	{{ else }}
+		{{ range $lang := $langs }}
+			{{ $lang }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "literature" }}
+
+	{{ printf "Literature references for %s" .E | underlined "=" }}
+
+	{{ $lits := literature .E }}
+	{{ if eq 0 (len $lits) }}
+		None found.
+
+	{{ else }}
+		{{ range $lit := $lits }}
+			{{ $lit | wrap 80 }}
+
+
+		{{ end }}
+	{{ end }}
+{{ end }}
+
+{{ define "locations" }}
+
+	{{ printf "Locations for %s" .E | underlined "=" }}
+
+	{{ $locs := locations .E }}
+	{{ if eq 0 (len $locs) }}
+		None found.
+
+	{{ else }}
+		{{ range $loc := $locs }}
+			{{ $loc | wrap 80 }}
+
+
+		{{ end }}
+	{{ end }}
+{{ end }}
+
 {{ define "links" }}
+
+	{{ printf "Links for %s" .E | underlined "=" }}
+
 	{{ $links := links .E | sort }}
 	{{ if eq 0 (len $links) }}
-		Could not find any links for "{{ .E }}".
+		None found.
+
 	{{ else }}
-
-		{{ printf "Links for %s" .E | underlined "=" }}
-
 		{{ $ent := .E }}
 		{{ range $lk := $links }}
 			{{ if eq $ent.Type $lk.Entity.Type }}
@@ -49,49 +286,54 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "plots" }}
+
+	{{ printf "Plot summaries for %s" .E | underlined "=" }}
+
 	{{ $plots := plots .E }}
 	{{ if eq 0 (len $plots) }}
-		Could not find any plots for "{{ .E }}".
+		None found.
+
 	{{ else }}
-
-		{{ .E | underlined "=" }}
-
 		{{ range $plot := $plots }}
-
 			{{ $plot.Entry | wrap 80 }}
 
 			{{ printf "-- %s" $plot.By | wrap 80 }}
 
-		{{ end }}
 
+		{{ end }}
 	{{ end }}
 {{ end }}
 
 {{ define "quotes" }}
+
+	{{ printf "Quotes for %s" .E | underlined "=" }}
+
 	{{ $quotes := quotes .E }}
 	{{ if eq 0 (len $quotes) }}
-		Could not find any quotes for "{{ .E }}".
+		None found.
+
 	{{ else }}
-
-		{{ .E | underlined "=" }}
-
 		{{ range $quote := $quotes }}
-
 			{{ range $line := lines $quote.Entry }}
 				{{ wrap 80 $line }}\
 			{{ end }}
 
-		{{ end }}
 
+		{{ end }}
 	{{ end }}
 {{ end }}
 
 {{ define "rank" }}
+
+	{{ printf "User rank for %s" .E | underlined "=" }}
+
 	{{ $rank := rank .E }}
 	{{ if $rank.Unrated }}
-		Could not find user rank for "{{ .E }}".
+		None found.
+
 	{{ else }}
 		{{ $rank }}
+
 
 	{{ end }}
 {{ end }}

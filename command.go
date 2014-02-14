@@ -60,6 +60,7 @@ type command struct {
 	addFlags        func(*command)
 	run             func(*command) bool
 	tpls            *template.Template
+	other           bool
 }
 
 func (c *command) showUsage() {
@@ -70,8 +71,10 @@ func (c *command) showUsage() {
 
 func (c *command) showHelp() {
 	log.Printf("Usage: goim %s [flags] %s\n\n", c.name, c.positionalUsage)
-	log.Println(strings.TrimSpace(c.help))
-	log.Printf("\nThe flags are:\n\n")
+	if help := strings.TrimSpace(c.help); len(help) > 0 {
+		log.Printf("%s\n\n", help)
+	}
+	log.Printf("The flags are:\n\n")
 	c.showFlags()
 	log.Println("")
 	os.Exit(1)

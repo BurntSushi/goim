@@ -2,13 +2,17 @@ package main
 
 import (
 	"flag"
+	"sort"
 
+	"github.com/BurntSushi/ty/fun"
+
+	"github.com/BurntSushi/goim/imdb"
 	"github.com/BurntSushi/goim/tpl"
 )
 
 var cmdClean = &command{
 	name:      "clean",
-	shortHelp: "empties the database such that 'create' can run",
+	shortHelp: "empties the database",
 	help:      "",
 	flags:     flag.NewFlagSet("clean", flag.ExitOnError),
 	run:       cmd_clean,
@@ -30,7 +34,7 @@ var flagSearchIds = false
 var cmdSearch = &command{
 	name:            "search",
 	positionalUsage: "query",
-	shortHelp:       "show information about items in the database",
+	shortHelp:       "search IMDb for movies, TV shows, episodes and actors",
 	help:            "",
 	flags:           flag.NewFlagSet("search", flag.ExitOnError),
 	run:             cmd_search,
@@ -64,31 +68,6 @@ func cmd_search(c *command) bool {
 	return true
 }
 
-var cmdFull = &command{
-	name:            "full",
-	positionalUsage: "query",
-	shortHelp:       "show exhaustive information about an entity",
-	help:            "",
-	flags:           flag.NewFlagSet("full", flag.ExitOnError),
-	run:             cmd_full,
-}
-
-func cmd_full(c *command) bool {
-	c.assertLeastNArg(1)
-	db := openDb(c.dbinfo())
-	defer closeDb(db)
-
-	rs, ok := c.results(db, true)
-	if !ok {
-		return false
-	}
-	r := rs[0]
-	t := c.tpl(sf("info_%s", r.Entity))
-	v := tpl.Formatted{tpl.FromSearchResult(db, r), tpl.Attrs{"Full": true}}
-	c.tplExec(t, v)
-	return true
-}
-
 var attrCommands = map[string]string{
 	"running-times":      "show running times (by region) for media",
 	"release-dates":      "show release dates (by region) for media",
@@ -101,7 +80,7 @@ var attrCommands = map[string]string{
 	"trivia":             "show trivia for media",
 	"genres":             "show genres tags for media",
 	"goofs":              "show goofs for media",
-	"language":           "show language information for media",
+	"languages":          "show language information for media",
 	"literature":         "show literature references for media",
 	"locations":          "show geography locations for media",
 	"links":              "show links (prequels, sequels, versions) of media",
@@ -114,6 +93,7 @@ func init() {
 	for name, help := range attrCommands {
 		commands = append(commands, &command{
 			name:            name,
+			other:           true,
 			positionalUsage: "query",
 			shortHelp:       help,
 			flags:           flag.NewFlagSet(name, flag.ExitOnError),
@@ -132,9 +112,43 @@ func cmd_attr(name string) func(*command) bool {
 		if !ok {
 			return false
 		}
-
-		tpl.SetDB(db)
-		c.tplExec(c.tpl(name), tpl.Formatted{ent, nil})
-		return true
+		return c.showAttr(db, ent, name)
 	}
+}
+
+func (c *command) showAttr(db *imdb.DB, ent imdb.Entity, name string) bool {
+	tpl.SetDB(db)
+	c.tplExec(c.tpl(name), tpl.Formatted{ent, nil})
+	return true
+}
+
+var cmdFull = &command{
+	name:            "full",
+	other:           true,
+	positionalUsage: "query",
+	shortHelp:       "show exhaustive information about an entity",
+	help:            "",
+	flags:           flag.NewFlagSet("full", flag.ExitOnError),
+	run:             cmd_full,
+}
+
+func cmd_full(c *command) bool {
+	c.assertLeastNArg(1)
+	db := openDb(c.dbinfo())
+	defer closeDb(db)
+
+	attrs := fun.Keys(attrCommands).([]string)
+	sort.Sort(sort.StringSlice(attrs))
+
+	ent, ok := c.oneEntity(db)
+	if !ok {
+		return false
+	}
+
+	for _, attr := range attrs {
+		if !c.showAttr(db, ent, attr) {
+			return false
+		}
+	}
+	return true
 }

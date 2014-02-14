@@ -13,7 +13,7 @@ import (
 
 var cmdSize = &command{
 	name:      "size",
-	shortHelp: "reports the total size of the database",
+	shortHelp: "lists size of tables and total size of database",
 	help:      "",
 	flags:     flag.NewFlagSet("size", flag.ExitOnError),
 	run:       size,

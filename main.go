@@ -7,6 +7,8 @@ import (
 	"runtime/pprof"
 	"strings"
 	"text/tabwriter"
+
+	"github.com/BurntSushi/ty/fun"
 )
 
 var commands = []*command{
@@ -22,10 +24,25 @@ func usage() {
 	pef("goim is a tool for interacting with a local copy of IMDB.\n")
 	pef("Usage:\n\n    goim {command} [flags] [arguments]\n")
 	pef("Use 'goim help {command}' for more details on {command}.\n")
-	pef("A list of all available commands:\n")
 
+	fun.Sort(func(c1, c2 *command) bool { return c1.name < c2.name }, commands)
+
+	pef("A list of the main commands:\n")
 	tabw := tabwriter.NewWriter(os.Stderr, 0, 0, 4, ' ', 0)
 	for _, c := range commands {
+		if c.other {
+			continue
+		}
+		fmt.Fprintf(tabw, "    %s\t%s\n", c.name, c.shortHelp)
+	}
+	tabw.Flush()
+	pef("")
+
+	pef("A list of other commands:\n")
+	for _, c := range commands {
+		if !c.other {
+			continue
+		}
 		fmt.Fprintf(tabw, "    %s\t%s\n", c.name, c.shortHelp)
 	}
 	tabw.Flush()

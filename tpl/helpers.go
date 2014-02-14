@@ -27,6 +27,7 @@ var Helpers = template.FuncMap{
 	"sound_mixes":        attrGetter(new(imdb.SoundMixes)),
 	"taglines":           attrGetter(new(imdb.Taglines)),
 	"trivia":             attrGetter(new(imdb.Trivias)),
+	"goofs":              attrGetter(new(imdb.Goofs)),
 	"genres":             attrGetter(new(imdb.Genres)),
 	"languages":          attrGetter(new(imdb.Languages)),
 	"literature":         attrGetter(new(imdb.Literatures)),
