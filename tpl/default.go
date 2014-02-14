@@ -1,19 +1,80 @@
 package tpl
 
-import "strings"
+import (
+	"strings"
 
-type Object interface{}
+	"github.com/BurntSushi/goim/imdb"
+)
+
+var tplDB *imdb.DB
+
+// SetDB should be called by clients of this package to set the database to
+// be used to query information.
+//
+// This unfortunately relies on global state, but this makes it more convenient
+// and simpler to write templates.
+func SetDB(db *imdb.DB) {
+	tplDB = db
+}
 
 type Attrs map[string]interface{}
 
 type Formatted struct {
-	X Object
+	E interface{}
 	A Attrs
 }
 
 var Defaults = defaults
 
 var defaults = strings.TrimSpace(`
+{{ define "plots" }}
+	{{ $plots := plots .E }}
+	{{ if eq 0 (len $plots) }}
+		Could not find any plots for "{{ .E }}".
+	{{ else }}
+
+		{{ .E | underlined "=" }}
+
+		{{ range $plot := $plots }}
+
+			{{ $plot.Entry | wrap 80 }}
+
+			{{ printf "-- %s" $plot.By | wrap 80 }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "quotes" }}
+	{{ $quotes := quotes .E }}
+	{{ if eq 0 (len $quotes) }}
+		Could not find any quotes for "{{ .E }}".
+	{{ else }}
+
+		{{ .E | underlined "=" }}
+
+		{{ range $quote := $quotes }}
+
+			{{ range $line := lines $quote.Entry }}
+				{{ wrap 80 $line }}\
+			{{ end }}
+
+		{{ end }}
+
+	{{ end }}
+{{ end }}
+
+{{ define "rank" }}
+	{{ $rank := rank .E }}
+	{{ if $rank.Unrated }}
+		Could not find user rank for "{{ .E }}".
+	{{ else }}
+		{{ $rank }}
+
+	{{ end }}
+{{ end }}
+
 {{ define "info_movie" }}
 	{{ printf "%s (%d)" .X.Title .X.Year }}
 	{{ if .X.Tv }}{{ printf " (made for tv)" }}{{ end }}
@@ -196,26 +257,26 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "search_result" }}
-	{{ printf "%3d. %-8s" .A.Index .X.Entity }}
-	{{ if gt .X.Similarity -1.0 }}
-		{{ printf " (%0.2f) " .X.Similarity }}
+	{{ printf "%3d. %-8s" .A.Index .E.Entity }}
+	{{ if gt .E.Similarity -1.0 }}
+		{{ printf " (%0.2f) " .E.Similarity }}
 	{{ end }}
-	{{ printf " %s" .X.Name }}
-	{{ if and (gt .X.Year 0) (ne .X.Entity.String "tvshow") }}
-		{{ printf " (%d)" .X.Year }}
+	{{ printf " %s" .E.Name }}
+	{{ if and (gt .E.Year 0) (ne .E.Entity.String "tvshow") }}
+		{{ printf " (%d)" .E.Year }}
 	{{ end }}
-	{{ if .X.Attrs }}
-		{{ printf " %s" .X.Attrs }}
+	{{ if .E.Attrs }}
+		{{ printf " %s" .E.Attrs }}
 	{{ end }}
-	{{ if not .X.Rating.Unrated }}
-		{{ printf " (rank: %d/100)" .X.Rating.Rank }}
+	{{ if not .E.Rating.Unrated }}
+		{{ printf " (rank: %d/100)" .E.Rating.Rank }}
 	{{ end }}
-	{{ if .X.Credit.Valid }}
-		{{ if gt (len .X.Credit.Character) 0 }}
-			{{ printf " [%s]" .X.Credit.Character }}
+	{{ if .E.Credit.Valid }}
+		{{ if gt (len .E.Credit.Character) 0 }}
+			{{ printf " [%s]" .E.Credit.Character }}
 		{{ end }}
-		{{ if gt .X.Credit.Position 0 }}
-			{{ printf " <%d>" .X.Credit.Position }}
+		{{ if gt .E.Credit.Position 0 }}
+			{{ printf " <%d>" .E.Credit.Position }}
 		{{ end }}
 	{{ end }}
 

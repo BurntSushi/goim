@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BurntSushi/csql"
 	"github.com/BurntSushi/goim/imdb"
 	"github.com/BurntSushi/goim/imdb/search"
 )
@@ -36,217 +35,22 @@ func assertTwo(v interface{}, err error) interface{} {
 	return v
 }
 
+// assertDB makes sure there is a valid DB connection.
+func assertDB() {
+	if tplDB == nil {
+		assert(ef("No database connection found. Please set one with SetDB."))
+	}
+}
+
 // FromSearchResult translates a search result to an appropriate template type
 // in this package. Such values are intended to be used inside Goim templates.
 //
 // If there was a problem translating the value, Goim will quit with an error
 // message.
 func FromSearchResult(db *imdb.DB, sr search.Result) interface{} {
-	ent, err := sr.GetEntity(db)
-	assert(err)
-	switch ent := ent.(type) {
-	case *imdb.Movie:
-		return Movie{db, ent}
-	case *imdb.Tvshow:
-		return Tvshow{db, ent}
-	case *imdb.Episode:
-		return Episode{db, ent}
-	case *imdb.Actor:
-		return Actor{db, ent}
-	}
-	return ent
+	return nil
 }
 
 func fromAtom(db *imdb.DB, ent imdb.EntityKind, id imdb.Atom) interface{} {
-	switch ent {
-	case imdb.EntityMovie:
-		m, err := imdb.AtomToMovie(db, id)
-		assert(err)
-		return Movie{db, m}
-	case imdb.EntityTvshow:
-		t, err := imdb.AtomToTvshow(db, id)
-		assert(err)
-		return Tvshow{db, t}
-	case imdb.EntityEpisode:
-		e, err := imdb.AtomToEpisode(db, id)
-		assert(err)
-		return Episode{db, e}
-	case imdb.EntityActor:
-		a, err := imdb.AtomToActor(db, id)
-		assert(err)
-		return Actor{db, a}
-	}
-	fatalf("Unrecognized entity type: %s", ent)
-	panic("unreachable")
-}
-
-type Movie struct {
-	db *imdb.DB
-	*imdb.Movie
-}
-
-type Tvshow struct {
-	db *imdb.DB
-	*imdb.Tvshow
-}
-
-type Episode struct {
-	db *imdb.DB
-	*imdb.Episode
-}
-
-type Actor struct {
-	db *imdb.DB
-	*imdb.Actor
-}
-
-func (e Episode) Tvshow() Tvshow {
-	tv, err := e.Episode.Tvshow(e.db)
-	assert(err)
-	return Tvshow{e.db, tv}
-}
-
-func (e Tvshow) CountSeasons() (count int) {
-	assert(csql.SafeFunc(func() {
-		count = csql.Count(e.db, `
-			SELECT COUNT(*) AS count
-			FROM (
-				SELECT DISTINCT season
-				FROM episode
-				WHERE tvshow_atom_id = $1 AND season > 0
-			) AS s
-		`, e.Id)
-	}))
-	return
-}
-
-func (e Tvshow) CountEpisodes() (count int) {
-	assert(csql.SafeFunc(func() {
-		count = csql.Count(e.db, `
-			SELECT COUNT(*) AS count
-			FROM episode
-			WHERE tvshow_atom_id = $1 AND season > 0
-		`, e.Id)
-	}))
-	return
-}
-
-func (e Movie) ReleaseDates() []imdb.ReleaseDate {
-	return assertTwo(imdb.ReleaseDates(e.db, e)).([]imdb.ReleaseDate)
-}
-
-func (e Tvshow) ReleaseDates() []imdb.ReleaseDate {
-	return assertTwo(imdb.ReleaseDates(e.db, e)).([]imdb.ReleaseDate)
-}
-
-func (e Episode) ReleaseDates() []imdb.ReleaseDate {
-	return assertTwo(imdb.ReleaseDates(e.db, e)).([]imdb.ReleaseDate)
-}
-
-func (e Movie) RunningTimes() []imdb.RunningTime {
-	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
-}
-
-func (e Tvshow) RunningTimes() []imdb.RunningTime {
-	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
-}
-
-func (e Episode) RunningTimes() []imdb.RunningTime {
-	return assertTwo(imdb.RunningTimes(e.db, e)).([]imdb.RunningTime)
-}
-
-func (e Movie) AkaTitles() []imdb.AkaTitle {
-	return assertTwo(imdb.AkaTitles(e.db, e)).([]imdb.AkaTitle)
-}
-
-func (e Tvshow) AkaTitles() []imdb.AkaTitle {
-	return assertTwo(imdb.AkaTitles(e.db, e)).([]imdb.AkaTitle)
-}
-
-func (e Episode) AkaTitles() []imdb.AkaTitle {
-	return assertTwo(imdb.AkaTitles(e.db, e)).([]imdb.AkaTitle)
-}
-
-func (e Movie) AlternateVersions() []imdb.AlternateVersion {
-	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
-}
-
-func (e Tvshow) AlternateVersions() []imdb.AlternateVersion {
-	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
-}
-
-func (e Episode) AlternateVersions() []imdb.AlternateVersion {
-	return assertTwo(imdb.AlternateVersions(e.db, e)).([]imdb.AlternateVersion)
-}
-
-func (e Movie) ColorInfos() []imdb.ColorInfo {
-	return assertTwo(imdb.ColorInfos(e.db, e)).([]imdb.ColorInfo)
-}
-
-func (e Tvshow) ColorInfos() []imdb.ColorInfo {
-	return assertTwo(imdb.ColorInfos(e.db, e)).([]imdb.ColorInfo)
-}
-
-func (e Episode) ColorInfos() []imdb.ColorInfo {
-	return assertTwo(imdb.ColorInfos(e.db, e)).([]imdb.ColorInfo)
-}
-
-func (e Movie) MPAARating() imdb.RatingReason {
-	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
-}
-
-func (e Tvshow) MPAARating() imdb.RatingReason {
-	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
-}
-
-func (e Episode) MPAARating() imdb.RatingReason {
-	return assertTwo(imdb.MPAARating(e.db, e)).(imdb.RatingReason)
-}
-
-func (e Movie) SoundMixes() []imdb.SoundMix {
-	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
-}
-
-func (e Tvshow) SoundMixes() []imdb.SoundMix {
-	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
-}
-
-func (e Episode) SoundMixes() []imdb.SoundMix {
-	return assertTwo(imdb.SoundMixes(e.db, e)).([]imdb.SoundMix)
-}
-
-func (e Movie) Quotes() []imdb.Quote {
-	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
-}
-
-func (e Tvshow) Quotes() []imdb.Quote {
-	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
-}
-
-func (e Episode) Quotes() []imdb.Quote {
-	return assertTwo(imdb.Quotes(e.db, e)).([]imdb.Quote)
-}
-
-func (e Movie) Plots() []imdb.Plot {
-	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
-}
-
-func (e Tvshow) Plots() []imdb.Plot {
-	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
-}
-
-func (e Episode) Plots() []imdb.Plot {
-	return assertTwo(imdb.Plots(e.db, e)).([]imdb.Plot)
-}
-
-func (e Movie) Ratings() []imdb.UserRating {
-	return assertTwo(imdb.Rating(e.db, e)).([]imdb.UserRating)
-}
-
-func (e Tvshow) Ratings() []imdb.UserRating {
-	return assertTwo(imdb.Rating(e.db, e)).([]imdb.UserRating)
-}
-
-func (e Episode) Ratings() []imdb.UserRating {
-	return assertTwo(imdb.Rating(e.db, e)).([]imdb.UserRating)
+	return nil
 }

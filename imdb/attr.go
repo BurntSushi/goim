@@ -8,6 +8,14 @@ import (
 	"github.com/BurntSushi/csql"
 )
 
+// Attributer describes types that correspond to one or more attribute values
+// of an entity. Namely, values that satisfy this interface can load those
+// attribute values from a database.
+type Attributer interface {
+	ForEntity(csql.Queryer, Entity) error
+	Len() int
+}
+
 // attrs uses reflection to automatically construct a list of simple attribute
 // rows from the database based on information in the attribute's struct.
 // This includes building the SELECT query and the slice itself.
@@ -335,55 +343,98 @@ func Links(db csql.Queryer, e Entity) ([]Link, error) {
 	return rows.([]Link), err
 }
 
+// Plot represents the text of a plot summary---and it's author---for a movie,
+// TV show or episode.
 type Plot struct {
 	Entry string
 	By    string
 }
 
-func (p Plot) String() string {
-	return sf("(%s) %s", p.By, p.Entry)
-}
+func (p Plot) String() string { return sf("(%s) %s", p.By, p.Entry) }
 
-func Plots(db csql.Queryer, e Entity) ([]Plot, error) {
+// Plots corresponds to a list of plots, usually for one particular entity.
+// *Plots satisfies the Attributer interface.
+type Plots []Plot
+
+func (as *Plots) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all plots corresponding to the entity given.
+func (as *Plots) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Plot), db, e, "plot", "")
-	return rows.([]Plot), err
+	*as = rows.([]Plot)
+	return err
 }
 
+// Quote represents the text of a quotation from an entity. Quotes are mostly
+// freeform text, although the general format seems to be:
+//
+//	Character 1: Says something.
+//		Which may continue to the next line, indented.
+//	Character 2: Says something else.
+//	...
 type Quote struct {
 	Entry string
 }
 
-func (q Quote) String() string {
-	return q.Entry
-}
+func (q Quote) String() string { return q.Entry }
 
-func Quotes(db csql.Queryer, e Entity) ([]Quote, error) {
+// Quotes corresponds to a list of quotes, usually for one particular entity.
+// *Quotes satisfies the Attributer interface.
+type Quotes []Quote
+
+func (as *Quotes) Len() int { return len(*as) }
+
+// ForEntity fills 'as' with all quotes corresponding to the entity given.
+func (as *Quotes) ForEntity(db csql.Queryer, e Entity) error {
 	rows, err := attrs(new(Quote), db, e, "quote", "")
-	return rows.([]Quote), err
+	*as = rows.([]Quote)
+	return err
 }
 
-type UserRating struct {
+// UserRank represents the rank and number votes by users of IMDb for a
+// particular entity. If there are no votes, then the entity is considered
+// unrated.
+// *UserRank satisfies the Attributer interface.
+type UserRank struct {
 	Votes int
 	Rank  int
 }
 
-func (r UserRating) Unrated() bool {
+// Unrated returns true if and only if this rank has no votes.
+func (r UserRank) Unrated() bool {
 	return r.Votes == 0
 }
 
-func (r UserRating) String() string {
+func (r UserRank) String() string {
 	return sf("%d/100 (%d votes)", r.Rank, r.Votes)
 }
 
-func Rating(db csql.Queryer, e Entity) (UserRating, error) {
-	rows, err := attrs(new(UserRating), db, e, "rating", "LIMIT 1")
-	rates := rows.([]UserRating)
-	if len(rates) == 0 {
-		return UserRating{}, err
+// Len is 0 if there is no rank or if it is unrated. Otherwise, the Len is 1.
+func (r *UserRank) Len() int {
+	if r == nil || r.Unrated() {
+		return 0
+	} else {
+		return 1
 	}
-	return rates[0], err
 }
 
+// ForEntity fills 'r' with a user rank if it exists. Otherwise, it remains
+// nil.
+func (r *UserRank) ForEntity(db csql.Queryer, e Entity) error {
+	rows, err := attrs(new(UserRank), db, e, "rating", "LIMIT 1")
+	rates := rows.([]UserRank)
+	if len(rates) > 0 {
+		*r = rates[0]
+	}
+	return err
+}
+
+// Credit represents a movie and/or actor credit. It includes optional
+// information like the character played and the billing position of the
+// actor.
+//
+// Note that Credit has no corresponding type that satisfies the Attributer
+// interface. This may change in the future.
 type Credit struct {
 	ActorId   Atom `imdb_name:"actor_atom_id"`
 	MediaId   Atom `imdb_name:"media_atom_id"`
@@ -392,6 +443,8 @@ type Credit struct {
 	Attrs     string
 }
 
+// Valid returns true if and only if this credit belong to a valid movie
+// and a valid actor.
 func (c Credit) Valid() bool {
 	return c.ActorId > 0 && c.MediaId > 0
 }

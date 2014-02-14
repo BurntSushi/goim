@@ -61,7 +61,7 @@ type Result struct {
 	Similarity float64
 
 	// If a rating exists for a search result, it will be stored here.
-	Rating imdb.UserRating
+	Rating imdb.UserRank
 
 	// If the search accesses credit information, then it will be stored here.
 	Credit imdb.Credit
@@ -96,6 +96,7 @@ type Searcher struct {
 	name          string
 	what          string
 	debug         bool
+	atom          imdb.Atom
 	entities      []imdb.EntityKind
 	order         []searchOrder
 	limit         int
@@ -319,6 +320,14 @@ func (s *Searcher) GoodThreshold(diff float64) *Searcher {
 // entities in the search will be returned.
 func (s *Searcher) Entity(e imdb.EntityKind) *Searcher {
 	s.entities = append(s.entities, e)
+	return s
+}
+
+// Atom specifies that the result returned must have the atom identifier
+// given. Note that this guarantees that the number of results will either
+// be 0 or 1.
+func (s *Searcher) Atom(id imdb.Atom) *Searcher {
+	s.atom = id
 	return s
 }
 
@@ -697,6 +706,9 @@ func (s *Searcher) where() string {
 	}
 	if !s.subTvshow.empty() {
 		conj = append(conj, sf("e.tvshow_atom_id = %d", s.subTvshow.id))
+	}
+	if s.atom > 0 {
+		conj = append(conj, sf("name.atom_id = %d", s.atom))
 	}
 	if s.year != nil {
 		conj = append(conj, s.year.cond("COALESCE(m.year, t.year, e.year, 0)"))

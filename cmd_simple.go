@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 
-	"github.com/BurntSushi/goim/imdb"
 	"github.com/BurntSushi/goim/tpl"
 )
 
@@ -26,6 +25,8 @@ func cmd_clean(c *command) bool {
 	return true
 }
 
+var flagSearchIds = false
+
 var cmdSearch = &command{
 	name:            "search",
 	positionalUsage: "query",
@@ -33,6 +34,11 @@ var cmdSearch = &command{
 	help:            "",
 	flags:           flag.NewFlagSet("search", flag.ExitOnError),
 	run:             cmd_search,
+	addFlags: func(c *command) {
+		c.flags.BoolVar(&flagSearchIds, "ids", flagSearchIds,
+			"When set, only the atom identifiers of each search result "+
+				"will be printed.")
+	},
 }
 
 func cmd_search(c *command) bool {
@@ -45,8 +51,15 @@ func cmd_search(c *command) bool {
 	if !ok {
 		return false
 	}
-	for i, result := range results {
-		c.tplExec(template, tpl.Formatted{result, tpl.Attrs{"Index": i + 1}})
+	if flagSearchIds {
+		for _, result := range results {
+			pf("%d\n", result.Id)
+		}
+	} else {
+		for i, result := range results {
+			attrs := tpl.Attrs{"Index": i + 1}
+			c.tplExec(template, tpl.Formatted{result, attrs})
+		}
 	}
 	return true
 }
@@ -76,42 +89,46 @@ func cmd_full(c *command) bool {
 	return true
 }
 
-var cmdPlot = &command{
-	name:            "plot",
-	positionalUsage: "query",
-	shortHelp:       "show plot summaries for media",
-	help:            "",
-	flags:           flag.NewFlagSet("plot", flag.ExitOnError),
-	run:             cmd_plot,
-}
+var (
+	cmdPlots = &command{
+		name:            "plots",
+		positionalUsage: "query",
+		shortHelp:       "show plot summaries for media",
+		help:            "",
+		flags:           flag.NewFlagSet("plots", flag.ExitOnError),
+		run:             cmd_attr("plots"),
+	}
+	cmdQuotes = &command{
+		name:            "quotes",
+		positionalUsage: "query",
+		shortHelp:       "show quotes for media",
+		help:            "",
+		flags:           flag.NewFlagSet("quotes", flag.ExitOnError),
+		run:             cmd_attr("quotes"),
+	}
+	cmdRank = &command{
+		name:            "rank",
+		positionalUsage: "query",
+		shortHelp:       "show user rank/votes for media",
+		help:            "",
+		flags:           flag.NewFlagSet("rank", flag.ExitOnError),
+		run:             cmd_attr("rank"),
+	}
+)
 
-func cmd_plot(c *command) bool {
-	c.assertLeastNArg(1)
-	db := openDb(c.dbinfo())
-	defer closeDb(db)
+func cmd_attr(name string) func(*command) bool {
+	return func(c *command) bool {
+		c.assertLeastNArg(1)
+		db := openDb(c.dbinfo())
+		defer closeDb(db)
 
-	r, ok := c.oneResult(db)
-	if !ok {
-		return false
+		ent, ok := c.oneEntity(db)
+		if !ok {
+			return false
+		}
+
+		tpl.SetDB(db)
+		c.tplExec(c.tpl(name), tpl.Formatted{ent, nil})
+		return true
 	}
-	ent, err := r.GetEntity(db)
-	if err != nil {
-		pef("%s\n", err)
-		return false
-	}
-	plots, err := imdb.Plots(db, ent)
-	if err != nil {
-		pef("%s\n", err)
-		return false
-	}
-	if len(plots) == 0 {
-		pef("No plots found.\n")
-		return false
-	}
-	before := ""
-	for _, plot := range plots {
-		pf("%s%s\n", before, tpl.HelpWrap(80, plot.String()))
-		before = "\n"
-	}
-	return true
 }

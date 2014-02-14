@@ -3,6 +3,8 @@ package search
 import (
 	"strconv"
 	"strings"
+
+	"github.com/BurntSushi/goim/imdb"
 )
 
 func init() {
@@ -43,6 +45,22 @@ var commands = map[string]*command{
 		nil,
 		func(s *Searcher, v string) error {
 			s.debug = true
+			return nil
+		},
+	},
+	"id": {
+		"Precisely selects a single identity with the atom identifier given." +
+			"e.g., {id:123} returns the entity with id 123." +
+			"Note that one SHOULD NOT rely on any specific atom identifier " +
+			"to always correspond to a specific entity, since identifiers " +
+			"can (sadly) change when updating your database.",
+		[]string{"atom"},
+		func(s *Searcher, v string) error {
+			n, err := strconv.Atoi(v)
+			if err != nil {
+				return ef("Invalid integer '%s' for atom id: %s", v, err)
+			}
+			s.Atom(imdb.Atom(n))
 			return nil
 		},
 	},

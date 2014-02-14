@@ -151,6 +151,42 @@ func (c *command) config() (conf config, err error) {
 	return
 }
 
+func (c *command) entAttrs(
+	db *imdb.DB,
+	entity *imdb.Entity,
+	attrs imdb.Attributer,
+	pluralWhat string,
+) bool {
+	ent, ok := c.oneEntity(db)
+	if !ok {
+		return false
+	}
+	*entity = ent
+
+	if err := attrs.ForEntity(db, ent); err != nil {
+		pef("Error loading %s: %s", pluralWhat, err)
+		return false
+	}
+	if attrs.Len() == 0 {
+		pef("No %s found.", pluralWhat)
+		return false
+	}
+	return true
+}
+
+func (c *command) oneEntity(db *imdb.DB) (imdb.Entity, bool) {
+	r, ok := c.oneResult(db)
+	if !ok {
+		return nil, false
+	}
+	ent, err := r.GetEntity(db)
+	if err != nil {
+		pef("%s\n", err)
+		return nil, false
+	}
+	return ent, true
+}
+
 func (c *command) oneResult(db *imdb.DB) (*search.Result, bool) {
 	rs, ok := c.results(db, true)
 	if !ok || len(rs) == 0 {
