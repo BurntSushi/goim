@@ -1,3 +1,12 @@
+Ideas for search
+================
+- Add "connected" option. (To search links.)
+- Combine the 'movie:...' and 'episode:...' options to a more appropriately
+  named 'credits' option. This should also include TV shows.
+
+
+Soon
+====
 - Fill in commands for listing specific types of information like goofs,
   quotes, running time, etc.
 - Come up with a clever way of displaying a quick summary of an entry.
