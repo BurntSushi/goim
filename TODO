@@ -7,8 +7,6 @@ Ideas for search
 
 Soon
 ====
-- Fill in commands for listing specific types of information like goofs,
-  quotes, running time, etc.
 - Come up with a clever way of displaying a quick summary of an entry.
 - Add running time to search interfaces.
   (Requires table joins in imdb/search.go.)
