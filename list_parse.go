@@ -241,6 +241,9 @@ func listLinesSuspended(list io.ReadCloser, suspended bool, do func([]byte)) {
 		do(line)
 	}
 	csql.Panic(scanner.Err())
+	if err := list.Close(); err != nil {
+		logf("Error closing list: %s", err)
+	}
 }
 
 // splitListLine returns fields of the given line determined by tab characters.
