@@ -16,7 +16,7 @@ var migrations = map[string][]migration.Migrator{
 			var err error
 			_, err = tx.Exec(`
 				CREATE TABLE atom (
-					id integer,
+					id INTEGER NOT NULL,
 					hash BLOB NOT NULL,
 					PRIMARY KEY (id)
 				);
@@ -24,120 +24,36 @@ var migrations = map[string][]migration.Migrator{
 					atom_id INTEGER NOT NULL,
 					name TEXT NOT NULL
 				);
-				CREATE TABLE movie (
-					atom_id INTEGER NOT NULL,
-					year INTEGER NOT NULL,
-					sequence TEXT,
-					tv INTEGER NOT NULL,
-					video INTEGER NOT NULL,
-					PRIMARY KEY (atom_id)
-				);
-				CREATE TABLE tvshow (
-					atom_id INTEGER NOT NULL,
-					year INTEGER NOT NULL,
-					sequence TEXT,
-					year_start INTEGER,
-					year_end INTEGER,
-					PRIMARY KEY (atom_id)
-				);
-				CREATE TABLE episode (
-					atom_id INTEGER NOT NULL,
-					tvshow_atom_id INTEGER NOT NULL,
-					year INTEGER NOT NULL,
-					season INTEGER NOT NULL,
-					episode_num INTEGER NOT NULL,
-					PRIMARY KEY (atom_id)
-				);
-				CREATE TABLE release_date (
-					atom_id INTEGER,
-					country TEXT,
-					released DATE,
-					attrs TEXT
-				);
-				CREATE TABLE running_time (
-					atom_id INTEGER,
-					country TEXT,
-					minutes INTEGER,
-					attrs TEXT
-				);
-				CREATE TABLE aka_title (
-					atom_id INTEGER,
-					title TEXT NOT NULL,
-					attrs TEXT
-				);
-				CREATE TABLE alternate_version (
-					atom_id INTEGER,
-					about TEXT
-				);
-				CREATE TABLE color_info (
-					atom_id INTEGER,
-					color INTEGER NOT NULL,
-					attrs TEXT
-				);
-				CREATE TABLE mpaa_rating (
-					atom_id INTEGER,
-					rating TEXT
-						CHECK (rating = "G"
-						       OR rating = "PG"
-							   OR rating = "PG-13"
-							   OR rating = "R"
-							   OR rating = "NC-17"
-							  ),
-					reason TEXT
-				);
-				CREATE TABLE sound_mix (
-					atom_id INTEGER,
-					mix TEXT,
-					attrs TEXT
-				);
-				`)
-			return err
-		},
-	},
-	"postgres": {
-		func(tx migration.LimitedTx) error {
-			var err error
-			_, err = tx.Exec(`
-				CREATE TYPE mpaa AS ENUM ('G', 'PG', 'PG-13', 'R', 'NC-17');
-
-				CREATE TABLE atom (
-					id INTEGER,
-					hash BYTEA NOT NULL,
-					PRIMARY KEY (id)
-				);
-				CREATE TABLE name (
-					atom_id INTEGER NOT NULL,
-					name TEXT NOT NULL
-				);
 				CREATE TABLE actor (
-					atom_id INTEGER,
-					sequence TEXT
+					atom_id INTEGER NOT NULL,
+					sequence TEXT NOT NULL,
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE credit (
 					actor_atom_id INTEGER NOT NULL,
 					media_atom_id INTEGER NOT NULL,
-					character TEXT,
-					position INTEGER,
-					attrs TEXT
+					character TEXT NOT NULL,
+					position INTEGER NOT NULL,
+					attrs TEXT NOT NULL
 				);
 				CREATE TABLE movie (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					year SMALLINT NOT NULL,
-					sequence TEXT,
+					sequence TEXT NOT NULL,
 					tv BOOLEAN NOT NULL,
 					video BOOLEAN NOT NULL,
 					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE tvshow (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					year SMALLINT NOT NULL,
-					sequence TEXT,
-					year_start SMALLINT,
-					year_end SMALLINT,
+					sequence TEXT NOT NULL,
+					year_start SMALLINT NOT NULL,
+					year_end SMALLINT NOT NULL,
 					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE episode (
-					atom_id INTEGER,
+					atom_id INTEGER NOT NULL,
 					tvshow_atom_id INTEGER NOT NULL,
 					year SMALLINT NOT NULL,
 					season SMALLINT NOT NULL,
@@ -146,20 +62,20 @@ var migrations = map[string][]migration.Migrator{
 				);
 				CREATE TABLE release_date (
 					atom_id INTEGER NOT NULL,
-					country TEXT,
+					country TEXT NOT NULL,
 					released DATE NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE running_time (
 					atom_id INTEGER NOT NULL,
-					country TEXT,
+					country TEXT NOT NULL,
 					minutes SMALLINT NOT NULL,
 					attrs TEXT
 				);
 				CREATE TABLE aka_title (
 					atom_id INTEGER NOT NULL,
 					title TEXT NOT NULL,
-					attrs TEXT
+					attrs TEXT NOT NULL
 				);
 				CREATE TABLE alternate_version (
 					atom_id INTEGER NOT NULL,
@@ -168,17 +84,12 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE color_info (
 					atom_id INTEGER NOT NULL,
 					color BOOLEAN NOT NULL,
-					attrs TEXT
-				);
-				CREATE TABLE mpaa_rating (
-					atom_id INTEGER NOT NULL,
-					rating mpaa NOT NULL,
-					reason TEXT NOT NULL
+					attrs TEXT NOT NULL
 				);
 				CREATE TABLE sound_mix (
 					atom_id INTEGER NOT NULL,
 					mix TEXT NOT NULL,
-					attrs TEXT
+					attrs TEXT NOT NULL
 				);
 				CREATE TABLE tagline (
 					atom_id INTEGER NOT NULL,
@@ -200,7 +111,7 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE language (
 					atom_id INTEGER NOT NULL,
 					name TEXT NOT NULL,
-					attrs TEXT
+					attrs TEXT NOT NULL
 				);
 				CREATE TABLE literature (
 					atom_id INTEGER NOT NULL,
@@ -210,7 +121,7 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE location (
 					atom_id INTEGER NOT NULL,
 					place TEXT NOT NULL,
-					attrs TEXT
+					attrs TEXT NOT NULL
 				);
 				CREATE TABLE link (
 					atom_id INTEGER NOT NULL,
@@ -234,6 +145,163 @@ var migrations = map[string][]migration.Migrator{
 					atom_id INTEGER NOT NULL,
 					votes INTEGER NOT NULL,
 					rank INTEGER NOT NULL
+				);
+				CREATE TABLE mpaa_rating (
+					atom_id INTEGER NOT NULL,
+					rating TEXT NOT NULL
+						CHECK (rating = "G"
+						       OR rating = "PG"
+							   OR rating = "PG-13"
+							   OR rating = "R"
+							   OR rating = "NC-17"
+							  ),
+					reason TEXT NOT NULL
+				);
+				`)
+			return err
+		},
+	},
+	"postgres": {
+		func(tx migration.LimitedTx) error {
+			var err error
+			_, err = tx.Exec(`
+				CREATE TYPE mpaa AS ENUM ('G', 'PG', 'PG-13', 'R', 'NC-17');
+
+				CREATE TABLE atom (
+					id INTEGER NOT NULL,
+					hash BYTEA NOT NULL,
+					PRIMARY KEY (id)
+				);
+				CREATE TABLE name (
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL
+				);
+				CREATE TABLE actor (
+					atom_id INTEGER NOT NULL,
+					sequence TEXT NOT NULL,
+					PRIMARY KEY (atom_id)
+				);
+				CREATE TABLE credit (
+					actor_atom_id INTEGER NOT NULL,
+					media_atom_id INTEGER NOT NULL,
+					character TEXT NOT NULL,
+					position INTEGER NOT NULL,
+					attrs TEXT NOT NULL
+				);
+				CREATE TABLE movie (
+					atom_id INTEGER NOT NULL,
+					year SMALLINT NOT NULL,
+					sequence TEXT NOT NULL,
+					tv BOOLEAN NOT NULL,
+					video BOOLEAN NOT NULL,
+					PRIMARY KEY (atom_id)
+				);
+				CREATE TABLE tvshow (
+					atom_id INTEGER NOT NULL,
+					year SMALLINT NOT NULL,
+					sequence TEXT NOT NULL,
+					year_start SMALLINT NOT NULL,
+					year_end SMALLINT NOT NULL,
+					PRIMARY KEY (atom_id)
+				);
+				CREATE TABLE episode (
+					atom_id INTEGER NOT NULL,
+					tvshow_atom_id INTEGER NOT NULL,
+					year SMALLINT NOT NULL,
+					season SMALLINT NOT NULL,
+					episode_num INTEGER NOT NULL,
+					PRIMARY KEY (atom_id)
+				);
+				CREATE TABLE release_date (
+					atom_id INTEGER NOT NULL,
+					country TEXT NOT NULL,
+					released DATE NOT NULL,
+					attrs TEXT
+				);
+				CREATE TABLE running_time (
+					atom_id INTEGER NOT NULL,
+					country TEXT NOT NULL,
+					minutes SMALLINT NOT NULL,
+					attrs TEXT
+				);
+				CREATE TABLE aka_title (
+					atom_id INTEGER NOT NULL,
+					title TEXT NOT NULL,
+					attrs TEXT NOT NULL
+				);
+				CREATE TABLE alternate_version (
+					atom_id INTEGER NOT NULL,
+					about TEXT NOT NULL
+				);
+				CREATE TABLE color_info (
+					atom_id INTEGER NOT NULL,
+					color BOOLEAN NOT NULL,
+					attrs TEXT NOT NULL
+				);
+				CREATE TABLE sound_mix (
+					atom_id INTEGER NOT NULL,
+					mix TEXT NOT NULL,
+					attrs TEXT NOT NULL
+				);
+				CREATE TABLE tagline (
+					atom_id INTEGER NOT NULL,
+					tag TEXT NOT NULL
+				);
+				CREATE TABLE trivia (
+					atom_id INTEGER NOT NULL,
+					entry TEXT NOT NULL
+				);
+				CREATE TABLE genre (
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL
+				);
+				CREATE TABLE goof (
+					atom_id INTEGER NOT NULL,
+					goof_type TEXT NOT NULL,
+					entry TEXT NOT NULL
+				);
+				CREATE TABLE language (
+					atom_id INTEGER NOT NULL,
+					name TEXT NOT NULL,
+					attrs TEXT NOT NULL
+				);
+				CREATE TABLE literature (
+					atom_id INTEGER NOT NULL,
+					lit_type TEXT NOT NULL,
+					ref TEXT NOT NULL
+				);
+				CREATE TABLE location (
+					atom_id INTEGER NOT NULL,
+					place TEXT NOT NULL,
+					attrs TEXT NOT NULL
+				);
+				CREATE TABLE link (
+					atom_id INTEGER NOT NULL,
+					link_type TEXT NOT NULL,
+					link_atom_id INTEGER NOT NULL,
+					entity TEXT NOT NULL
+						CHECK (entity = 'movie'
+						       OR entity = 'tvshow'
+							   OR entity = 'episode')
+				);
+				CREATE TABLE plot (
+					atom_id INTEGER NOT NULL,
+					entry TEXT NOT NULL,
+					by TEXT NOT NULL
+				);
+				CREATE TABLE quote (
+					atom_id INTEGER NOT NULL,
+					entry TEXT NOT NULL
+				);
+				CREATE TABLE rating (
+					atom_id INTEGER NOT NULL,
+					votes INTEGER NOT NULL,
+					rank INTEGER NOT NULL
+				);
+				CREATE TABLE mpaa_rating (
+					atom_id INTEGER NOT NULL,
+					rating mpaa NOT NULL,
+					reason TEXT NOT NULL
 				);
 				`)
 			return err
@@ -273,7 +341,6 @@ var indices = []index{
 	{false, "quote", "", "", []string{"atom_id"}},
 	{false, "rating", "", "", []string{"atom_id"}},
 	{false, "name", "", "", []string{"atom_id"}},
-	{false, "actor", "", "", []string{"atom_id"}},
 	{false, "credit", "", "", []string{"actor_atom_id"}},
 	{false, "credit", "", "", []string{"media_atom_id"}},
 
