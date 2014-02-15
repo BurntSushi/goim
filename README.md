@@ -27,15 +27,15 @@ of space on disk. A complete load (with all IMDb downloaded first) took about
 updating. After completion, a search query of `%Matrix%` takes approximate 0.5 
 seconds.
 
-A complete database (with indices) for PostgreSQL uses approximately 5.5GB
-of space on disk. A complete load (with all IMDb downloaded first) took about 
-7.5 minutes. There is a significant speed boost from parallel table updates,
-although about half the time is spent building indices (the trigram indices 
-take especially long). After completion, a search query of `%Matrix%` takes 
-approximately 0.18 seconds. A search query of `matrix` (using the trigram 
-indices) takes approximately 1 second. (Searches were done only when the 
-Postgres autovacuum appeared to be idling. On my system, it tends to run for a 
-few minutes after a full load of the database.)
+A complete database (with indices) for PostgreSQL 9.3 (using a default 
+configuration) uses approximately 5.5GB of space on disk. A complete load (with 
+all IMDb downloaded first) took about 7.5 minutes. There is a significant speed 
+boost from parallel table updates, although about half the time is spent 
+building indices (the trigram indices take especially long). After completion, 
+a search query of `%Matrix%` takes approximately 0.18 seconds. A search query 
+of `matrix` (using the trigram indices) takes approximately 1 second. (Searches 
+were done only when the Postgres autovacuum appeared to be idling. On my 
+system, it tends to run for a few minutes after a full load of the database.)
 
 
 Under construction
