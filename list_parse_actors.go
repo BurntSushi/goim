@@ -27,19 +27,19 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	// We don't refresh the actor table, but we do need to rebuild credits.
 	csql.Panic(csql.Truncate(txcredit.Tx, db.Driver, "credit"))
 
-	batch := 50
-	actIns, err := csql.NewInserter(txactor.Tx, db.Driver, batch, "actor",
+	actIns, err := csql.NewInserter(txactor.Tx, db.Driver, "actor",
 		"atom_id", "sequence")
 	csql.Panic(err)
-	credIns, err := csql.NewInserter(txcredit.Tx, db.Driver, batch, "credit",
+	credIns, err := csql.NewInserter(txcredit.Tx, db.Driver, "credit",
 		"actor_atom_id", "media_atom_id", "character", "position", "attrs")
 	csql.Panic(err)
-	nameIns, err := csql.NewInserter(txname.Tx, db.Driver, batch, "name",
+	nameIns, err := csql.NewInserter(txname.Tx, db.Driver, "name",
 		"atom_id", "name")
 	csql.Panic(err)
 	atoms, err := newAtomizer(db, txatom.Tx)
 	csql.Panic(err)
 
+	var nacts1, ncreds1, nacts2, ncreds2 int
 	defer func() {
 		csql.Panic(actIns.Exec())
 		csql.Panic(credIns.Exec())
@@ -50,14 +50,13 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 		csql.Panic(txcredit.Commit())
 		csql.Panic(txname.Commit())
 		csql.Panic(txatom.Commit())
+
+		logf("Done. Added %d actors/actresses and %d credits.",
+			nacts1+nacts2, ncreds1+ncreds2)
 	}()
 
-	var nacts1, ncreds1, nacts2, ncreds2 int
 	nacts1, ncreds1 = listActs(db, ractress, atoms, actIns, credIns, nameIns)
 	nacts2, ncreds2 = listActs(db, ractor, atoms, actIns, credIns, nameIns)
-
-	logf("Done. Added %d actors/actresses and %d credits.",
-		nacts1+nacts2, ncreds1+ncreds2)
 	return
 }
 

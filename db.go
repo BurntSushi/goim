@@ -81,7 +81,7 @@ func newAtomizer(db *imdb.DB, tx *sql.Tx) (az *atomizer, err error) {
 	if tx != nil {
 		var err error
 		az.ins, err = csql.NewInserter(
-			tx, db.Driver, 50, "atom", "id", "hash")
+			tx, db.Driver, "atom", "id", "hash")
 		csql.Panic(err)
 	}
 

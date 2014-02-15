@@ -31,17 +31,16 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 	txname := txmovie.another()
 	txatom := txmovie.another()
 
-	batch := 50
-	mvIns, err := csql.NewInserter(txmovie.Tx, db.Driver, batch, "movie",
+	mvIns, err := csql.NewInserter(txmovie.Tx, db.Driver, "movie",
 		"atom_id", "year", "sequence", "tv", "video")
 	csql.Panic(err)
-	tvIns, err := csql.NewInserter(txtv.Tx, db.Driver, batch, "tvshow",
+	tvIns, err := csql.NewInserter(txtv.Tx, db.Driver, "tvshow",
 		"atom_id", "year", "sequence", "year_start", "year_end")
 	csql.Panic(err)
-	epIns, err := csql.NewInserter(txepisode.Tx, db.Driver, batch, "episode",
+	epIns, err := csql.NewInserter(txepisode.Tx, db.Driver, "episode",
 		"atom_id", "tvshow_atom_id", "year", "season", "episode_num")
 	csql.Panic(err)
-	nameIns, err := csql.NewInserter(txname.Tx, db.Driver, batch, "name",
+	nameIns, err := csql.NewInserter(txname.Tx, db.Driver, "name",
 		"atom_id", "name")
 	csql.Panic(err)
 	atoms, err := newAtomizer(db, txatom.Tx)
@@ -59,6 +58,9 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 		csql.Panic(txepisode.Commit())
 		csql.Panic(txname.Commit())
 		csql.Panic(txatom.Commit())
+
+		logf("Done. Added %d movies, %d tv shows and %d episodes.",
+			addedMovies, addedTvshows, addedEpisodes)
 	}()
 
 	listLines(movies, func(line []byte) {
@@ -141,8 +143,6 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 			csql.Panic(ef("Unrecognized entity %s", ent))
 		}
 	})
-	logf("Done. Added %d movies, %d tv shows and %d episodes.",
-		addedMovies, addedTvshows, addedEpisodes)
 	return
 }
 
