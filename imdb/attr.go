@@ -551,7 +551,7 @@ func (as *Links) ForEntity(db csql.Queryer, e Entity) error {
 	links := rows.([]link)
 	typedLinks := make([]Link, len(links))
 	for i := range links {
-		kind := EntityKindFromString(links[i].Entity)
+		kind := entityKindFromString(links[i].Entity)
 		ent, err := FromAtom(db, kind, links[i].Id)
 		if err != nil {
 			return err

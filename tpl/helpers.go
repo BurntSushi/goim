@@ -1,6 +1,7 @@
 package tpl
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -8,15 +9,28 @@ import (
 
 	"github.com/kr/text"
 
+	"github.com/BurntSushi/csql"
+
 	"github.com/BurntSushi/goim/imdb"
 )
 
-var Helpers = template.FuncMap{
+var (
+	sf = fmt.Sprintf
+	ef = fmt.Errorf
+)
+
+// Functions corresponds to a map of functions that is available in every
+// Goim template.
+var Functions = template.FuncMap{
 	"combine":    combine,
 	"lines":      lines,
 	"wrap":       wrap,
 	"underlined": underlined,
 	"sort":       sorted,
+
+	"count_seasons":  countSeasons,
+	"count_episodes": countEpisodes,
+	"tvshow":         tvshow,
 
 	"running_times":      attrGetter(new(imdb.RunningTimes)),
 	"release_dates":      attrGetter(new(imdb.ReleaseDates)),
@@ -36,6 +50,20 @@ var Helpers = template.FuncMap{
 	"plots":              attrGetter(new(imdb.Plots)),
 	"quotes":             attrGetter(new(imdb.Quotes)),
 	"rank":               attrGetter(new(imdb.UserRank)),
+}
+
+// assert will quit Goim with the specified error if it is not nil.
+func assert(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// assertDB makes sure there is a valid DB connection.
+func assertDB() {
+	if tplDB == nil {
+		assert(ef("No database connection found. Please set one with SetDB."))
+	}
 }
 
 // Combine provides a way to compose values during template execution.
@@ -100,4 +128,39 @@ func attrGetter(attrs imdb.Attributer) interface{} {
 		assert(e.Attrs(tplDB, vattrs))
 		return vattrs
 	}
+}
+
+// countSeasons returns the number of seasons for the TV show given.
+func countSeasons(e imdb.Entity) int {
+	assertDB()
+	q := `
+		SELECT COUNT(*)
+		FROM episode
+		WHERE tvshow_atom_id = $1 AND season > 0 AND episode_num > 0
+		GROUP BY season
+	`
+	return csql.Count(tplDB, q, e.Ident())
+}
+
+// countEpisodes returns the number of episodes for the TV show given.
+func countEpisodes(e imdb.Entity) int {
+	assertDB()
+	q := `
+		SELECT COUNT(*)
+		FROM episode
+		WHERE tvshow_atom_id = $1 AND season > 0 AND episode_num > 0
+	`
+	return csql.Count(tplDB, q, e.Ident())
+}
+
+// tvshow returns the TV show entity corresponding to the entity given.
+func tvshow(e imdb.Entity) *imdb.Tvshow {
+	assertDB()
+	episode, ok := e.(*imdb.Episode)
+	if !ok {
+		panic(ef("'%s' is not an episode.", e))
+	}
+	tv, err := episode.Tvshow(tplDB)
+	assert(err)
+	return tv
 }

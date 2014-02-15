@@ -54,6 +54,9 @@ func newFetcher(uri string) fetcher {
 		// We're only allowed a limited number of FTP connections, so start
 		// a pool of them.
 		pool := ftpPool(*loc)
+		if pool == nil {
+			return nil
+		}
 		return gzipFetcher{ftpFetcher{loc, pool}}
 	}
 	pef("Unsupported URL scheme '%s' in '%s'.", loc.Scheme, uri)
@@ -108,7 +111,8 @@ func ftpPool(loc url.URL) chan *ftp.ServerConn {
 
 	c, err := newFtpConn(loc)
 	if err != nil {
-		fatalf("%s", err)
+		pef("Could not create FTP connection pool: %s", err)
+		return nil
 	}
 	conns := []*ftp.ServerConn{c}
 	numGiven := 0

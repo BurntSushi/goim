@@ -237,7 +237,7 @@ func (c *command) chooser(
 	pf("%s is ambiguous. Please choose one:\n", what)
 	template := c.tpl("search_result")
 	for i, result := range results {
-		c.tplExec(template, tpl.Formatted{result, tpl.Attrs{"Index": i + 1}})
+		c.tplExec(template, tpl.Args{result, tpl.Attrs{"Index": i + 1}})
 	}
 
 	var choice int
@@ -279,14 +279,14 @@ func (c *command) tpl(name string) *template.Template {
 
 		// Try to parse the templates before mangling them, so that error
 		// messages retain meaningful line numbers.
-		_, err = template.New("format.tpl").Funcs(tpl.Helpers).Parse(tplText)
+		_, err = template.New("format.tpl").Funcs(tpl.Functions).Parse(tplText)
 		if err != nil {
 			fatalf("Problem parsing template: %s", err)
 		}
 
 		// Okay, now do it for real.
 		c.tpls = template.New("format.tpl")
-		c.tpls.Funcs(tpl.Helpers)
+		c.tpls.Funcs(tpl.Functions)
 		if _, err := c.tpls.Parse(trimTemplate(tplText)); err != nil {
 			fatalf("BUG: Problem parsing template: %s", err)
 		}

@@ -14,6 +14,7 @@ import (
 var commands = []*command{
 	cmdClean,
 	cmdFull,
+	cmdShort,
 	cmdLoad,
 	cmdSearch,
 	cmdSize,
@@ -97,6 +98,7 @@ func main() {
 			}
 		}
 	}
-	fatalf("Unknown command '%s'. Run 'goim help' for a list of "+
+	pef("Unknown command '%s'. Run 'goim help' for a list of "+
 		"available commands.", cmd)
+	os.Exit(1)
 }

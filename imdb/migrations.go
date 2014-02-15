@@ -1,6 +1,7 @@
 package imdb
 
 import (
+	"log"
 	"strings"
 
 	"github.com/BurntSushi/ty/fun"
@@ -406,7 +407,7 @@ func doIndices(
 		if idx.isFulltext() && !trgmEnabled {
 			// Only show the error message if we're on PostgreSQL.
 			if db.Driver == "postgres" {
-				logf("Skipping fulltext index '%s' since "+
+				log.Printf("Skipping fulltext index '%s' since "+
 					"the pg_trgm extension is not enabled.", idx.sqlName())
 			}
 			continue

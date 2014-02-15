@@ -27,10 +27,10 @@ var Entities = map[string]EntityKind{
 	"actor":   EntityActor,
 }
 
-func EntityKindFromString(e string) EntityKind {
+func entityKindFromString(e string) EntityKind {
 	ent, ok := Entities[e]
 	if !ok {
-		fatalf("unrecognized entity %s", e)
+		panic(sf("BUG: unrecognized entity %s", e))
 	}
 	return ent
 }

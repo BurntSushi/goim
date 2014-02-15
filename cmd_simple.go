@@ -62,7 +62,7 @@ func cmd_search(c *command) bool {
 	} else {
 		for i, result := range results {
 			attrs := tpl.Attrs{"Index": i + 1}
-			c.tplExec(template, tpl.Formatted{result, attrs})
+			c.tplExec(template, tpl.Args{result, attrs})
 		}
 	}
 	return true
@@ -118,7 +118,7 @@ func cmd_attr(name string) func(*command) bool {
 
 func (c *command) showAttr(db *imdb.DB, ent imdb.Entity, name string) bool {
 	tpl.SetDB(db)
-	c.tplExec(c.tpl(name), tpl.Formatted{ent, nil})
+	c.tplExec(c.tpl(name), tpl.Args{ent, nil})
 	return true
 }
 
@@ -150,5 +150,34 @@ func cmd_full(c *command) bool {
 			return false
 		}
 	}
+	return true
+}
+
+var cmdShort = &command{
+	name:            "short",
+	other:           true,
+	positionalUsage: "query",
+	shortHelp:       "show selected information about an entity",
+	help:            "",
+	flags:           flag.NewFlagSet("short", flag.ExitOnError),
+	run:             cmd_short,
+}
+
+func cmd_short(c *command) bool {
+	c.assertLeastNArg(1)
+	db := openDb(c.dbinfo())
+	defer closeDb(db)
+
+	attrs := fun.Keys(attrCommands).([]string)
+	sort.Sort(sort.StringSlice(attrs))
+
+	ent, ok := c.oneEntity(db)
+	if !ok {
+		return false
+	}
+
+	tplName := sf("short_%s", ent.Type().String())
+	tpl.SetDB(db)
+	c.tplExec(c.tpl(tplName), tpl.Args{ent, nil})
 	return true
 }

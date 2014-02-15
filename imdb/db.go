@@ -3,7 +3,6 @@ package imdb
 import (
 	"database/sql"
 	"fmt"
-	"os"
 
 	_ "code.google.com/p/go-sqlite/go1/sqlite3"
 	_ "github.com/lib/pq"
@@ -13,16 +12,8 @@ import (
 )
 
 var (
-	sf     = fmt.Sprintf
-	ef     = fmt.Errorf
-	pf     = fmt.Printf
-	fatalf = func(f string, v ...interface{}) { pef(f, v...); os.Exit(1) }
-	pef    = func(f string, v ...interface{}) {
-		fmt.Fprintf(os.Stderr, f+"\n", v...)
-	}
-	logf = func(format string, v ...interface{}) {
-		pef(format, v...)
-	}
+	sf = fmt.Sprintf
+	ef = fmt.Errorf
 )
 
 // DB represents a database containing information from the Internet
