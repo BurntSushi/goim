@@ -76,7 +76,9 @@ a directory on the local file system. Regardless of how the location is
 specified, it must point to a directory (whether remote or local) containing 
 IMDb gzipped list files.
 
-By default, the 'berlin' public FTP site is used.
+By default, the 'berlin' public FTP site is used and only the 'movies' table
+is updated. To update more tables, use the '-lists' flag. It is better to
+specify as many lists as possible, since they can be updated in parallel.
 
 This command can create a database from scratch or it can update an existing
 one. The update procedure is currently not that sophisticated, and some
@@ -112,6 +114,19 @@ func cmd_load(c *command) bool {
 	driver, dsn := c.dbinfo()
 	db := openDb(driver, dsn)
 	defer closeDb(db)
+
+	// With SQLite, we can get some performance benefit by disabling
+	// synchronous writes.
+	// It is still safe from application crashes (e.g., bugs in Goim), but
+	// not safe from power failures or operating system crashes.
+	// I think we're OK with that, right?
+	if db.Driver == "sqlite3" {
+		_, err := db.Exec("PRAGMA synchronous = OFF")
+		if err != nil {
+			pef("Could not disable SQLite synchronous mode: %s", err)
+			return false
+		}
+	}
 
 	// Figure out which lists we're loading and make sure each list name is
 	// valid before proceeding.
@@ -180,54 +195,60 @@ func cmd_load(c *command) bool {
 	// to load movies and actors first since they insert data that most of the
 	// other lists depend on. Also, they cannot be loaded in parallel since
 	// they are the only loaders that *add* atoms to the database.
-	if loaderIn("movies", userLoadLists) {
+	if in := loaderIndex("movies", userLoadLists); in > -1 {
 		if err := loadMovies(driver, dsn, fetch); err != nil {
 			pef("%s", err)
 			return false
 		}
+		userLoadLists = append(userLoadLists[:in], userLoadLists[in+1:]...)
 	}
-	if loaderIn("actors", userLoadLists) {
+	if in := loaderIndex("actors", userLoadLists); in > -1 {
 		if err := loadActors(driver, dsn, fetch); err != nil {
 			pef("%s", err)
 			return false
 		}
+		userLoadLists = append(userLoadLists[:in], userLoadLists[in+1:]...)
 	}
 
 	// This must be done after movies/actors are loaded so that we get all
 	// of their atoms.
-	logf("Reading atom identifiers from database...")
-	atoms, err := newAtomizer(db, nil) // read-only
-	if err != nil {
-		pef("%s", err)
-		return false
-	}
-	simpleLoad := func(name string) bool {
-		if !loaderIn(name, userLoadLists) {
-			return false
-		}
-		loader := simpleLoaders[name]
-		if loader == nil {
-			// could be "movies" or "actors", which are loaded ^^^
-			return true
-		}
-
-		db := openDb(driver, dsn)
-		defer closeDb(db)
-
-		list, err := fetch.list(name)
+	if len(userLoadLists) > 0 {
+		logf("Reading atom identifiers from database...")
+		atoms, err := newAtomizer(db, nil) // read-only
 		if err != nil {
 			pef("%s", err)
 			return false
 		}
-		defer list.Close()
+		simpleLoad := func(name string) bool {
+			loader := simpleLoaders[name]
+			if loader == nil {
+				// This is a bug since we should have verified all list names.
+				logf("BUG: %s does not have a simpler loader.", name)
+				return true
+			}
 
-		if err := loader(db, atoms, list); err != nil {
-			pef("Could not store %s list: %s", name, err)
-			return false
+			db := openDb(driver, dsn)
+			defer closeDb(db)
+
+			list, err := fetch.list(name)
+			if err != nil {
+				pef("%s", err)
+				return false
+			}
+			defer list.Close()
+
+			if err := loader(db, atoms, list); err != nil {
+				pef("Could not store %s list: %s", name, err)
+				return false
+			}
+			return true
 		}
-		return true
+		maxConcurrent := flagCpu
+		if db.Driver == "sqlite3" {
+			maxConcurrent = 1
+		}
+		fun.ParMapN(simpleLoad, userLoadLists, maxConcurrent)
 	}
-	fun.ParMapN(simpleLoad, loadLists, flagCpu)
 
 	logf("Creating indices for: %s", strings.Join(tables, ", "))
 	if err := db.CreateIndices(tables...); err != nil {
@@ -291,13 +312,13 @@ func loadActors(driver, dsn string, fetch fetcher) error {
 	return nil
 }
 
-func loaderIn(name string, userList []string) bool {
+func loaderIndex(name string, userList []string) int {
 	name = strings.ToLower(name)
-	for _, load := range userList {
+	for i, load := range userList {
 		load = strings.TrimSpace(load)
 		if name == strings.ToLower(load) {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }
