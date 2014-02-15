@@ -276,6 +276,10 @@ func (sub *subsearch) choose(parent *Searcher, chooser Chooser) error {
 	if err != nil {
 		return ef("Error picking %s result: %s", sub.what, err)
 	}
+	if r == nil {
+		sub.id = -1 // force search to fail.
+		return nil
+	}
 	sub.id = r.Id
 	return nil
 }
