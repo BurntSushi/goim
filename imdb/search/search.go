@@ -102,7 +102,7 @@ type Searcher struct {
 	goodThreshold float64
 	chooser       Chooser
 
-	subMovie, subTvshow, subEpisode, subActor     *subsearch
+	subTvshow, subCredits, subActor               *subsearch
 	year, rating, votes, season, episode, billing *irange
 
 	noTvMovie, noVideoMovie bool
@@ -167,7 +167,7 @@ func New(db *imdb.DB, query string) (*Searcher, error) {
 }
 
 func (s *Searcher) addToken(queryName []string, arg string) ([]string, error) {
-	subsearches := []string{"movie", "tv", "tvshow", "episode", "actor"}
+	subsearches := []string{"tv", "tvshow", "credit", "credits", "actor"}
 	name, val := argOption(arg)
 
 	// First check if it's specifying a particular entity or a subsearch of
@@ -181,12 +181,10 @@ func (s *Searcher) addToken(queryName []string, arg string) ([]string, error) {
 			return nil, err
 		}
 		switch name {
-		case "movie":
-			s.Movie(sub)
 		case "tv", "tvshow":
 			s.Tvshow(sub)
-		case "episode":
-			s.Episode(sub)
+		case "credit", "credits":
+			s.Credits(sub)
 		case "actor":
 			s.Actor(sub)
 		}
@@ -216,18 +214,13 @@ func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
 func (s *Searcher) Results() (rs []Result, err error) {
 	defer csql.Safe(&err)
 
-	if s.subMovie != nil {
-		if err := s.subMovie.choose(s, s.chooser); err != nil {
-			return nil, err
-		}
-	}
 	if s.subTvshow != nil {
 		if err := s.subTvshow.choose(s, s.chooser); err != nil {
 			return nil, err
 		}
 	}
-	if s.subEpisode != nil {
-		if err := s.subEpisode.choose(s, s.chooser); err != nil {
+	if s.subCredits != nil {
+		if err := s.subCredits.choose(s, s.chooser); err != nil {
 			return nil, err
 		}
 	}
@@ -320,7 +313,8 @@ func (s *Searcher) GoodThreshold(diff float64) *Searcher {
 }
 
 // Entity adds the given entity to the search. Results only belonging to the
-// entities in the search will be returned.
+// entities in the search will be returned. This function may called more than
+// once to specify additional entities to allow.
 func (s *Searcher) Entity(e imdb.EntityKind) *Searcher {
 	s.entities = append(s.entities, e)
 	return s
@@ -392,19 +386,6 @@ func (s *Searcher) Billed(min, max int) *Searcher {
 	return s
 }
 
-// Movie specifies a sub-search that will be performed when Results is called.
-// The movie returned by this sub-search will be used to filter the results
-// of its parent search. If no movie is found, then the search quits and
-// returns no results. If more than one good matching movie is found, then
-// the searcher's "chooser" is called. (See the documentation for the
-// Chooser type.)
-func (s *Searcher) Movie(movies *Searcher) *Searcher {
-	movies.Entity(imdb.EntityMovie)
-	movies.what = "movie"
-	s.subMovie = &subsearch{movies, 0}
-	return s
-}
-
 // Tvshow specifies a sub-search that will be performed when Results is called.
 // The TV show returned by this sub-search will be used to filter the results
 // of its parent search. If no TV show is found, then the search quits and
@@ -419,15 +400,16 @@ func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 }
 
 // Episode specifies a sub-search that will be performed when Results is called.
-// The episode returned by this sub-search will be used to filter the results
-// of its parent search. If no episode is found, then the search quits and
-// returns no results. If more than one good matching episode is found, then
-// the searcher's "chooser" is called. (See the documentation for the
-// Chooser type.)
-func (s *Searcher) Episode(episodes *Searcher) *Searcher {
-	episodes.Entity(imdb.EntityEpisode)
-	episodes.what = "episode"
-	s.subEpisode = &subsearch{episodes, 0}
+// The entity returned restrict the results of the parent search to only
+// include credits for the entity. (Note that TV shows generally don't have
+// credits associated with them.)
+// If no entity is found, then the parent search quits and returns no results.
+func (s *Searcher) Credits(credits *Searcher) *Searcher {
+	credits.Entity(imdb.EntityMovie)
+	credits.Entity(imdb.EntityTvshow)
+	credits.Entity(imdb.EntityEpisode)
+	credits.what = "media"
+	s.subCredits = &subsearch{credits, 0}
 	return s
 }
 
@@ -437,6 +419,11 @@ func (s *Searcher) Episode(episodes *Searcher) *Searcher {
 // returns no results. If more than one good matching actor is found, then
 // the searcher's "chooser" is called. (See the documentation for the
 // Chooser type.)
+
+// Actor specifies a sub-search that will be performed when Results is called.
+// The actor returned restrict the results of the parent search to only
+// include credits for the actor.
+// If no actor is found, then the parent search quits and returns no results.
 func (s *Searcher) Actor(actors *Searcher) *Searcher {
 	actors.Entity(imdb.EntityActor)
 	actors.what = "actor"
@@ -639,26 +626,18 @@ func (s *Searcher) creditJoin() string {
 			AND c_actor.actor_atom_id = %d
 		`, s.subActor.id)
 	}
-	var mediaId imdb.Atom
-	switch {
-	case !s.subMovie.empty():
-		mediaId = s.subMovie.id
-	case !s.subEpisode.empty():
-		mediaId = s.subEpisode.id
-	}
-	if mediaId > 0 {
+	if !s.subCredits.empty() {
 		joins += sf(`
 		LEFT JOIN credit AS c_media ON
 			a.atom_id = c_media.actor_atom_id
 			AND c_media.media_atom_id = %d
-		`, mediaId)
+		`, s.subCredits.id)
 	}
 	return joins
 }
 
 func (s *Searcher) creditAttrs() string {
-	act := !s.subActor.empty()
-	med := !s.subMovie.empty() || !s.subEpisode.empty()
+	act, med := !s.subActor.empty(), !s.subCredits.empty()
 	switch {
 	case !act && !med:
 		return `
@@ -753,12 +732,8 @@ func (s *Searcher) where() string {
 
 func (s *Searcher) whereCredits() []string {
 	var conj []string
-	joined := ""
-	switch {
-	case !s.subMovie.empty():
-		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
-		joined = "c_media"
-	case !s.subEpisode.empty():
+	var joined string
+	if !s.subCredits.empty() {
 		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
 		joined = "c_media"
 	}
