@@ -47,8 +47,8 @@ var defaults = strings.TrimSpace(`
 	{{ if .E.Attrs }}
 		{{ printf " %s" .E.Attrs }}
 	{{ end }}
-	{{ if not .E.Rating.Unranked }}
-		{{ printf " (rank: %d/100)" .E.Rating.Rank }}
+	{{ if not .E.Rank.Unranked }}
+		{{ printf " (rank: %d/100)" .E.Rank.Rank }}
 	{{ end }}
 	{{ if .E.Credit.Valid }}
 		{{ if gt (len .E.Credit.Character) 0 }}

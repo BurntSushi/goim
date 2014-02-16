@@ -61,7 +61,7 @@ type Result struct {
 	Similarity float64
 
 	// If a rating exists for a search result, it will be stored here.
-	Rating imdb.UserRank
+	Rank imdb.UserRank
 
 	// If the search accesses credit information, then it will be stored here.
 	Credit Credit
@@ -248,7 +248,7 @@ func (s *Searcher) Results() (rs []Result, err error) {
 		var ent string
 		csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
 			&r.Similarity, &r.Attrs,
-			&r.Rating.Votes, &r.Rating.Rank,
+			&r.Rank.Votes, &r.Rank.Rank,
 			&r.Credit.ActorId, &r.Credit.MediaId, &r.Credit.Character,
 			&r.Credit.Position, &r.Credit.Attrs)
 		r.Entity = imdb.Entities[ent]
