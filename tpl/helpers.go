@@ -50,6 +50,7 @@ var Functions = template.FuncMap{
 	"plots":              attrGetter(new(imdb.Plots)),
 	"quotes":             attrGetter(new(imdb.Quotes)),
 	"rank":               attrGetter(new(imdb.UserRank)),
+	"credits":            attrGetter(new(imdb.Credits)),
 }
 
 // assert will quit Goim with the specified error if it is not nil.

@@ -64,7 +64,24 @@ type Result struct {
 	Rating imdb.UserRank
 
 	// If the search accesses credit information, then it will be stored here.
-	Credit imdb.Credit
+	Credit Credit
+}
+
+// Credit represents the credit information available in a search result.
+// This is distinct from the normal imdb.Credit type since it stores atom
+// identifiers instead of the entities themselves.
+type Credit struct {
+	ActorId   imdb.Atom
+	MediaId   imdb.Atom
+	Character string
+	Position  int
+	Attrs     string
+}
+
+// Valid returns true if and only if this credit belong to a valid movie
+// and a valid actor.
+func (c Credit) Valid() bool {
+	return c.ActorId > 0 && c.MediaId > 0
 }
 
 func (sr Result) GetEntity(db csql.Queryer) (imdb.Entity, error) {

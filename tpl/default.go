@@ -47,7 +47,7 @@ var defaults = strings.TrimSpace(`
 	{{ if .E.Attrs }}
 		{{ printf " %s" .E.Attrs }}
 	{{ end }}
-	{{ if not .E.Rating.Unrated }}
+	{{ if not .E.Rating.Unranked }}
 		{{ printf " (rank: %d/100)" .E.Rating.Rank }}
 	{{ end }}
 	{{ if .E.Credit.Valid }}
@@ -73,6 +73,7 @@ var defaults = strings.TrimSpace(`
 	{{ end }}
 
 
+	{{ template "short_media_details" .E }}
 {{ end }}
 
 {{ define "short_tvshow" }}
@@ -95,6 +96,7 @@ var defaults = strings.TrimSpace(`
 
 	{{ end }}
 
+	{{ template "short_media_details" .E }}
 {{ end }}
 
 {{ define "short_episode" }}
@@ -108,6 +110,7 @@ var defaults = strings.TrimSpace(`
 
 	{{ end }}
 
+	{{ template "short_media_details" .E }}
 {{ end }}
 
 {{ define "short_actor" }}
@@ -118,6 +121,41 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "short_media_details" }}
+	{{ $plots := plots . }}
+	{{ $runtimes := running_times . }}
+	{{ $dates := release_dates . }}
+	{{ $mpaa := mpaa . }}
+	{{ $rank := rank . }}
+	{{ if gt (len $runtimes) 0 }}
+		{{ printf "Running time: %s" (index $runtimes 0) }}
+
+
+	{{ end }}
+	{{ if gt (len $dates) 0 }}
+		{{ printf "Release date: %s" (index $dates 0) }}
+
+
+	{{ end }}
+	{{ if not $rank.Unranked }}
+		{{ printf "IMDb rank: %s" $rank }}
+
+
+	{{ end }}
+	{{ if not $mpaa.Unrated }}
+		{{ printf "MPAA rating: %s" $mpaa }}
+
+
+	{{ end }}
+	{{ if gt (len $plots) 0 }}
+		{{ $p := index $plots 0 }}
+		{{ "Plot" | underlined "-" }}
+
+		{{ $p.Entry | wrap 80 }}
+
+		{{ printf "-- %s" $p.By | wrap 80 }}
+
+
+	{{ end }}
 {{ end }}
 
 {{ define "running-times" }}
@@ -360,7 +398,7 @@ var defaults = strings.TrimSpace(`
 
 	{{ printf "Links for %s" .E | underlined "=" }}
 
-	{{ $links := links .E | sort }}
+	{{ $links := links .E }}
 	{{ if eq 0 (len $links) }}
 		None found.
 
@@ -421,12 +459,38 @@ var defaults = strings.TrimSpace(`
 	{{ printf "User rank for %s" .E | underlined "=" }}
 
 	{{ $rank := rank .E }}
-	{{ if $rank.Unrated }}
+	{{ if $rank.Unranked }}
 		None found.
 
 	{{ else }}
 		{{ $rank }}
 
+
+	{{ end }}
+{{ end }}
+
+{{ define "credits" }}
+
+	{{ printf "Credits for %s" .E | underlined "=" }}
+
+	{{ $credits := credits .E }}
+	{{ if eq 0 (len $credits) }}
+		None found.
+
+	{{ else }}
+		{{ range $c := $credits }}
+			{{ if eq "actor" $.E.Type.String }}
+				{{ if eq "episode" $c.Media.Type.String }}
+					{{ $tv := printf "(TV show: %s)" (tvshow $c.Media) }}
+					{{ printf "%s %s %s" $c.Media $tv $c }}
+				{{ else }}
+					{{ printf "%s %s" $c.Media $c }}
+				{{ end }}
+			{{ else }}
+				{{ printf "%s %s" $c.Actor $c }}
+			{{ end }}
+
+		{{ end }}
 
 	{{ end }}
 {{ end }}

@@ -2,6 +2,7 @@ package imdb
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ func attrs(
 	db csql.Queryer,
 	e Entity,
 	tableName string,
+	idColumn string,
 	extra string,
 ) (v interface{}, err error) {
 	defer csql.Safe(&err)
@@ -50,9 +52,10 @@ func attrs(
 	}
 	tattrs := reflect.SliceOf(tz)
 	vattrs := reflect.MakeSlice(tattrs, 0, 10)
+	v = vattrs.Interface()
 
-	q := sf("SELECT %s FROM %s WHERE atom_id = $1 %s",
-		strings.Join(columns, ", "), tableName, extra)
+	q := sf("SELECT %s FROM %s WHERE %s = $1 %s",
+		strings.Join(columns, ", "), tableName, idColumn, extra)
 	rs := csql.Query(db, q, e.Ident())
 	csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
 		loadCols := make([]interface{}, nfields)
@@ -67,7 +70,7 @@ func attrs(
 		}
 		vattrs = reflect.Append(vattrs, row)
 	}))
-	v = vattrs.Interface()
+	v = vattrs.Interface() // not sure if this is necessary.
 	return
 }
 
@@ -108,8 +111,8 @@ func (as *RunningTimes) Len() int { return len(*as) }
 // time without a country comes first---which IMDb claims *should* be the
 // default.
 func (as *RunningTimes) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(RunningTime), db, e,
-		"running_time", "ORDER BY country ASC")
+	rows, err := attrs(new(RunningTime), db, e, "running_time",
+		"atom_id", "ORDER BY country ASC")
 	*as = rows.([]RunningTime)
 	return err
 }
@@ -153,7 +156,7 @@ func (as *ReleaseDates) Len() int { return len(*as) }
 // given.
 // Note that the list returned is sorted by release date in ascending order.
 func (as *ReleaseDates) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(ReleaseDate), db, e, "release_date",
+	rows, err := attrs(new(ReleaseDate), db, e, "release_date", "atom_id",
 		"ORDER BY released")
 	*as = rows.([]ReleaseDate)
 	return err
@@ -184,7 +187,8 @@ func (as *AkaTitles) Len() int { return len(*as) }
 // ForEntity fills 'as' with all AKA titles corresponding to the entity given.
 // The list returned is sorted alphabetically in ascending order.
 func (as *AkaTitles) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(AkaTitle), db, e, "aka_title", "ORDER BY title")
+	rows, err := attrs(new(AkaTitle), db, e, "aka_title", "atom_id",
+		"ORDER BY title")
 	*as = rows.([]AkaTitle)
 	return err
 }
@@ -209,7 +213,8 @@ func (as *AlternateVersions) Len() int { return len(*as) }
 // ForEntity fills 'as' with all alternative versions corresponding to the
 // entity given.
 func (as *AlternateVersions) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(AlternateVersion), db, e, "alternate_version", "")
+	rows, err := attrs(new(AlternateVersion), db, e, "alternate_version",
+		"atom_id", "")
 	*as = rows.([]AlternateVersion)
 	return err
 }
@@ -243,7 +248,7 @@ func (as *ColorInfos) Len() int { return len(*as) }
 // ForEntity fills 'as' with all color information corresponding to the entity
 // given.
 func (as *ColorInfos) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(ColorInfo), db, e, "color_info", "")
+	rows, err := attrs(new(ColorInfo), db, e, "color_info", "atom_id", "")
 	*as = rows.([]ColorInfo)
 	return err
 }
@@ -284,7 +289,8 @@ func (mr *RatingReason) Len() int {
 // ForEntity fills 'mr' with an MPAA rating if it exists. Otherwise, it remains
 // nil.
 func (mr *RatingReason) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(RatingReason), db, e, "mpaa_rating", "LIMIT 1")
+	rows, err := attrs(new(RatingReason), db, e, "mpaa_rating", "atom_id",
+		"LIMIT 1")
 	reasons := rows.([]RatingReason)
 	if len(reasons) > 0 {
 		*mr = reasons[0]
@@ -317,7 +323,7 @@ func (as *SoundMixes) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all sound mixes corresponding to the entity given.
 func (as *SoundMixes) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(SoundMix), db, e, "sound_mix", "")
+	rows, err := attrs(new(SoundMix), db, e, "sound_mix", "atom_id", "")
 	*as = rows.([]SoundMix)
 	return err
 }
@@ -341,7 +347,7 @@ func (as *Taglines) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all taglines corresponding to the entity given.
 func (as *Taglines) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Tagline), db, e, "tagline", "")
+	rows, err := attrs(new(Tagline), db, e, "tagline", "atom_id", "")
 	*as = rows.([]Tagline)
 	return err
 }
@@ -364,7 +370,7 @@ func (as *Trivias) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all trivia corresponding to the entity given.
 func (as *Trivias) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Trivia), db, e, "trivia", "")
+	rows, err := attrs(new(Trivia), db, e, "trivia", "atom_id", "")
 	*as = rows.([]Trivia)
 	return err
 }
@@ -388,7 +394,8 @@ func (as *Genres) Len() int { return len(*as) }
 // ForEntity fills 'as' with all genre tags correspondings to the entity given.
 // Note that genres are sorted alphabetically in ascending order.
 func (as *Genres) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Genre), db, e, "genre", "ORDER BY name ASC")
+	rows, err := attrs(new(Genre), db, e, "genre", "atom_id",
+		"ORDER BY name ASC")
 	*as = rows.([]Genre)
 	return err
 }
@@ -412,7 +419,7 @@ func (as *Goofs) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all goofs corresponding to the entity given.
 func (as *Goofs) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Goof), db, e, "goof", "")
+	rows, err := attrs(new(Goof), db, e, "goof", "atom_id", "")
 	*as = rows.([]Goof)
 	return err
 }
@@ -442,7 +449,7 @@ func (as *Languages) Len() int { return len(*as) }
 // ForEntity fills 'as' with all language labels corresponding to the entity
 // given.
 func (as *Languages) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Language), db, e, "language", "")
+	rows, err := attrs(new(Language), db, e, "language", "atom_id", "")
 	*as = rows.([]Language)
 	return err
 }
@@ -469,7 +476,7 @@ func (as *Literatures) Len() int { return len(*as) }
 // ForEntity fills 'as' with all literature references corresponding to the
 // entity given.
 func (as *Literatures) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Literature), db, e, "literature", "")
+	rows, err := attrs(new(Literature), db, e, "literature", "atom_id", "")
 	*as = rows.([]Literature)
 	return err
 }
@@ -499,7 +506,7 @@ func (as *Locations) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all locations corresponding to the entity given.
 func (as *Locations) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Location), db, e, "location", "")
+	rows, err := attrs(new(Location), db, e, "location", "atom_id", "")
 	*as = rows.([]Location)
 	return err
 }
@@ -539,13 +546,17 @@ func (as Links) Less(i, j int) bool {
 func (as *Links) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all links corresponding to the entity given.
+// The links returned are sorted by the year released, in ascending order.
 func (as *Links) ForEntity(db csql.Queryer, e Entity) error {
 	type link struct {
 		Type   string `imdb_name:"link_type"`
 		Id     Atom   `imdb_name:"link_atom_id"`
 		Entity string
 	}
-	rows, err := attrs(new(link), db, e, "link", "")
+	rows, err := attrs(new(link), db, e, "link", "atom_id", "")
+	if err != nil {
+		return err
+	}
 
 	// Blech, map entity strings to typed entity kinds...
 	links := rows.([]link)
@@ -562,7 +573,8 @@ func (as *Links) ForEntity(db csql.Queryer, e Entity) error {
 		}
 	}
 	*as = typedLinks
-	return err
+	sort.Sort(as)
+	return nil
 }
 
 // Plot represents the text of a plot summary---and it's author---for a movie,
@@ -582,7 +594,7 @@ func (as *Plots) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all plots corresponding to the entity given.
 func (as *Plots) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Plot), db, e, "plot", "")
+	rows, err := attrs(new(Plot), db, e, "plot", "atom_id", "")
 	*as = rows.([]Plot)
 	return err
 }
@@ -608,7 +620,7 @@ func (as *Quotes) Len() int { return len(*as) }
 
 // ForEntity fills 'as' with all quotes corresponding to the entity given.
 func (as *Quotes) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(Quote), db, e, "quote", "")
+	rows, err := attrs(new(Quote), db, e, "quote", "atom_id", "")
 	*as = rows.([]Quote)
 	return err
 }
@@ -622,8 +634,8 @@ type UserRank struct {
 	Rank  int
 }
 
-// Unrated returns true if and only if this rank has no votes.
-func (r UserRank) Unrated() bool {
+// Unranked returns true if and only if this rank has no votes.
+func (r UserRank) Unranked() bool {
 	return r.Votes == 0
 }
 
@@ -633,7 +645,7 @@ func (r UserRank) String() string {
 
 // Len is 0 if there is no rank or if it is unrated. Otherwise, the Len is 1.
 func (r *UserRank) Len() int {
-	if r == nil || r.Unrated() {
+	if r == nil || r.Unranked() {
 		return 0
 	} else {
 		return 1
@@ -643,7 +655,7 @@ func (r *UserRank) Len() int {
 // ForEntity fills 'r' with a user rank if it exists. Otherwise, it remains
 // nil.
 func (r *UserRank) ForEntity(db csql.Queryer, e Entity) error {
-	rows, err := attrs(new(UserRank), db, e, "rating", "LIMIT 1")
+	rows, err := attrs(new(UserRank), db, e, "rating", "atom_id", "LIMIT 1")
 	rates := rows.([]UserRank)
 	if len(rates) > 0 {
 		*r = rates[0]
@@ -658,8 +670,8 @@ func (r *UserRank) ForEntity(db csql.Queryer, e Entity) error {
 // Note that Credit has no corresponding type that satisfies the Attributer
 // interface. This may change in the future.
 type Credit struct {
-	ActorId   Atom `imdb_name:"actor_atom_id"`
-	MediaId   Atom `imdb_name:"media_atom_id"`
+	Actor     *Actor
+	Media     Entity
 	Character string
 	Position  int
 	Attrs     string
@@ -668,13 +680,141 @@ type Credit struct {
 // Valid returns true if and only if this credit belong to a valid movie
 // and a valid actor.
 func (c Credit) Valid() bool {
-	return c.ActorId > 0 && c.MediaId > 0
+	return c.Actor != nil && c.Media != nil
 }
 
+// String only shows the character/position/attrs of the credit.
 func (c Credit) String() string {
-	s := c.Character
+	var s string
+	if len(c.Character) > 0 {
+		s = sf("[%s]", c.Character)
+	} else {
+		s = "[unknown]"
+	}
+	if c.Position > 0 {
+		s += sf(" <%d>", c.Position)
+	}
 	if len(c.Attrs) > 0 {
 		s += " " + c.Attrs
 	}
 	return s
+}
+
+// Credits corresponds to a list of credits, usually for one particular
+// movie/episode or for one particular actor.
+// *Credits satisfies the Attributer interface.
+type Credits []Credit
+
+func (as *Credits) Len() int     { return len(*as) }
+func (as Credits) Swap(i, j int) { as[i], as[j] = as[j], as[i] }
+
+type actorCredits struct {
+	*Credits
+}
+
+func (asp actorCredits) Less(i, j int) bool {
+	as := *asp.Credits
+	iyear, jyear := as[i].Media.EntityYear(), as[j].Media.EntityYear()
+	if iyear != jyear {
+		// Any entity with a year should come before all entities without
+		// years.
+		switch {
+		case iyear > 0 && jyear > 0:
+			return iyear > jyear // descending!
+		case iyear > 0:
+			return true
+		case jyear > 0:
+			return false
+		}
+	}
+	iname, jname := as[i].Media.Name(), as[j].Media.Name()
+	return iname < jname // back to ascending
+}
+
+type mediaCredits struct {
+	*Credits
+}
+
+func (asp mediaCredits) Less(i, j int) bool {
+	as := *asp.Credits
+	ibill, jbill := as[i].Position, as[j].Position
+	if ibill != jbill {
+		// Any credit without a billing position should come after all
+		// credits with a billing position.
+		switch {
+		case ibill > 0 && jbill > 0:
+			return ibill < jbill
+		case ibill > 0:
+			return true
+		case jbill > 0:
+			return false
+		}
+	}
+	return as[i].Actor.FullName < as[j].Actor.FullName
+}
+
+// ForEntity fills 'r' with all credits for the given entity. If the entity is
+// a movie or episode, then it returns all available cast sorted by
+// billing position and then alphabetically by full name, both in ascending
+// order. If the entity is a cast member, then it returns all movies
+// and episodes that the cast member appeared in, sorted by year of release in
+// descending order and then alphabetically in ascending order.
+func (r *Credits) ForEntity(db csql.Queryer, e Entity) error {
+	type credit struct {
+		ActorId   Atom `imdb_name:"actor_atom_id"`
+		MediaId   Atom `imdb_name:"media_atom_id"`
+		Character string
+		Position  int
+		Attrs     string
+	}
+
+	var idColumn string
+	_, isActor := e.(*Actor)
+	if isActor {
+		idColumn = "actor_atom_id"
+	} else {
+		idColumn = "media_atom_id"
+	}
+
+	rows, err := attrs(new(credit), db, e, "credit", idColumn, "")
+	if err != nil {
+		return err
+	}
+
+	credits := rows.([]credit)
+	typedCredits := make([]Credit, len(credits))
+	for i, c := range credits {
+		if isActor {
+			med, err := fromAtomGuess(db, c.MediaId)
+			if err != nil {
+				return err
+			}
+			typedCredits[i] = Credit{
+				Actor:     e.(*Actor),
+				Media:     med,
+				Character: c.Character,
+				Position:  c.Position,
+				Attrs:     c.Attrs,
+			}
+		} else {
+			act, err := FromAtom(db, EntityActor, c.ActorId)
+			if err != nil {
+				return err
+			}
+			typedCredits[i] = Credit{
+				Actor:     act.(*Actor),
+				Media:     e,
+				Character: c.Character,
+				Position:  c.Position,
+				Attrs:     c.Attrs,
+			}
+		}
+	}
+	*r = typedCredits
+	if isActor {
+		sort.Sort(actorCredits{r})
+	} else {
+		sort.Sort(mediaCredits{r})
+	}
+	return err
 }

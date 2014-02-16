@@ -60,6 +60,14 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	return
 }
 
+type credit struct {
+	ActorId   imdb.Atom
+	MediaId   imdb.Atom
+	Character string
+	Position  int
+	Attrs     string
+}
+
 func listActs(
 	db *imdb.DB,
 	r io.ReadCloser,
@@ -99,7 +107,7 @@ func listActs(
 		}
 
 		// Reading this list always refreshes the credits.
-		var c imdb.Credit
+		var c credit
 		c.ActorId = a.Id
 		if !parseCredit(atoms, row, &c) {
 			// messages are emitted in parseCredit if something is worth
@@ -146,7 +154,7 @@ func parseActorName(idstr []byte, a *imdb.Actor) bool {
 	return true
 }
 
-func parseCredit(atoms *atomizer, row []byte, c *imdb.Credit) bool {
+func parseCredit(atoms *atomizer, row []byte, c *credit) bool {
 	pieces := bytes.Split(row, []byte{' ', ' '})
 	ent := bytes.TrimSpace(pieces[0])
 	if id, ok := atoms.atomOnlyIfExist(ent); !ok {

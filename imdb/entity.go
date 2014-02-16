@@ -72,6 +72,30 @@ func FromAtom(db csql.Queryer, ent EntityKind, id Atom) (Entity, error) {
 	return nil, ef("Unrecognized entity type: %s", ent)
 }
 
+// fromAtomGuess is just like FromAtom, except it doesn't use an entity type
+// as a hint for which table to select from. Therefore, it tries all entity
+// types until it gets a hit. If no entities could be found matching the
+// identifier given, an error is returned.
+func fromAtomGuess(db csql.Queryer, id Atom) (e Entity, err error) {
+	e, err = AtomToMovie(db, id)
+	if err == nil {
+		return e, nil
+	}
+	e, err = AtomToTvshow(db, id)
+	if err == nil {
+		return e, nil
+	}
+	e, err = AtomToEpisode(db, id)
+	if err == nil {
+		return e, nil
+	}
+	e, err = AtomToActor(db, id)
+	if err == nil {
+		return e, nil
+	}
+	return nil, ef("Could not find any entity corresponding to atom %d", id)
+}
+
 type Movie struct {
 	Id       Atom
 	Title    string
@@ -103,11 +127,24 @@ type Actor struct {
 	Sequence string
 }
 
+func entityString(title string, year int) string {
+	var s string
+	if len(title) > 0 {
+		s = title
+	} else {
+		s = "N/A"
+	}
+	if year > 0 {
+		s += sf(" (%d)", year)
+	}
+	return s
+}
+
 func (e *Movie) Ident() Atom      { return e.Id }
 func (e *Movie) Type() EntityKind { return EntityMovie }
 func (e *Movie) Name() string     { return e.Title }
 func (e *Movie) EntityYear() int  { return e.Year }
-func (e *Movie) String() string   { return sf("%s (%d)", e.Title, e.Year) }
+func (e *Movie) String() string   { return entityString(e.Title, e.Year) }
 func (e *Movie) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)
 }
@@ -116,7 +153,7 @@ func (e *Tvshow) Ident() Atom      { return e.Id }
 func (e *Tvshow) Type() EntityKind { return EntityTvshow }
 func (e *Tvshow) Name() string     { return e.Title }
 func (e *Tvshow) EntityYear() int  { return e.Year }
-func (e *Tvshow) String() string   { return sf("%s (%d)", e.Title, e.Year) }
+func (e *Tvshow) String() string   { return entityString(e.Title, e.Year) }
 func (e *Tvshow) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)
 }
@@ -125,7 +162,7 @@ func (e *Episode) Ident() Atom      { return e.Id }
 func (e *Episode) Type() EntityKind { return EntityEpisode }
 func (e *Episode) Name() string     { return e.Title }
 func (e *Episode) EntityYear() int  { return e.Year }
-func (e *Episode) String() string   { return sf("%s %d", e.Title, e.Year) }
+func (e *Episode) String() string   { return entityString(e.Title, e.Year) }
 func (e *Episode) Attrs(db csql.Queryer, attrs Attributer) error {
 	return attrs.ForEntity(db, e)
 }

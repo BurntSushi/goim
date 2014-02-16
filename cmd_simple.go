@@ -87,6 +87,7 @@ var attrCommands = map[string]string{
 	"plots":              "show plot summaries for media",
 	"quotes":             "show quotes for media",
 	"rank":               "show user rank/votes for media",
+	"credits":            "show actor/media credits",
 }
 
 func init() {
