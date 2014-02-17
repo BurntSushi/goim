@@ -81,13 +81,13 @@ is updated. To update more tables, use the '-lists' flag. It is better to
 specify as many lists as possible, since they can be updated in parallel.
 
 This command can create a database from scratch or it can update an existing
-one. The update procedure is currently not that sophisticated, and some
-portions of it are actually done by wiping existing data and reloading it
-from scratch. (e.g., Release dates.) Other portions are append only (movies,
-TV shows, episodes), which means that errant data persists.
-
-Because of that, it's generally recommended to rebuild the database by using
-the 'clean' command and then running 'load'.
+one. The update procedure is pretty brutish; in most cases, it truncates the
+table it's updating and rebuilds it. The only tables that are immune to this
+sort of treatment are 'atom' and 'name'. Therefore, the surrogate primary keys
+are preserved across updating *if and only if* the primary keys provided by
+IMDb don't change. Unfortunately, IMDb primary keys can change (for example,
+by adding a title to an episode). This results in stale rows in the 'atom' and
+'name' tables (but will be hidden from search results).
 `,
 	flags: flag.NewFlagSet("load", flag.ExitOnError),
 	run:   cmd_load,
@@ -99,8 +99,9 @@ the 'clean' command and then running 'load'.
 		c.flags.StringVar(&flagLoadLists, "lists", flagLoadLists,
 			"Set to a comma separated list of IMDB movie lists to load, with\n"+
 				"no whitespace. Only lists named here will be loaded. If not\n"+
-				"specified, then only the 'movie' list is load.\n"+
-				"Use 'all' to load all lists.\n"+
+				"specified, then only the 'movie' list is loaded.\n"+
+				"Use 'all' to load all lists or 'attr' to load all attribute\n"+
+				"lists (e.g., quotes, running times, etc.).\n"+
 				"Available lists: "+lists)
 		c.flags.BoolVar(&flagWarnings, "warn", flagWarnings,
 			"When set, warnings messages about the data will be shown.\n"+
@@ -133,6 +134,13 @@ func cmd_load(c *command) bool {
 	var userLoadLists []string
 	if flagLoadLists == "all" {
 		userLoadLists = loadLists
+	} else if flagLoadLists == "attr" {
+		for _, name := range loadLists {
+			if name == "movies" || name == "actors" {
+				continue
+			}
+			userLoadLists = append(userLoadLists, name)
+		}
 	} else {
 		for _, name := range strings.Split(flagLoadLists, ",") {
 			name = strings.ToLower(strings.TrimSpace(name))
