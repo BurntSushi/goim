@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"runtime"
@@ -47,10 +46,6 @@ var (
 	}
 )
 
-func init() {
-	log.SetFlags(0)
-}
-
 type command struct {
 	name            string
 	positionalUsage string
@@ -64,19 +59,19 @@ type command struct {
 }
 
 func (c *command) showUsage() {
-	log.Printf("Usage: goim %s [flags] %s\n", c.name, c.positionalUsage)
+	pf("Usage: goim %s [flags] %s\n", c.name, c.positionalUsage)
 	c.showFlags()
 	os.Exit(1)
 }
 
 func (c *command) showHelp() {
-	log.Printf("Usage: goim %s [flags] %s\n\n", c.name, c.positionalUsage)
+	pf("Usage: goim %s [flags] %s\n\n", c.name, c.positionalUsage)
 	if help := strings.TrimSpace(c.help); len(help) > 0 {
-		log.Printf("%s\n\n", help)
+		pf("%s\n\n", help)
 	}
-	log.Printf("The flags are:\n\n")
+	pf("The flags are:\n\n")
 	c.showFlags()
-	log.Println("")
+	pf("")
 	os.Exit(1)
 }
 
@@ -92,8 +87,8 @@ func (c *command) showFlags() {
 			def = " (default: \"\")"
 		}
 		usage := strings.Replace(fl.Usage, "\n", "\n    ", -1)
-		log.Printf("-%s%s\n", fl.Name, def)
-		log.Printf("    %s\n", usage)
+		pf("-%s%s\n", fl.Name, def)
+		pf("    %s\n", usage)
 	})
 }
 
