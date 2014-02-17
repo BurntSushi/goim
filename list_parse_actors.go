@@ -24,7 +24,12 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	txname := txactor.another()
 	txatom := txactor.another()
 
-	// We don't refresh the actor table, but we do need to rebuild credits.
+	// Drop data from the actor and credit tables. They will be rebuilt below.
+	// The key here is to leave the atom and name tables alone. Invariably,
+	// they will contain stale data. But the only side effect, I think, is
+	// taking up space.
+	// (Stale data can be removed with 'goim clean'.)
+	csql.Panic(csql.Truncate(txactor, db.Driver, "actor"))
 	csql.Panic(csql.Truncate(txcredit.Tx, db.Driver, "credit"))
 
 	actIns, err := csql.NewInserter(txactor.Tx, db.Driver, "actor",
@@ -39,24 +44,21 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	atoms, err := newAtomizer(db, txatom.Tx)
 	csql.Panic(err)
 
-	var nacts1, ncreds1, nacts2, ncreds2 int
-	defer func() {
-		csql.Panic(actIns.Exec())
-		csql.Panic(credIns.Exec())
-		csql.Panic(nameIns.Exec())
-		csql.Panic(atoms.Close())
+	nacts1, ncreds1 := listActs(db, ractress, atoms, actIns, credIns, nameIns)
+	nacts2, ncreds2 := listActs(db, ractor, atoms, actIns, credIns, nameIns)
 
-		csql.Panic(txactor.Commit())
-		csql.Panic(txcredit.Commit())
-		csql.Panic(txname.Commit())
-		csql.Panic(txatom.Commit())
+	csql.Panic(actIns.Exec())
+	csql.Panic(credIns.Exec())
+	csql.Panic(nameIns.Exec())
+	csql.Panic(atoms.Close())
 
-		logf("Done. Added %d actors/actresses and %d credits.",
-			nacts1+nacts2, ncreds1+ncreds2)
-	}()
+	csql.Panic(txactor.Commit())
+	csql.Panic(txcredit.Commit())
+	csql.Panic(txname.Commit())
+	csql.Panic(txatom.Commit())
 
-	nacts1, ncreds1 = listActs(db, ractress, atoms, actIns, credIns, nameIns)
-	nacts2, ncreds2 = listActs(db, ractor, atoms, actIns, credIns, nameIns)
+	logf("Done. Added %d actors/actresses and %d credits.",
+		nacts1+nacts2, ncreds1+ncreds2)
 	return
 }
 
@@ -77,6 +79,7 @@ func listActs(
 	bunkName, bunkTitles := []byte("Name"), []byte("Titles")
 	bunkLines1, bunkLines2 := []byte("----"), []byte("------")
 
+	lastActorId := imdb.Atom(0)
 	listAttrRows(r, atoms, func(line, idstr, row []byte) {
 		if bytes.Equal(idstr, bunkName) && bytes.Equal(row, bunkTitles) {
 			return
@@ -95,13 +98,26 @@ func listActs(
 				logf("Could not parse actor name '%s' in '%s'.", idstr, line)
 				return
 			}
-			if err := actIns.Exec(a.Id, a.Sequence); err != nil {
-				csql.Panic(ef("Could not add actor info '%#v' from '%s': %s",
-					a, line, err))
-			}
+
+			// We only add a name when we've added an atom.
 			if err := nameIns.Exec(a.Id, a.FullName); err != nil {
 				csql.Panic(ef("Could not add actor name '%s' from '%s': %s",
 					idstr, line, err))
+			}
+		}
+
+		// If we haven't seen this actor before, then insert into actor table.
+		if a.Id > lastActorId {
+			lastActorId = a.Id
+			if len(a.FullName) == 0 {
+				if !parseActorName(idstr, &a) {
+					logf("Could not get actor name '%s' in '%s'.", idstr, line)
+					return
+				}
+			}
+			if err := actIns.Exec(a.Id, a.Sequence); err != nil {
+				csql.Panic(ef("Could not add actor info '%#v' from '%s': %s",
+					a, line, err))
 			}
 			addedActors++
 		}

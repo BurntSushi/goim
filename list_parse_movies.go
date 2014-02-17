@@ -31,6 +31,16 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 	txname := txmovie.another()
 	txatom := txmovie.another()
 
+	// Drop data from the movie, tvshow and episode tables. They will be
+	// rebuilt below.
+	// The key here is to leave the atom and name tables alone. Invariably,
+	// they will contain stale data. But the only side effect, I think, is
+	// taking up space.
+	// (Stale data can be removed with 'goim clean'.)
+	csql.Panic(csql.Truncate(txmovie, db.Driver, "movie"))
+	csql.Panic(csql.Truncate(txtv, db.Driver, "tvshow"))
+	csql.Panic(csql.Truncate(txepisode, db.Driver, "episode"))
+
 	mvIns, err := csql.NewInserter(txmovie.Tx, db.Driver, "movie",
 		"atom_id", "year", "sequence", "tv", "video")
 	csql.Panic(err)
@@ -76,19 +86,19 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 			if !parseMovie(item, &m) {
 				return
 			}
-			if existed, err := parseId(atoms, item, &m.Id); existed {
-				return
-			} else if err != nil {
+			if existed, err := parseId(atoms, item, &m.Id); err != nil {
 				csql.Panic(err)
+			} else if !existed {
+				// We only add a name when we add an atom.
+				if err = nameIns.Exec(m.Id, m.Title); err != nil {
+					logf("Full movie info (that failed to add): %#v", m)
+					csql.Panic(ef("Could not add name '%s': %s", m, err))
+				}
 			}
 			err := mvIns.Exec(m.Id, m.Year, m.Sequence, m.Tv, m.Video)
 			if err != nil {
 				logf("Full movie info (that failed to add): %#v", m)
 				csql.Panic(ef("Could not add movie '%s': %s", m, err))
-			}
-			if err = nameIns.Exec(m.Id, m.Title); err != nil {
-				logf("Full movie info (that failed to add): %#v", m)
-				csql.Panic(ef("Could not add name '%s': %s", m, err))
 			}
 			addedMovies++
 		case imdb.EntityTvshow:
@@ -99,20 +109,20 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 			if !parseTvshowRange(value, &tv) {
 				return
 			}
-			if existed, err := parseId(atoms, item, &tv.Id); existed {
-				return
-			} else if err != nil {
+			if existed, err := parseId(atoms, item, &tv.Id); err != nil {
 				csql.Panic(err)
+			} else if !existed {
+				// We only add a name when we add an atom.
+				if err = nameIns.Exec(tv.Id, tv.Title); err != nil {
+					logf("Full tvshow info (that failed to add): %#v", tv)
+					csql.Panic(ef("Could not add name '%s': %s", tv, err))
+				}
 			}
 			err := tvIns.Exec(tv.Id, tv.Year, tv.Sequence,
 				tv.YearStart, tv.YearEnd)
 			if err != nil {
 				logf("Full tvshow info (that failed to add): %#v", tv)
 				csql.Panic(ef("Could not add tvshow '%s': %s", tv, err))
-			}
-			if err = nameIns.Exec(tv.Id, tv.Title); err != nil {
-				logf("Full tvshow info (that failed to add): %#v", tv)
-				csql.Panic(ef("Could not add name '%s': %s", tv, err))
 			}
 			addedTvshows++
 		case imdb.EntityEpisode:
@@ -123,20 +133,20 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 			if !parseEpisodeYear(value, &ep) {
 				return
 			}
-			if existed, err := parseId(atoms, item, &ep.Id); existed {
-				return
-			} else if err != nil {
+			if existed, err := parseId(atoms, item, &ep.Id); err != nil {
 				csql.Panic(err)
+			} else if !existed {
+				// We only add a name when we add an atom.
+				if err = nameIns.Exec(ep.Id, ep.Title); err != nil {
+					logf("Full episode info (that failed to add): %#v", ep)
+					csql.Panic(ef("Could not add name '%s': %s", ep, err))
+				}
 			}
 			err := epIns.Exec(ep.Id, ep.TvshowId, ep.Year,
 				ep.Season, ep.EpisodeNum)
 			if err != nil {
 				logf("Full episode info (that failed to add): %#v", ep)
 				csql.Panic(ef("Could not add episode '%s': %s", ep, err))
-			}
-			if err = nameIns.Exec(ep.Id, ep.Title); err != nil {
-				logf("Full episode info (that failed to add): %#v", ep)
-				csql.Panic(ef("Could not add name '%s': %s", ep, err))
 			}
 			addedEpisodes++
 		default:
