@@ -31,6 +31,7 @@ type Command struct {
 type command struct {
 	name        string
 	synonyms    []string
+	hasArg      bool
 	description string
 	add         func(s *Searcher, value string) error
 }
@@ -68,7 +69,7 @@ var (
 func init() {
 	commands = []command{
 		{
-			"movie", nil,
+			"movie", nil, false,
 			"Restricts results to only include movies. Note that this may " +
 				"be combined with other entity types to form a disjunction.",
 			func(s *Searcher, v string) error {
@@ -77,7 +78,7 @@ func init() {
 			},
 		},
 		{
-			"tvshow", nil,
+			"tvshow", nil, false,
 			"Restricts results to only include TV shows. Note that this may " +
 				"be combined with other entity types to form a disjunction.",
 			func(s *Searcher, v string) error {
@@ -86,7 +87,7 @@ func init() {
 			},
 		},
 		{
-			"episode", nil,
+			"episode", nil, false,
 			"Restricts results to only include episodes. Note that this may " +
 				"be combined with other entity types to form a disjunction.",
 			func(s *Searcher, v string) error {
@@ -95,7 +96,7 @@ func init() {
 			},
 		},
 		{
-			"actor", nil,
+			"actor", nil, false,
 			"Restricts results to only include actors. Note that this may " +
 				"be combined with other entity types to form a disjunction.",
 			func(s *Searcher, v string) error {
@@ -104,7 +105,7 @@ func init() {
 			},
 		},
 		{
-			"credits", nil,
+			"credits", nil, true,
 			"A sub-search for media entities that restricts results to " +
 				"only actors media item returned from this sub-search.",
 			func(s *Searcher, v string) error {
@@ -112,7 +113,7 @@ func init() {
 			},
 		},
 		{
-			"cast", nil,
+			"cast", nil, true,
 			"A sub-search for cast entities that restricts results to " +
 				"only media entities in which the cast member appeared.",
 			func(s *Searcher, v string) error {
@@ -120,7 +121,7 @@ func init() {
 			},
 		},
 		{
-			"show", nil,
+			"show", nil, true,
 			"A sub-search for TV shows that restricts results to " +
 				"only episodes in the TV show.",
 			func(s *Searcher, v string) error {
@@ -128,7 +129,7 @@ func init() {
 			},
 		},
 		{
-			"debug", nil,
+			"debug", nil, false,
 			"When enabled, the SQL queries used in the search will be logged " +
 				"to stderr.",
 			func(s *Searcher, v string) error {
@@ -137,7 +138,7 @@ func init() {
 			},
 		},
 		{
-			"id", []string{"atom"},
+			"id", []string{"atom"}, true,
 			"Precisely selects a single identity with the atom identifier " +
 				"given. e.g., {id:123} returns the entity with id 123." +
 				"Note that one SHOULD NOT rely on any specific atom " +
@@ -153,7 +154,7 @@ func init() {
 			},
 		},
 		{
-			"years", []string{"year"},
+			"years", []string{"year"}, true,
 			"Only show search results for the year or years specified. " +
 				"e.g., {1990-1999} only shows movies in the 90s.",
 			func(s *Searcher, v string) error {
@@ -161,7 +162,7 @@ func init() {
 			},
 		},
 		{
-			"rank", nil,
+			"rank", nil, true,
 			"Only show search results with the rank or ranks specified. " +
 				"e.g., {70-} only shows entities with a rank of 70 or " +
 				"better. Ranks are on a scale of 0 to 100, where 100 is the " +
@@ -171,7 +172,7 @@ func init() {
 			},
 		},
 		{
-			"votes", nil,
+			"votes", nil, true,
 			"Only show search results with ranks that have the vote count " +
 				"specified. e.g., {10000-} only shows entities with a rank " +
 				"that has 10,000 or more votes.",
@@ -180,7 +181,7 @@ func init() {
 			},
 		},
 		{
-			"billed", []string{"billing"},
+			"billed", []string{"billing"}, true,
 			"Only show search results with credits with the billing position " +
 				"specified. e.g., {1-5} only shows movies where the actor " +
 				"was in the top 5 billing order (or only shows actors of a " +
@@ -190,7 +191,7 @@ func init() {
 			},
 		},
 		{
-			"seasons", []string{"s"},
+			"seasons", []string{"s"}, true,
 			"Only show search results for the season or seasons specified. " +
 				"e.g., {seasons:1} only shows episodes from the first season " +
 				"of a TV show. Note that this only filters episodes---movies " +
@@ -200,7 +201,7 @@ func init() {
 			},
 		},
 		{
-			"episodes", []string{"e"},
+			"episodes", []string{"e"}, true,
 			"Only show search results for the season or seasons specified. " +
 				"e.g., {episodes:1-5} only shows the first five episodes of " +
 				"a of a season. Note that this only filters " +
@@ -210,7 +211,7 @@ func init() {
 			},
 		},
 		{
-			"notv", nil,
+			"notv", nil, false,
 			"Removes 'made for TV' movies from the search results.",
 			func(s *Searcher, v string) error {
 				s.NoTvMovies()
@@ -218,7 +219,7 @@ func init() {
 			},
 		},
 		{
-			"novideo", nil,
+			"novideo", nil, false,
 			"Removes 'made for video' movies from the search results.",
 			func(s *Searcher, v string) error {
 				s.NoVideoMovies()
@@ -226,7 +227,7 @@ func init() {
 			},
 		},
 		{
-			"limit", nil,
+			"limit", nil, true,
 			"Specifies a limit on the total number of search results returned.",
 			func(s *Searcher, v string) error {
 				n, err := strconv.Atoi(v)
@@ -238,7 +239,7 @@ func init() {
 			},
 		},
 		{
-			"sort", nil,
+			"sort", nil, true,
 			"Sorts the search results according to the field given. It may " +
 				"be specified multiple times for more specific sorting. Note " +
 				"that this doesn't really work with fuzzy searching, since " +

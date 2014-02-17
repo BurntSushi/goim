@@ -254,6 +254,20 @@ func (c *command) chooser(
 	return &results[choice], nil
 }
 
+func areYouSure(yesno string) bool {
+	var answer string
+	pf("%s [y/n]: ", yesno)
+	if _, err := fmt.Fscanln(os.Stdin, &answer); err != nil {
+		pef("Error reading from stdin: %s", err)
+		return false
+	}
+	answer = strings.ToLower(answer)
+	if len(answer) >= 1 && answer[0] == 'y' {
+		return true
+	}
+	return false
+}
+
 func (c *command) tplExec(template *template.Template, data interface{}) {
 	buf := new(bytes.Buffer)
 	if err := template.Execute(buf, data); err != nil {
@@ -335,7 +349,7 @@ func createFile(fpath string) *os.File {
 func openDb(driver, dsn string) *imdb.DB {
 	db, err := imdb.Open(driver, dsn)
 	if err != nil {
-		fatalf("Could not open '%s:%s': %s", driver, dsn, err)
+		fatalf("Could not open %s database: %s", driver, err)
 	}
 	return db
 }

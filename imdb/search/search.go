@@ -167,6 +167,11 @@ func New(db *imdb.DB, query string) (*Searcher, error) {
 func (s *Searcher) addToken(queryName []string, arg string) ([]string, error) {
 	name, val := argOption(arg)
 	if cmd, ok := allCommands[name]; ok {
+		if cmd.hasArg && len(val) == 0 {
+			return nil, ef("The %s command requires an argument.", name)
+		} else if !cmd.hasArg && len(val) > 0 {
+			return nil, ef("The %s command does not have an argument.", name)
+		}
 		return queryName, cmd.add(s, val)
 	} else {
 		if len(name) > 0 {
