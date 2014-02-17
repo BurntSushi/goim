@@ -37,6 +37,12 @@ of `matrix` (using the trigram indices) takes approximately 1 second. (Searches
 were done only when the Postgres autovacuum appeared to be idling. On my 
 system, it tends to run for a few minutes after a full load of the database.)
 
+A PostgreSQL database with just movies/TV shows/episodes takes about 1.5 
+minutes to load completely, including indices.
+
+The point of these benchmarks is not to be rigorous, but to give you a general 
+ballpark of the sorts of resources used to load the database.
+
 
 Under construction
 ==================
