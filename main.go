@@ -12,7 +12,6 @@ import (
 )
 
 var commands = []*command{
-	cmdClean,
 	cmdFull,
 	cmdShort,
 	cmdLoad,
