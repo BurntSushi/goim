@@ -67,6 +67,10 @@ var (
 )
 
 func init() {
+	less := func(f1, f2 string) bool { return f1 < f2 }
+	fields := fun.QuickSort(less, fun.Keys(qualifiedColumns)).([]string)
+	sortFields := strings.Join(fields, ", ")
+
 	commands = []command{
 		{
 			"movie", nil, false,
@@ -181,7 +185,7 @@ func init() {
 			},
 		},
 		{
-			"billed", []string{"billing"}, true,
+			"billing", []string{"billed"}, true,
 			"Only show search results with credits with the billing position " +
 				"specified. e.g., {1-5} only shows movies where the actor " +
 				"was in the top 5 billing order (or only shows actors of a " +
@@ -245,23 +249,15 @@ func init() {
 				"that this doesn't really work with fuzzy searching, since " +
 				"results are always sorted by their similarity with the " +
 				"query in a fuzzy search. e.g., {sort:episode desc} sorts " +
-				"episode in descending (biggest to smallest) order.",
+				"episode in descending (biggest to smallest) order. " +
+				"Valid sort fields: " + sortFields + ".",
 			func(s *Searcher, v string) error {
 				fields := strings.Fields(v)
-				if len(fields) == 0 || len(fields) > 2 {
-					return ef("Invalid sort format: '%s'", v)
+				if len(fields) != 2 {
+					return ef("Invalid sort format "+
+						"(must have field and order): '%s'", v)
 				}
-
-				var order string
-				if len(fields) > 1 {
-					order = fields[1]
-				} else {
-					order = defaultOrders[fields[0]]
-					if len(order) == 0 {
-						order = "asc"
-					}
-				}
-				s.Sort(fields[0], order)
+				s.Sort(fields[0], fields[1])
 				return nil
 			},
 		},

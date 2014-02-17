@@ -29,17 +29,6 @@ var (
 	}
 )
 
-var defaultOrders = map[string]string{
-	"entity": "asc", "atom_id": "asc", "name": "asc", "year": "desc",
-	"attrs": "asc", "similarity": "desc",
-
-	"season": "asc", "episode_num": "asc",
-
-	"rank": "desc", "votes": "desc",
-
-	"billing": "asc",
-}
-
 // Result represents the data returned for each result of a search.
 type Result struct {
 	Entity imdb.EntityKind
@@ -387,9 +376,6 @@ func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 // credits associated with them.)
 // If no entity is found, then the parent search quits and returns no results.
 func (s *Searcher) Credits(credits *Searcher) *Searcher {
-	credits.Entity(imdb.EntityMovie)
-	credits.Entity(imdb.EntityTvshow)
-	credits.Entity(imdb.EntityEpisode)
 	credits.what = "credits"
 	s.subCredits = &subsearch{credits, 0}
 	return s
@@ -401,7 +387,6 @@ func (s *Searcher) Credits(credits *Searcher) *Searcher {
 // If no cast member is found, then the parent search quits and returns no
 // results.
 func (s *Searcher) Cast(cast *Searcher) *Searcher {
-	cast.Entity(imdb.EntityActor)
 	cast.what = "actor"
 	s.subCast = &subsearch{cast, 0}
 	return s
@@ -697,7 +682,11 @@ func (s *Searcher) where() string {
 			conj = append(conj, "name.name % $1")
 		} else {
 			if strings.ContainsAny(s.name, "%_") {
-				conj = append(conj, sf("name.name LIKE $1"))
+				if s.db.Driver == "postgres" {
+					conj = append(conj, sf("name.name ILIKE $1"))
+				} else {
+					conj = append(conj, sf("name.name LIKE $1"))
+				}
 			} else {
 				conj = append(conj, sf("name.name = $1"))
 			}
@@ -778,15 +767,13 @@ var qualifiedColumns = map[string]string{
 	"attrs":      "attrs",
 	"similarity": "similarity",
 
-	"season":      "e.season",
-	"episode":     "e.episode_num",
-	"episode_num": "e.episode_num",
+	"season":  "e.season",
+	"episode": "e.episode_num",
 
 	"rank":  "rating.rank",
 	"votes": "rating.votes",
 
 	"billing": "c_media.position",
-	"billed":  "c_media.position",
 }
 
 func orderColumnQualified(column string) string {
