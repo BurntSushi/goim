@@ -3,10 +3,14 @@ package main
 import (
 	"flag"
 	"sort"
+	"strings"
+
+	"github.com/kr/text"
 
 	"github.com/BurntSushi/ty/fun"
 
 	"github.com/BurntSushi/goim/imdb"
+	"github.com/BurntSushi/goim/imdb/search"
 	"github.com/BurntSushi/goim/tpl"
 )
 
@@ -35,7 +39,7 @@ var cmdSearch = &command{
 	name:            "search",
 	positionalUsage: "query",
 	shortHelp:       "search IMDb for movies, TV shows, episodes and actors",
-	help:            "",
+	help:            "", // added below in init
 	flags:           flag.NewFlagSet("search", flag.ExitOnError),
 	run:             cmd_search,
 	addFlags: func(c *command) {
@@ -43,6 +47,27 @@ var cmdSearch = &command{
 			"When set, only the atom identifiers of each search result "+
 				"will be printed.")
 	},
+}
+
+func init() {
+	var directives []string
+	for _, cmd := range search.Commands {
+		s := cmd.Name
+		if len(cmd.Synonyms) > 0 {
+			s += sf(" (synonyms: %s)", strings.Join(cmd.Synonyms, ", "))
+		}
+		s += "\n"
+		s += text.Indent(text.Wrap(cmd.Description, 78), "  ")
+		directives = append(directives, s)
+	}
+	cmdDoc := strings.Join(directives, "\n\n")
+
+	cmdSearch.help = sf(`
+The search command exposes a flexible interface for quickly searching IMDb
+for entities, where entities includes movies, TV shows, episodes and actors.
+
+%s
+`, cmdDoc)
 }
 
 func cmd_search(c *command) bool {
