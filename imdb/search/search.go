@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BurntSushi/ty/fun"
-
 	"github.com/BurntSushi/csql"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -102,7 +100,7 @@ type Searcher struct {
 	goodThreshold float64
 	chooser       Chooser
 
-	subTvshow, subCredits, subActor               *subsearch
+	subTvshow, subCredits, subCast                *subsearch
 	year, rating, votes, season, episode, billing *irange
 
 	noTvMovie, noVideoMovie bool
@@ -167,33 +165,12 @@ func New(db *imdb.DB, query string) (*Searcher, error) {
 }
 
 func (s *Searcher) addToken(queryName []string, arg string) ([]string, error) {
-	subsearches := []string{"tv", "tvshow", "credit", "credits", "actor"}
 	name, val := argOption(arg)
-
-	// First check if it's specifying a particular entity or a subsearch of
-	// an entity.
-	if ent, ok := imdb.Entities[name]; len(val) == 0 && ok {
-		s.Entity(ent)
-		return queryName, nil
-	} else if fun.In(name, subsearches) {
-		sub, err := s.subSearcher(name, val)
-		if err != nil {
-			return nil, err
-		}
-		switch name {
-		case "tv", "tvshow":
-			s.Tvshow(sub)
-		case "credit", "credits":
-			s.Credits(sub)
-		case "actor":
-			s.Actor(sub)
-		}
-		return queryName, nil
-	} else if cmd, ok := commands[name]; ok {
+	if cmd, ok := commands[name]; ok {
 		return queryName, cmd.add(s, val)
 	} else {
 		if len(name) > 0 {
-			return nil, ef("Unrecognized sort option: %s", name)
+			return nil, ef("Unrecognized search option: %s", name)
 		}
 		return append(queryName, arg), nil
 	}
@@ -224,8 +201,8 @@ func (s *Searcher) Results() (rs []Result, err error) {
 			return nil, err
 		}
 	}
-	if s.subActor != nil {
-		if err := s.subActor.choose(s, s.chooser); err != nil {
+	if s.subCast != nil {
+		if err := s.subCast.choose(s, s.chooser); err != nil {
 			return nil, err
 		}
 	}
@@ -408,26 +385,20 @@ func (s *Searcher) Credits(credits *Searcher) *Searcher {
 	credits.Entity(imdb.EntityMovie)
 	credits.Entity(imdb.EntityTvshow)
 	credits.Entity(imdb.EntityEpisode)
-	credits.what = "media"
+	credits.what = "credits"
 	s.subCredits = &subsearch{credits, 0}
 	return s
 }
 
-// Actor specifies a sub-search that will be performed when Results is called.
-// The actor returned by this sub-search will be used to filter the results
-// of its parent search. If no actor is found, then the search quits and
-// returns no results. If more than one good matching actor is found, then
-// the searcher's "chooser" is called. (See the documentation for the
-// Chooser type.)
-
-// Actor specifies a sub-search that will be performed when Results is called.
-// The actor returned restrict the results of the parent search to only
-// include credits for the actor.
-// If no actor is found, then the parent search quits and returns no results.
-func (s *Searcher) Actor(actors *Searcher) *Searcher {
-	actors.Entity(imdb.EntityActor)
-	actors.what = "actor"
-	s.subActor = &subsearch{actors, 0}
+// Cast specifies a sub-search that will be performed when Results is called.
+// The cast member returned restricts the results of the parent search to only
+// include credits for the cast member.
+// If no cast member is found, then the parent search quits and returns no
+// results.
+func (s *Searcher) Cast(cast *Searcher) *Searcher {
+	cast.Entity(imdb.EntityActor)
+	cast.what = "actor"
+	s.subCast = &subsearch{cast, 0}
 	return s
 }
 
@@ -619,12 +590,12 @@ func (s *Searcher) sql() string {
 
 func (s *Searcher) creditJoin() string {
 	var joins string
-	if !s.subActor.empty() {
+	if !s.subCast.empty() {
 		joins += sf(`
 		LEFT JOIN credit AS c_actor ON
 			name.atom_id = c_actor.media_atom_id
 			AND c_actor.actor_atom_id = %d
-		`, s.subActor.id)
+		`, s.subCast.id)
 	}
 	if !s.subCredits.empty() {
 		joins += sf(`
@@ -637,7 +608,7 @@ func (s *Searcher) creditJoin() string {
 }
 
 func (s *Searcher) creditAttrs() string {
-	act, med := !s.subActor.empty(), !s.subCredits.empty()
+	act, med := !s.subCast.empty(), !s.subCredits.empty()
 	switch {
 	case !act && !med:
 		return `
@@ -737,7 +708,7 @@ func (s *Searcher) whereCredits() []string {
 		conj = append(conj, sf("c_media.actor_atom_id IS NOT NULL"))
 		joined = "c_media"
 	}
-	if !s.subActor.empty() {
+	if !s.subCast.empty() {
 		conj = append(conj, sf("c_actor.media_atom_id IS NOT NULL"))
 		joined = "c_actor"
 	}
