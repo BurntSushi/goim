@@ -24,6 +24,10 @@ type DB struct {
 	Driver string
 }
 
+// Open opens a connection to an IMDb relational database. The driver may
+// either be "sqlite3" or "postgres". The dsn (data source name) is dependent
+// upon the driver. For example, for the sqlite3 driver, the dsn is just a
+// path to a file (that may not exist).
 func Open(driver, dsn string) (*DB, error) {
 	db, err := migration.Open(driver, dsn, migrations[driver])
 	if err != nil {
@@ -37,35 +41,46 @@ func Open(driver, dsn string) (*DB, error) {
 	return &DB{db, driver}, nil
 }
 
+// Close closes the connection to the database.
 func (db *DB) Close() error {
 	return db.DB.Close()
 }
 
-func (db *DB) Clean() (err error) {
+// Tables returns the names of all tables in the database sorted
+// alphabetically in ascending order.
+func (db *DB) Tables() (tables []string, err error) {
 	defer csql.Safe(&err)
 
-	tables := []string{"atom", "movie", "tvshow", "episode", "release"}
-	for _, table := range tables {
-		csql.Panic(csql.Truncate(db, db.Driver, table))
+	var q string
+	switch db.Driver {
+	case "postgres":
+		q = `
+			SELECT tablename FROM pg_tables
+			WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+			ORDER BY tablename ASC
+		`
+	case "sqlite3":
+		q = `
+			SELECT tbl_name FROM sqlite_master
+			WHERE type = 'table'
+			ORDER BY tbl_name ASC
+		`
+	default:
+		return nil, ef("Unrecognized database driver: %s", db.Driver)
 	}
+	rows := csql.Query(db, q)
+	csql.Panic(csql.ForRow(rows, func(rs csql.RowScanner) {
+		var table string
+		csql.Scan(rs, &table)
+		if table != "migration_version" {
+			tables = append(tables, table)
+		}
+	}))
 	return
 }
 
-// Empty returns true if and only if the database does not have any data.
-// (At the moment, it determines this by only checking the movie table.)
-func (db *DB) Empty() bool {
-	empty := true
-	csql.SafeFunc(func() { // ignore the error, return true
-		var count int
-		r := db.QueryRow("SELECT COUNT(*) AS count FROM movie")
-		csql.Scan(r, &count)
-		if count > 0 {
-			empty = false
-		}
-	})
-	return empty
-}
-
+// IsFuzzyEnabled returns true if and only if the database is a Postgres
+// database with the 'pg_trgm' extension enabled.
 func (db *DB) IsFuzzyEnabled() bool {
 	_, err := db.Exec("SELECT similarity('a', 'a')")
 	if err == nil {

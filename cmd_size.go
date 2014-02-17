@@ -23,44 +23,27 @@ func size(c *command) bool {
 	db := openDb(c.dbinfo())
 	defer closeDb(db)
 
-	var q string
-	switch db.Driver {
-	case "postgres":
-		q = `
-			SELECT tablename FROM pg_tables
-			WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
-			ORDER BY tablename ASC
-		`
-	case "sqlite3":
-		q = `
-			SELECT tbl_name FROM sqlite_master
-			WHERE type = 'table'
-			ORDER BY tbl_name ASC
-		`
-	default:
-		pef("Unrecognized database driver: %s", db.Driver)
-		return false
-	}
-	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 4, ' ', 0)
-	err := csql.SafeFunc(func() {
-		rows := csql.Query(db, q)
-		csql.ForRow(rows, func(rs csql.RowScanner) {
-			var table string
-			csql.Scan(rs, &table)
-			fmt.Fprintf(tw, "%s\t%s\n", table, tableSize(db, table))
-		})
-		_, dsn := c.dbinfo()
-		total := databaseSize(db, dsn)
-		fmt.Fprintf(tw, "total\t%s\n", total)
-		tw.Flush()
-	})
+	tables, err := db.Tables()
 	if err != nil {
 		pef("%s", err)
 		return false
 	}
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 4, ' ', 0)
+	for _, table := range tables {
+		fmt.Fprintf(tw, "%s\t%s\n", table, tableSize(db, table))
+	}
+
+	_, dsn := c.dbinfo()
+	total := databaseSize(db, dsn)
+	fmt.Fprintf(tw, "total\t%s\n", total)
+	tw.Flush()
 	return true
 }
 
+// tableSize returns a pretty string indicating the size in table. Row count
+// is always include, but the size on disk is only included if it's supported
+// by the database.
+// Note that 'name' is assumed to be SQL-safe.
 func tableSize(db *imdb.DB, name string) string {
 	count := csql.Count(db, sf("SELECT COUNT(*) AS count FROM %s", name))
 	if db.Driver == "sqlite3" {
@@ -72,6 +55,8 @@ func tableSize(db *imdb.DB, name string) string {
 	return sf("%d rows (%s)", count, size)
 }
 
+// databaseSize returns a pretty string indicating the size of the entire
+// database on disk.
 func databaseSize(db *imdb.DB, dsn string) string {
 	if db.Driver == "sqlite3" {
 		fi, err := os.Stat(dsn)
