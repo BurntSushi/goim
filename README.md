@@ -40,6 +40,10 @@ system, it tends to run for a few minutes after a full load of the database.)
 A PostgreSQL database with just movies/TV shows/episodes takes about 1.5 
 minutes to load completely, including indices.
 
+Loading all attribute lists (excludes only `movies` and `actors`/`actresses`)
+into a PostgreSQL database takes about 2 minutes to load completely, including
+indices.
+
 The point of these benchmarks is not to be rigorous, but to give you a general 
 ballpark of the sorts of resources used to load the database.
 
