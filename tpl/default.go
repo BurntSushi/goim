@@ -61,6 +61,26 @@ var defaults = strings.TrimSpace(`
 
 {{ end }}
 
+{{ define "rename_movie" }}
+	{{ if gt .E.Year 0 }}
+		{{ printf "%s (%d)%s" .E.Title .E.Year .A.Ext }}
+	{{ else }}
+		{{ printf "%s%s" .E.Title .A.Ext }}
+	{{ end }}
+{{ end }}
+
+{{ define "rename_tvshow" }}
+	{{ if gt .E.Year 0 }}
+		{{ printf "%s (%d)%s" .E.Title .E.Year .A.Ext }}
+	{{ else }}
+		{{ printf "%s%s" .E.Title .A.Ext }}
+	{{ end }}
+{{ end }}
+
+{{ define "rename_episode" }}
+	{{ printf "S%02dE%02d - %s%s" .E.Season .E.EpisodeNum .E.Title .A.Ext }}
+{{ end }}
+
 {{ define "short_movie" }}
 
 	{{ printf "%s (%d)" .E.Title .E.Year | underlined "=" }}
