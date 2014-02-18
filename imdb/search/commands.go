@@ -231,6 +231,21 @@ func init() {
 			},
 		},
 		{
+			"similar", nil, true,
+			"Sets the threshold at which to return results from a fuzzy text " +
+				"search. Results scoring below this threshold are omitted. " +
+				"Note that setting this value too low can dramatically " +
+				"increase the search time.",
+			func(s *Searcher, v string) error {
+				n, err := strconv.ParseFloat(v, 64)
+				if err != nil {
+					return ef("Invalid float '%s' for similar: %s", v, err)
+				}
+				s.SimilarThreshold(n)
+				return nil
+			},
+		},
+		{
 			"limit", nil, true,
 			"Specifies a limit on the total number of search results returned.",
 			func(s *Searcher, v string) error {

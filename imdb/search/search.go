@@ -77,17 +77,17 @@ func (sr Result) GetEntity(db csql.Queryer) (imdb.Entity, error) {
 
 // Searcher represents the parameters of a search.
 type Searcher struct {
-	db            *imdb.DB
-	fuzzy         bool
-	name          string
-	what          string
-	debug         bool
-	atom          imdb.Atom
-	entities      []imdb.EntityKind
-	order         []searchOrder
-	limit         int
-	goodThreshold float64
-	chooser       Chooser
+	db                              *imdb.DB
+	fuzzy                           bool
+	name                            string
+	what                            string
+	debug                           bool
+	atom                            imdb.Atom
+	entities                        []imdb.EntityKind
+	order                           []searchOrder
+	limit                           int
+	goodThreshold, similarThreshold float64
+	chooser                         Chooser
 
 	subTvshow, subCredits, subCast                *subsearch
 	year, rating, votes, season, episode, billing *irange
@@ -129,11 +129,12 @@ type subsearch struct {
 
 func New(db *imdb.DB, query string) (*Searcher, error) {
 	s := &Searcher{
-		db:            db,
-		fuzzy:         db.IsFuzzyEnabled(),
-		limit:         30,
-		goodThreshold: 0.25,
-		what:          "entity",
+		db:               db,
+		fuzzy:            db.IsFuzzyEnabled(),
+		limit:            30,
+		goodThreshold:    0.25,
+		similarThreshold: 0.3,
+		what:             "entity",
 	}
 
 	var qname []string
@@ -184,6 +185,9 @@ func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
 // Results executes the parameters of the search and returns the results.
 func (s *Searcher) Results() (rs []Result, err error) {
 	defer csql.Safe(&err)
+
+	// Set the similarity threshold first.
+	csql.Exec(s.db, "SELECT set_limit($1)", s.similarThreshold)
 
 	if s.subTvshow != nil {
 		if err := s.subTvshow.choose(s, s.chooser); err != nil {
@@ -280,6 +284,15 @@ func (sub *subsearch) empty() bool {
 // Set the threshold to 1.0 to disable this behavior.
 func (s *Searcher) GoodThreshold(diff float64) *Searcher {
 	s.goodThreshold = diff
+	return s
+}
+
+// SimilarThreshold sets the similarity threshold at which results from a fuzzy
+// text search are cutoff. Results with a similarity threshold lower than
+// what's given won't be returned. The value should be in the inclusive inteval
+// [0, 1.0]. By default, the threshold is set to 0.3.
+func (s *Searcher) SimilarThreshold(t float64) *Searcher {
+	s.similarThreshold = t
 	return s
 }
 
