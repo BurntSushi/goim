@@ -18,6 +18,8 @@ var commands = []*command{
 	cmdSearch,
 	cmdSize,
 	cmdWriteConfig,
+	cmdRename,
+	cmdFtp,
 }
 
 func usage() {
@@ -30,7 +32,7 @@ func usage() {
 	pef("A list of the main commands:\n")
 	tabw := tabwriter.NewWriter(os.Stderr, 0, 0, 4, ' ', 0)
 	for _, c := range commands {
-		if c.other {
+		if c.name == "ftp" || c.other {
 			continue
 		}
 		fmt.Fprintf(tabw, "    %s\t%s\n", c.name, c.shortHelp)
@@ -40,7 +42,7 @@ func usage() {
 
 	pef("A list of other commands:\n")
 	for _, c := range commands {
-		if !c.other {
+		if c.name == "ftp" || !c.other {
 			continue
 		}
 		fmt.Fprintf(tabw, "    %s\t%s\n", c.name, c.shortHelp)

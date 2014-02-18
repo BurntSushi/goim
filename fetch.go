@@ -3,14 +3,13 @@ package main
 import (
 	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
+	"os/exec"
+	path "path/filepath"
 	"strings"
-	"sync"
-
-	ftp "github.com/jlaffaye/goftp"
 )
 
 // fetcher provides an interface for retrieving IMDB data files.
@@ -18,6 +17,17 @@ import (
 // FTP, etc.
 type fetcher interface {
 	list(name string) (io.ReadCloser, error)
+}
+
+// newGzipFetcher is just like newFetcher, except it's wrapped in a gzip
+// reader. Use this when you intend on reading the file, and use the plain
+// newFetcher when you just intend on saving to disk.
+func newGzipFetcher(uri string) fetcher {
+	f := newFetcher(uri)
+	if f == nil {
+		return nil
+	}
+	return gzipFetcher{f}
 }
 
 // newFetcher returns a fetcher based on the uri given. The uri may be a
@@ -29,7 +39,7 @@ func newFetcher(uri string) fetcher {
 		uri = v
 	}
 	if !strings.HasPrefix(uri, "http") && !strings.HasPrefix(uri, "ftp") {
-		return gzipFetcher{dirFetcher(uri)}
+		return dirFetcher(uri)
 	}
 
 	loc, err := url.Parse(uri)
@@ -39,25 +49,9 @@ func newFetcher(uri string) fetcher {
 	}
 	switch loc.Scheme {
 	case "http":
-		return gzipFetcher{httpFetcher{loc}}
+		return httpFetcher{loc}
 	case "ftp":
-		// It seems like FTP sites---even if they are public---require a
-		// trivial login.
-		if loc.User == nil {
-			loc.User = url.UserPassword("anonymous", "anonymous")
-		}
-		// The FTP package I'm using requires a port number.
-		if !strings.Contains(loc.Host, ":") {
-			loc.Host += ":21"
-		}
-
-		// We're only allowed a limited number of FTP connections, so start
-		// a pool of them.
-		pool := ftpPool(*loc)
-		if pool == nil {
-			return nil
-		}
-		return gzipFetcher{ftpFetcher{loc, pool}}
+		return ftpFetcher{loc}
 	}
 	pef("Unsupported URL scheme '%s' in '%s'.", loc.Scheme, uri)
 	return nil
@@ -90,120 +84,65 @@ func (hf httpFetcher) list(name string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-const (
-	maxFtpConns = 5
-)
-
-var (
-	pools     = make(map[url.URL]chan *ftp.ServerConn)
-	poolsLock = new(sync.Mutex)
-)
-
-func ftpPool(loc url.URL) chan *ftp.ServerConn {
-	poolsLock.Lock()
-	defer poolsLock.Unlock()
-
-	if pool, ok := pools[loc]; ok {
-		return pool
-	}
-	connChan := make(chan *ftp.ServerConn)
-	pools[loc] = connChan
-
-	c, err := newFtpConn(loc)
-	if err != nil {
-		pef("Could not create FTP connection pool: %s", err)
-		return nil
-	}
-	conns := []*ftp.ServerConn{c}
-	numGiven := 0
-	go func() {
-		for {
-			if len(conns) == 0 {
-				if numGiven >= maxFtpConns {
-					conns = append(conns, <-connChan)
-					numGiven--
-				} else {
-					c, err := newFtpConn(loc)
-					if err != nil {
-						pef("%s", err)
-						// the client will see the nil conn.
-						// they can decide what to do.
-						conns = append(conns, nil)
-					} else {
-						conns = append(conns, c)
-					}
-				}
-			}
-			select {
-			case c := <-connChan:
-				conns = append(conns, c)
-				numGiven--
-			case connChan <- conns[0]:
-				conns = conns[1:]
-				numGiven++
-			}
-		}
-	}()
-	return connChan
+type ftpReadCloser struct {
+	cmd            *exec.Cmd
+	stdout, stderr io.ReadCloser
 }
 
-func newFtpConn(loc url.URL) (*ftp.ServerConn, error) {
-	conn, err := ftp.Connect(loc.Host)
-	if err != nil {
-		return nil, ef("Could not connect to '%s': %s", loc.Host, err)
+func (r *ftpReadCloser) Read(bs []byte) (int, error) {
+	n, err := r.stdout.Read(bs)
+	if err != nil && err != io.EOF {
+		stderr, err2 := ioutil.ReadAll(r.stderr)
+		if err2 != nil {
+			return 0, ef("Bad stuff happened while reading stderr: %s", err2)
+		}
+		return 0, ef("FTP download failed: %s\n\nstderr:\n\n%s", err, stderr)
 	}
+	return n, err
+}
 
-	pass, _ := loc.User.Password()
-	if err := conn.Login(loc.User.Username(), pass); err != nil {
-		return nil, ef("Authentication failed for '%s': %s", loc.Host, err)
+func (r *ftpReadCloser) Close() error {
+	if r.cmd == nil {
+		return nil
 	}
-	return conn, nil
+	if err := r.cmd.Wait(); err != nil {
+		return ef("Could not close FTP download: %s", err)
+	}
+	return nil
 }
 
 // ftpFetcher satisfies the fetcher interface by reading from an FTP URL.
 // Each fetcher opens a new FTP connection.
 type ftpFetcher struct {
 	*url.URL
-	pool chan *ftp.ServerConn
-}
-
-// ftpRetrCloser syncs the closing of the file download with the closing of
-// the connection.
-type ftpRetrCloser struct {
-	io.ReadCloser
-	pool chan *ftp.ServerConn
-	conn *ftp.ServerConn
-}
-
-// Close closes the file download and the FTP connection.
-func (r *ftpRetrCloser) Close() error {
-	defer func() {
-		r.ReadCloser = nil
-		r.pool <- r.conn // done with the connection
-	}()
-
-	if r.ReadCloser == nil {
-		return nil
-	}
-	if err := r.ReadCloser.Close(); err != nil {
-		pef("Problem closing FTP reader: %s", err)
-		return ef("Problem closing FTP reader: %s", err)
-	}
-	return nil
 }
 
 func (ff ftpFetcher) list(name string) (io.ReadCloser, error) {
-	conn := <-ff.pool
-	if conn == nil {
-		return nil, ef("Could not get FTP connection from pool.")
+	var goim string
+	var err error
+
+	if strings.Contains(os.Args[0], string(path.Separator)) {
+		goim, err = path.Abs(os.Args[0])
+		if err != nil {
+			return nil, ef("Could not find 'goim' executable: %s", err)
+		}
+	} else {
+		goim = "goim"
 	}
-	namePath := sf("%s/%s.list.gz", ff.Path, name)
-	r, err := conn.Retr(namePath)
+
+	c := exec.Command(goim, "ftp", name, ff.URL.String())
+	stdout, err := c.StdoutPipe()
 	if err != nil {
-		return nil, ef("Could not retrieve '%s' from '%s': %s",
-			namePath, ff.Host, err)
+		return nil, err
 	}
-	return &ftpRetrCloser{r, ff.pool, conn}, nil
+	stderr, err := c.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+	if err := c.Start(); err != nil {
+		return nil, err
+	}
+	return &ftpReadCloser{c, stdout, stderr}, nil
 }
 
 // gzipFetcher wraps a value satisfying the fetcher interface with a gzip

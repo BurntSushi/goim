@@ -196,28 +196,28 @@ func (c *command) oneResult(db *imdb.DB) (*search.Result, bool) {
 func (c *command) results(db *imdb.DB, one bool) ([]search.Result, bool) {
 	searcher, err := search.New(db, strings.Join(c.flags.Args(), " "))
 	if err != nil {
-		pef("%s\n", err)
+		pef("%s", err)
 		return nil, false
 	}
 	searcher.Chooser(c.chooser)
 
 	results, err := searcher.Results()
 	if err != nil {
-		pef("%s\n", err)
+		pef("%s", err)
 		return nil, false
 	}
 	if len(results) == 0 {
-		pef("No results found.\n")
+		pef("No results found.")
 		return nil, false
 	}
 	if one {
 		r, err := searcher.Pick(results)
 		if err != nil {
-			pef("%s\n", err)
+			pef("%s", err)
 			return nil, false
 		}
 		if r == nil {
-			pef("No results to pick from.\n")
+			pef("No results to pick from.")
 			return nil, false
 		}
 		return []search.Result{*r}, true

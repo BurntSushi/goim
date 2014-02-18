@@ -57,13 +57,6 @@ var simpleLoaders = map[string]listHandler{
 	// since they require some special attention.
 }
 
-var namedFtp = map[string]string{
-	"berlin":  "ftp://ftp.fu-berlin.de/pub/misc/movies/database",
-	"digital": "ftp://gatekeeper.digital.com.au/pub/imdb",
-	"funet":   "ftp://ftp.funet.fi/pub/culture/tv+film/database",
-	"uiuc":    "ftp://uiarchive.cso.uiuc.edu/pub/info/imdb",
-}
-
 var cmdLoad = &command{
 	name: "load",
 	positionalUsage: "[ berlin | digital | funet | uiuc | " +
@@ -158,26 +151,36 @@ func cmd_load(c *command) bool {
 	if len(getFrom) == 0 {
 		getFrom = "berlin"
 	}
-	fetch := newFetcher(getFrom)
-	if fetch == nil {
-		return false
-	}
 
 	// If we're downloading, then just do that and quit.
 	if len(flagLoadDownload) > 0 {
-		for _, name := range userLoadLists {
+		// We're just saving to disk, so no need to decompress. Get a plain
+		// fetcher.
+		fetch := newFetcher(getFrom)
+		if fetch == nil {
+			return false
+		}
+
+		download := func(name string) struct{} {
 			if err := downloadList(fetch, name); err != nil {
 				pef("%s", err)
-				return false
 			}
 			if name == "actors" {
 				if err := downloadList(fetch, "actresses"); err != nil {
 					pef("%s", err)
-					return false
 				}
 			}
+			return struct{}{}
 		}
+		// Limit the download to 3 simultaneous connections.
+		fun.ParMapN(download, userLoadLists, 3)
 		return true
+	}
+
+	// We'll be reading, so get a gzip fetcher.
+	fetch := newGzipFetcher(getFrom)
+	if fetch == nil {
+		return false
 	}
 
 	// Figure out which tables we'll be modifying and drop the indices for
@@ -251,6 +254,9 @@ func cmd_load(c *command) bool {
 			}
 			return true
 		}
+
+		// SQLite doesn't handle concurrent writes very well, so force it
+		// to be single-threaded.
 		maxConcurrent := flagCpu
 		if db.Driver == "sqlite3" {
 			maxConcurrent = 1
