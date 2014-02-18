@@ -16,10 +16,10 @@ var cmdSize = &command{
 	shortHelp: "lists size of tables and total size of database",
 	help:      "",
 	flags:     flag.NewFlagSet("size", flag.ExitOnError),
-	run:       size,
+	run:       cmd_size,
 }
 
-func size(c *command) bool {
+func cmd_size(c *command) bool {
 	db := openDb(c.dbinfo())
 	defer closeDb(db)
 
