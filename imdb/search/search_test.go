@@ -24,7 +24,6 @@ func ExampleNew() {
 	}
 }
 
-
 // Example Query finds the top 10 ranked Simpsons episodes with 500 or more
 // votes using a query string.
 func ExampleQuery() {
@@ -47,4 +46,3 @@ func ExampleQuery() {
 		log.Println(result)
 	}
 }
-
