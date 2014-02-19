@@ -14,8 +14,8 @@ PostgreSQL is the lack of fuzzy searching with trigrams in SQLite.
 (SQLite still supports wild card searching.)
 
 
-Database loading time and size
-==============================
+### Database loading time and size
+
 The following benchmarks were measured with data downloaded from IMDb on 
 February 3, 2014 (872MB compressed). The specs of my machine: Intel i7 3930K 
 (12 logical CPUs) with 32GB of DDR3 1600MHz RAM. Both PostgreSQL and SQLite 
@@ -48,8 +48,8 @@ The point of these benchmarks is not to be rigorous, but to give you a general
 ballpark of the sorts of resources used to load the database.
 
 
-Licensing minutia
-=================
+### Licensing minutia
+
 While IMDb is generous enough to provide an easily parseable dump of a subset 
 of their data, they are pretty finicky with
 [their licensing](http://www.imdb.com/help/show_leaf?usedatasoftware).
