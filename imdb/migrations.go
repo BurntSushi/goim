@@ -423,10 +423,16 @@ func doIndices(
 	return
 }
 
+// CreateIndices creates indices for each of the tables specified. This is
+// automatically done for you if you're using 'goim load'.
 func (db *DB) CreateIndices(tables ...string) error {
 	return doIndices(db, index.sqlCreate, tables...)
 }
 
+// DropIndices drops indices for each of the tables specified. It is safe to
+// call this with tables that may or may not have indices already created.
+// Dropping indices is useful when performing large updates on tables.
+// This is automatically done for you if you're using 'goim load'.
 func (db *DB) DropIndices(tables ...string) error {
 	return doIndices(db, index.sqlDrop, tables...)
 }

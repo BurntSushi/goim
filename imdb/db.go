@@ -21,6 +21,11 @@ var (
 // clients may run their own queries.
 type DB struct {
 	*sql.DB
+
+	// Since this package attempts to support multiple databases, there are
+	// areas where the type of driver being used is important.
+	// For example, PostgreSQL supports simultaneous transactions updating the
+	// database but SQLite does not.
 	Driver string
 }
 
@@ -28,6 +33,12 @@ type DB struct {
 // either be "sqlite3" or "postgres". The dsn (data source name) is dependent
 // upon the driver. For example, for the sqlite3 driver, the dsn is just a
 // path to a file (that may not exist).
+//
+// In general, the 'driver' and 'dsn' should be exactly the same as used in
+// the 'database/sql' package.
+//
+// Whenever an imdb database is opened, it is checked to make sure its schema
+// is up to date with the current library. If it isn't, it will be updated.
 func Open(driver, dsn string) (*DB, error) {
 	db, err := migration.Open(driver, dsn, migrations[driver])
 	if err != nil {
@@ -35,7 +46,7 @@ func Open(driver, dsn string) (*DB, error) {
 	}
 	if driver == "postgres" {
 		if _, err := db.Exec("SET timezone = UTC"); err != nil {
-			return nil, fmt.Errorf("Could set timezone to UTC: %s", err)
+			return nil, fmt.Errorf("Could not set timezone to UTC: %s", err)
 		}
 	}
 	return &DB{db, driver}, nil
