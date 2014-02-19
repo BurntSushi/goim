@@ -66,7 +66,7 @@ Point-by-point:
 Namely, I am not using data mining, robots, screen scraping or any other 
 mechanism to get IMDb data other than the aforementioned "alternative 
 interfaces" plain text data dump. To the best of my knowledge, I am not using 
-any faming techniques to enclose IMDb trademarks, logos or other proprietary 
+any framing techniques to enclose IMDb trademarks, logos or other proprietary 
 information. I do not link to IMDb in any part of Goim, sans this README.
 I am not using any IMDb software (not that it actually works), so the terms at 
 the bottom don't apply.
