@@ -48,15 +48,40 @@ The point of these benchmarks is not to be rigorous, but to give you a general
 ballpark of the sorts of resources used to load the database.
 
 
-Under construction
-==================
-Goim is currently under construction, but if you install it, you can see a list 
-of available commands with `goim help`.
+Licensing minutia
+=================
+While IMDb is generous enough to provide an easily parseable dump of a subset 
+of their data, they are pretty finnicky with
+[their licensing](http://www.imdb.com/help/show_leaf?usedatasoftware).
 
-For example, to load all movies/TV shows/episodes into a SQLite file:
+This project is not a commerical project. The **only source** of IMDb data in 
+Goim is through the ["alternative interfaces" plain text data 
+files](http://www.imdb.com/interfaces), which are expressly provided for 
+non-commercial uses.
 
-    goim write-config
-    goim load -lists movies
+Point-by-point:
 
-See `goim help load` for more details.
+1. I agree to the terms of their
+[copyright/terms of use](http://www.imdb.com/help/show_article?conditions). 
+Namely, I am not using data mining, robots, screen scraping or any other 
+mechanism to get IMDb data other than the aforementioned "alternative 
+interfaces" plain text data dump. To the best of my knowledge, I am not using 
+any faming techniques to enclose IMDb trademarks, logos or other proprietary 
+information. I do not link to IMDb in any part of Goim, sans this README.
+I am not using any IMDb software (not that it actually works), so the terms at 
+the bottom don't apply.
+2. As mentioned above, data is only taken from the plain text data from their 
+"alternative interfaces," specifically from one of those listed FTP sites. Goim 
+does not send any HTTP requests to IMDb proper. Goim does not attempt to 
+recover any information on IMDb proper that is not available in the subset of 
+data provided through the "alternative interface."
+3. I intend to only use Goim for personal and non-commercial use. I do not make 
+the database created by Goim public. Instead, each individual user of Goim has 
+to build their own.
+4. Information courtesy of IMDb (http://www.imdb.com). Used with permission.
+
+My interpretation of IMDb's fastidious legalese prevents me from distributing a 
+SQL dump of a Goim database (whether it be PostgreSQL or SQLite). This is 
+unfortunate, because it would likely be much faster to load than downloading 
+and inserting each individual IMDb list file.
 
