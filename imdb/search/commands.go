@@ -36,11 +36,18 @@ type command struct {
 	add         func(s *Searcher, value string) error
 }
 
-func addRange(v string, max int, add func(mn, mx int) *Searcher) error {
-	if mn, mx, err := intRange(v, 0, max); err != nil {
+func addRange(v string, add func(mn, mx int) *Searcher) error {
+	if mn, mx, err := intRange(v); err != nil {
 		return err
 	} else {
-		add(mn, mx)
+		var min, max int = -1, -1
+		if mn != nil {
+			min = *mn
+		}
+		if mx != nil {
+			max = *mx
+		}
+		add(min, max)
 		return nil
 	}
 }
@@ -162,7 +169,7 @@ func init() {
 			"Only show search results for the year or years specified. " +
 				"e.g., {1990-1999} only shows movies in the 90s.",
 			func(s *Searcher, v string) error {
-				return addRange(v, MaxYear, s.Years)
+				return addRange(v, s.Years)
 			},
 		},
 		{
@@ -172,7 +179,7 @@ func init() {
 				"better. Ranks are on a scale of 0 to 100, where 100 is the " +
 				"best.",
 			func(s *Searcher, v string) error {
-				return addRange(v, MaxRank, s.Ranks)
+				return addRange(v, s.Ranks)
 			},
 		},
 		{
@@ -181,7 +188,7 @@ func init() {
 				"specified. e.g., {10000-} only shows entities with a rank " +
 				"that has 10,000 or more votes.",
 			func(s *Searcher, v string) error {
-				return addRange(v, MaxVotes, s.Votes)
+				return addRange(v, s.Votes)
 			},
 		},
 		{
@@ -191,7 +198,7 @@ func init() {
 				"was in the top 5 billing order (or only shows actors of a " +
 				"movie in the top 5 billing positions).",
 			func(s *Searcher, v string) error {
-				return addRange(v, MaxBilled, s.Billed)
+				return addRange(v, s.Billed)
 			},
 		},
 		{
@@ -201,7 +208,7 @@ func init() {
 				"of a TV show. Note that this only filters episodes---movies " +
 				"and TV shows are still returned otherwise.",
 			func(s *Searcher, v string) error {
-				return addRange(v, MaxSeason, s.Seasons)
+				return addRange(v, s.Seasons)
 			},
 		},
 		{
@@ -211,7 +218,7 @@ func init() {
 				"a of a season. Note that this only filters " +
 				"episodes---movies and TV shows are still returned otherwise.",
 			func(s *Searcher, v string) error {
-				return addRange(v, MaxEpisode, s.Episodes)
+				return addRange(v, s.Episodes)
 			},
 		},
 		{
@@ -291,4 +298,44 @@ func init() {
 		})
 	}
 	fun.Sort(func(c1, c2 Command) bool { return c1.Name < c2.Name }, Commands)
+}
+
+// intRange parses a range of integers of the form "x-y" and returns x and y
+// as integers. If given only "x", then intRange returns x and x. If given
+// "x-", then intRange returns x and nil. If given "-x", then intRange returns
+// nil and x.
+func intRange(s string) (*int, *int, error) {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return nil, nil, nil
+	}
+	if !strings.Contains(s, "-") {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, nil, ef("Could not parse '%s' as integer: %s", s, err)
+		}
+		return &n, &n, nil
+	}
+
+	var pcs []string
+	for _, p := range strings.SplitN(s, "-", 2) {
+		pcs = append(pcs, strings.TrimSpace(p))
+	}
+
+	var start, end *int
+	if len(pcs[0]) > 0 {
+		nstart, err := strconv.Atoi(pcs[0])
+		if err != nil {
+			return nil, nil, ef("Could not parse '%s' as int: %s", pcs[0], err)
+		}
+		start = &nstart
+	}
+	if len(pcs[1]) > 0 {
+		nend, err := strconv.Atoi(pcs[1])
+		if err != nil {
+			return nil, nil, ef("Could not parse '%s' as int: %s", pcs[1], err)
+		}
+		end = &nend
+	}
+	return start, end, nil
 }

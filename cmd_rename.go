@@ -317,8 +317,8 @@ func tvEpisodes(db *imdb.DB, tv *imdb.Tvshow) (episodeMap, error) {
 	epsearch := search.New(db)
 	epsearch.Entity(imdb.EntityEpisode)
 	epsearch.Tvshow(search.New(db).Atom(tv.Id))
-	epsearch.Seasons(1, search.MaxSeason).Episodes(1, search.MaxEpisode)
-	epsearch.Limit(search.MaxEpisode)
+	epsearch.Seasons(1, -1).Episodes(1, -1)
+	epsearch.Limit(-1)
 
 	results, err := epsearch.Results()
 	if err != nil {

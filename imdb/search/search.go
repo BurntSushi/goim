@@ -4,21 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
+
+	"github.com/BurntSushi/ty/fun"
 
 	"github.com/BurntSushi/csql"
 
 	"github.com/BurntSushi/goim/imdb"
-)
-
-const (
-	MaxYear    = 3000
-	MaxRank    = 100
-	MaxVotes   = 1000000000
-	MaxBilled  = 1000000
-	MaxSeason  = 1000000
-	MaxEpisode = 1000000
 )
 
 var (
@@ -47,7 +39,7 @@ type Result struct {
 	// SQLite or Postgres when the 'pg_trgm' extension isn't enabled).
 	Similarity float64
 
-	// If a rating exists for a search result, it will be stored here.
+	// If an IMDb rank exists for a search result, it will be stored here.
 	Rank imdb.UserRank
 
 	// If the search accesses credit information, then it will be stored here.
@@ -65,23 +57,30 @@ type Credit struct {
 	Attrs     string
 }
 
-// Valid returns true if and only if this credit belong to a valid movie
+// Valid returns true if and only if this credit belongs to a valid movie
 // and a valid actor.
 func (c Credit) Valid() bool {
 	return c.ActorId > 0 && c.MediaId > 0
 }
 
+// GetEntity returns a value satisfying the imdb.Entity interface corresponding
+// to the search result. The Entity returned should correspond to the entity
+// type in the search result.
 func (sr Result) GetEntity(db csql.Queryer) (imdb.Entity, error) {
 	return imdb.FromAtom(db, sr.Entity, sr.Id)
+}
+
+func (sr Result) String() string {
+	return sf("(%s) %s (%d) (%s)", sr.Entity, sr.Name, sr.Year, sr.Attrs)
 }
 
 // Searcher represents the parameters of a search.
 type Searcher struct {
 	db                              *imdb.DB
-	fuzzy                           bool
-	name                            string
-	what                            string
-	debug                           bool
+	fuzzy                           bool     // whether to use fuzzy searching
+	name                            []string // text to search in name table
+	what                            string   // used to identify sub-searches
+	debug                           bool     // whether to output SQL query
 	atom                            imdb.Atom
 	entities                        []imdb.EntityKind
 	order                           []searchOrder
@@ -97,7 +96,7 @@ type Searcher struct {
 
 // Chooser corresponds to a function called by the searcher in this
 // package to resolve ambiguous query parameters. For example, if a TV show
-// is specified with '{tvshow:supernatural}' and there is more than one good
+// is specified with '{show:supernatural}' and there is more than one good
 // hit, then the chooser function will be called.
 //
 // If the search result returned is nil and the error is nil, then the
@@ -114,19 +113,33 @@ type Searcher struct {
 // represents the thing being searched. (e.g., "TV show".)
 type Chooser func([]Result, string) (*Result, error)
 
+// searchOrder represents a sorting criteria along with an order. The sorting
+// criteria is a SQL column while the order is either ascending or descending.
 type searchOrder struct {
 	column, order string
 }
 
+// irange represents a range of values for a particular attribute.
 type irange struct {
-	min, max int
+	min, max *int
 }
 
+// subsearch represents an optionally empty sub-search. A sub-search is just
+// like a regular search, except it filters the results of its parent search.
+// Every sub-search (just like a regular search) returns results of entities
+// which are shrunk to either 0 or 1 entities. If 0, then the entire search
+// will fail. If 1, then the 'id' field is filled in with the corresponding
+// atom identifier.
 type subsearch struct {
 	*Searcher
-	id imdb.Atom
+	id imdb.Atom // -1 will cause the parent search to fail.
 }
 
+// New returns a bare-bones searcher with no text to search. Once all options
+// are set, the search can be executed with the Results method. Each result
+// returned corresponds to precisely one entity in the database.
+//
+// (A bare-bones searcher can still have text to search with the Query method.)
 func New(db *imdb.DB) *Searcher {
 	return &Searcher{
 		db:               db,
@@ -138,40 +151,71 @@ func New(db *imdb.DB) *Searcher {
 	}
 }
 
+// Query creates a new searcher with the text and options provided in the
+// search query string. The query has two types of items: regular text that
+// is searched against all entity names and directives that set search options.
+// The search options correspond to the method calls on a Searcher value. The
+// list of available directives is in the package level Commands variable.
+//
+// A directive begins and ends with '{' and '}' and is of the form
+// {NAME[:ARGUMENT]}, where NAME is the name of the directive and argument
+// is an argument for the directive. Each directive either requires no argument
+// or requires a single argument.
+//
+// Tokens in the query that aren't directives are appended together and used
+// as text to search against all entity names. This text may be empty. If the
+// text contains the wildcards '%' (to match any sequence of characters) or
+// '_' (to match any single character), then the database's substring matching
+// operator is used (always case insensitive). Otherwise, fuzzy searching is
+// used when it's enabled (which is only possible with PostgreSQL and the
+// 'pg_trgm' extension). If fuzzy searching isn't available, regular string
+// equality is used.
+//
+// Query is the equivalent of calling New(db).Query(query).
 func Query(db *imdb.DB, query string) (*Searcher, error) {
 	s := New(db)
-
-	var qname []string
-	var err error
-	for _, arg := range queryTokens(query) {
-		qname, err = s.addToken(qname, arg)
-		if err != nil {
-			return nil, err
-		}
-	}
-	s.name = strings.Join(qname, " ")
-
-	// Disable similarity scores if a wildcard is used.
-	if strings.ContainsAny(s.name, "%_") {
-		s.fuzzy = false
-	}
-	return s, nil
+	err := s.Query(query)
+	return s, err
 }
 
-func (s *Searcher) addToken(queryName []string, arg string) ([]string, error) {
+// Query appends the search query string to the current searcher. See the
+// package level Query function for details on the format of the search query
+// string.
+func (s *Searcher) Query(query string) error {
+	for _, arg := range queryTokens(query) {
+		if err := s.addToken(arg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Text adds the given string to the query string as plain text. It is not
+// parsed for search directives.
+func (s *Searcher) Text(text string) *Searcher {
+	// Disable similarity scores if a wildcard is used.
+	if strings.ContainsAny(text, "%_") {
+		s.fuzzy = false
+	}
+	s.name = append(s.name, text)
+	return s
+}
+
+func (s *Searcher) addToken(arg string) error {
 	name, val := argOption(arg)
 	if cmd, ok := allCommands[name]; ok {
 		if cmd.hasArg && len(val) == 0 {
-			return nil, ef("The %s command requires an argument.", name)
+			return ef("The %s command requires an argument.", name)
 		} else if !cmd.hasArg && len(val) > 0 {
-			return nil, ef("The %s command does not have an argument.", name)
+			return ef("The %s command does not have an argument.", name)
 		}
-		return queryName, cmd.add(s, val)
+		return cmd.add(s, val)
 	} else {
 		if len(name) > 0 {
-			return nil, ef("Unrecognized search option: %s", name)
+			return ef("Unrecognized search option: %s", name)
 		}
-		return append(queryName, arg), nil
+		s.Text(arg)
+		return nil
 	}
 }
 
@@ -213,7 +257,7 @@ func (s *Searcher) Results() (rs []Result, err error) {
 	if len(s.name) == 0 {
 		rows = csql.Query(s.db, s.sql())
 	} else {
-		rows = csql.Query(s.db, s.sql(), s.name)
+		rows = csql.Query(s.db, s.sql(), strings.Join(s.name, " "))
 	}
 	csql.Panic(csql.ForRow(rows, func(scanner csql.RowScanner) {
 		var r Result
@@ -229,6 +273,17 @@ func (s *Searcher) Results() (rs []Result, err error) {
 	return
 }
 
+// Pick returns the best match in a list of results. If results is empty, then
+// a nil *Result and a nil error are returned.
+//
+// Pick will try to choose the "best" match by comparing the similarity of the
+// top hit with the similarity of the second hit. If the similarity is greater
+// than the "Good Threshold" (which is settable with GoodThreshold), then the
+// first hit is returned.
+//
+// Otherwise, this searcher's chooser function is invoked. (And if that isn't
+// set, the first hit is returned.) Any errors returned by the chooser function
+// are returned here.
 func (s *Searcher) Pick(rs []Result) (*Result, error) {
 	if len(rs) == 0 {
 		return nil, nil
@@ -318,22 +373,25 @@ func (s *Searcher) Atom(id imdb.Atom) *Searcher {
 
 // Years specifies that the results must be in the range of years given.
 // The range is inclusive.
+// Either min or max can be disabled with a value of -1.
 func (s *Searcher) Years(min, max int) *Searcher {
-	s.year = &irange{min, max}
+	s.year = newIrange(min, max)
 	return s
 }
 
 // Seasons specifies that the results must be in the range of seasons given.
 // The range is inclusive.
+// Either min or max can be disabled with a value of -1.
 func (s *Searcher) Seasons(min, max int) *Searcher {
-	s.season = &irange{min, max}
+	s.season = newIrange(min, max)
 	return s
 }
 
 // Episodes specifies that the results must be in the range of episodes given.
 // The range is inclusive.
+// Either min or max can be disabled with a value of -1.
 func (s *Searcher) Episodes(min, max int) *Searcher {
-	s.episode = &irange{min, max}
+	s.episode = newIrange(min, max)
 	return s
 }
 
@@ -352,15 +410,17 @@ func (s *Searcher) NoVideoMovies() *Searcher {
 // Ranks specifies that the results must be in the range of ranks given.
 // The range is inclusive.
 // Note that the minimum rank is 0 and the maximum is 100.
+// Either min or max can be disabled with a value of -1.
 func (s *Searcher) Ranks(min, max int) *Searcher {
-	s.rating = &irange{min, max}
+	s.rating = newIrange(min, max)
 	return s
 }
 
 // Votes specifies that the results must be in the range of votes given.
 // The range is inclusive.
+// Either min or max can be disabled with a value of -1.
 func (s *Searcher) Votes(min, max int) *Searcher {
-	s.votes = &irange{min, max}
+	s.votes = newIrange(min, max)
 	return s
 }
 
@@ -369,8 +429,9 @@ func (s *Searcher) Votes(min, max int) *Searcher {
 // actor, this will restrict the results to movies where the actor has a billed
 // position in this range. Similarly for showing credits for a movie.
 // The range is inclusive.
+// Either min or max can be disabled with a value of -1.
 func (s *Searcher) Billed(min, max int) *Searcher {
-	s.billing = &irange{min, max}
+	s.billing = newIrange(min, max)
 	return s
 }
 
@@ -387,8 +448,8 @@ func (s *Searcher) Tvshow(tvs *Searcher) *Searcher {
 	return s
 }
 
-// Episode specifies a sub-search that will be performed when Results is called.
-// The entity returned restrict the results of the parent search to only
+// Credits specifies a sub-search that will be performed when Results is called.
+// The entity returned restricts the results of the parent search to only
 // include credits for the entity. (Note that TV shows generally don't have
 // credits associated with them.)
 // If no entity is found, then the parent search quits and returns no results.
@@ -405,12 +466,15 @@ func (s *Searcher) Credits(credits *Searcher) *Searcher {
 // results.
 func (s *Searcher) Cast(cast *Searcher) *Searcher {
 	cast.what = "actor"
+	cast.Entity(imdb.EntityActor)
 	s.subCast = &subsearch{cast, 0}
 	return s
 }
 
 // Limit restricts the number of results to the limit given. If Limit is never
 // specified, then the search defaults to a limit of 30.
+//
+// If limit is -1, then it is disabled. (Be Careful!)
 func (s *Searcher) Limit(n int) *Searcher {
 	s.limit = n
 	return s
@@ -441,7 +505,7 @@ func queryTokens(query string) []string {
 	curlyDepth := 0
 	for _, r := range query {
 		switch r {
-		case ' ':
+		case ' ', '\n', '\r', '\t':
 			if curlyDepth == 0 {
 				if len(buf) > 0 {
 					tokens = append(tokens, string(buf))
@@ -488,45 +552,6 @@ func argOption(arg string) (name, val string) {
 	}
 	name, val = strings.TrimSpace(name), strings.TrimSpace(val)
 	return
-}
-
-// intRange parses a range of integers of the form "x-y" and returns x and y
-// as integers. If given only "x", then intRange returns x and x. If given
-// "x-", then intRange returns x and max. If given "-x", then intRange returns
-// min and x.
-func intRange(s string, min, max int) (int, int, error) {
-	s = strings.TrimSpace(s)
-	if len(s) == 0 {
-		return min, max, nil
-	}
-	if !strings.Contains(s, "-") {
-		n, err := strconv.Atoi(s)
-		if err != nil {
-			return 0, 0, ef("Could not parse '%s' as integer: %s", s, err)
-		}
-		return n, n, nil
-	}
-
-	var pcs []string
-	for _, p := range strings.SplitN(s, "-", 2) {
-		pcs = append(pcs, strings.TrimSpace(p))
-	}
-
-	start, end := min, max
-	var err error
-	if len(pcs[0]) > 0 {
-		start, err = strconv.Atoi(pcs[0])
-		if err != nil {
-			return 0, 0, ef("Could not parse '%s' as integer: %s", pcs[0], err)
-		}
-	}
-	if len(pcs[1]) > 0 {
-		end, err = strconv.Atoi(pcs[1])
-		if err != nil {
-			return 0, 0, ef("Could not parse '%s' as integer: %s", pcs[1], err)
-		}
-	}
-	return start, end, nil
 }
 
 func (s *Searcher) sql() string {
@@ -585,14 +610,22 @@ func (s *Searcher) sql() string {
 			AND
 			%s
 		%s
-		LIMIT %d
+		%s
 		`,
 		s.entityColumn(), s.similarColumn("name.name"), s.creditAttrs(),
-		s.creditJoin(), s.where(), s.orderby(), s.limit)
+		s.creditJoin(), s.where(), s.orderby(), s.limitClause())
 	if s.debug {
 		pef("%s\n", q)
 	}
 	return q
+}
+
+func (s *Searcher) limitClause() string {
+	if s.limit < 0 {
+		return ""
+	} else {
+		return sf("LIMIT %d", s.limit)
+	}
 }
 
 func (s *Searcher) creditJoin() string {
@@ -698,7 +731,10 @@ func (s *Searcher) where() string {
 		if s.fuzzy {
 			conj = append(conj, "name.name % $1")
 		} else {
-			if strings.ContainsAny(s.name, "%_") {
+			hasWildcard := func(s string) bool {
+				return strings.ContainsAny(s, "%_")
+			}
+			if fun.Exists(hasWildcard, s.name) {
 				if s.db.Driver == "postgres" {
 					conj = append(conj, sf("name.name ILIKE $1"))
 				} else {
@@ -767,15 +803,34 @@ func (s *Searcher) similarColumn(col string) string {
 	}
 }
 
+func newIrange(min, max int) *irange {
+	switch {
+	case min < 0 && max < 0:
+		return &irange{nil, nil}
+	case min < 0:
+		return &irange{nil, &max}
+	case max < 0:
+		return &irange{&min, nil}
+	default:
+		return &irange{&min, &max}
+	}
+}
+
 func (ir *irange) cond(col string) string {
-	return sf("%s >= %d AND %s <= %d", col, ir.min, col, ir.max)
+	switch {
+	case ir.min != nil && ir.max != nil:
+		return sf("%s >= %d AND %s <= %d", col, *ir.min, col, *ir.max)
+	case ir.min != nil:
+		return sf("%s >= %d", col, *ir.min)
+	case ir.max != nil:
+		return sf("%s <= %d", col, *ir.max)
+	default:
+		return "1 = 1"
+	}
 }
 
-var ResultColumns = map[string][]string{
-	"all":     {"entity", "atom_id", "title", "year", "attrs", "similarity"},
-	"episode": {"season", "episode_num"},
-}
-
+// qualifiedColumns maps a user-facing name of a column to the actual column
+// named used in the SQL query.
 var qualifiedColumns = map[string]string{
 	"entity":     "entity",
 	"atom_id":    "atom_id",
@@ -795,28 +850,4 @@ var qualifiedColumns = map[string]string{
 
 func orderColumnQualified(column string) string {
 	return qualifiedColumns[column]
-}
-
-func isValidColumn(ent imdb.EntityKind, column string) bool {
-	for _, c := range validColumns(ent) {
-		if c == column {
-			return true
-		}
-	}
-	return false
-}
-
-func validColumns(ent imdb.EntityKind) []string {
-	if ent != imdb.EntityNone {
-		var cols []string
-		for _, col := range ResultColumns["all"] {
-			cols = append(cols, col)
-		}
-		for _, col := range ResultColumns[ent.String()] {
-			cols = append(cols, col)
-		}
-		return cols
-	} else {
-		return ResultColumns["all"]
-	}
 }
