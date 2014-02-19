@@ -51,7 +51,7 @@ ballpark of the sorts of resources used to load the database.
 Licensing minutia
 =================
 While IMDb is generous enough to provide an easily parseable dump of a subset 
-of their data, they are pretty finnicky with
+of their data, they are pretty finicky with
 [their licensing](http://www.imdb.com/help/show_leaf?usedatasoftware).
 
 This project is not a commerical project. The **only source** of IMDb data in 
