@@ -77,7 +77,8 @@ recover any information on IMDb proper that is not available in the subset of
 data provided through the "alternative interface."
 3. I am only using Goim for personal and non-commercial use. I do not make 
 the database created by Goim public. Instead, each individual user of Goim has 
-to build their own.
+to build their own. This has precedent with
+[IMDbPY](http://imdbpy.sourceforge.net) and [JMDB](http://www.jmdb.de).
 4. Information courtesy of IMDb (http://www.imdb.com). Used with permission.
 
 My interpretation of IMDb's fastidious legalese prevents me from distributing a 
