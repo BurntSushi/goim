@@ -13,12 +13,12 @@ import (
 )
 
 const (
-	maxYear    = 3000
-	maxRank    = 100
-	maxVotes   = 1000000000
-	maxBilled  = 1000000
-	maxSeason  = 1000000
-	maxEpisode = 1000000
+	MaxYear    = 3000
+	MaxRank    = 100
+	MaxVotes   = 1000000000
+	MaxBilled  = 1000000
+	MaxSeason  = 1000000
+	MaxEpisode = 1000000
 )
 
 var (
@@ -127,8 +127,8 @@ type subsearch struct {
 	id imdb.Atom
 }
 
-func New(db *imdb.DB, query string) (*Searcher, error) {
-	s := &Searcher{
+func New(db *imdb.DB) *Searcher {
+	return &Searcher{
 		db:               db,
 		fuzzy:            db.IsFuzzyEnabled(),
 		limit:            30,
@@ -136,6 +136,10 @@ func New(db *imdb.DB, query string) (*Searcher, error) {
 		similarThreshold: 0.3,
 		what:             "entity",
 	}
+}
+
+func Query(db *imdb.DB, query string) (*Searcher, error) {
+	s := New(db)
 
 	var qname []string
 	var err error
@@ -175,7 +179,7 @@ func (s *Searcher) subSearcher(name, query string) (*Searcher, error) {
 	if len(query) == 0 {
 		return nil, ef("No query found for '%s'.", name)
 	}
-	sub, err := New(s.db, query)
+	sub, err := Query(s.db, query)
 	if err != nil {
 		return nil, ef("Error with sub-search for %s: %s", name, err)
 	}

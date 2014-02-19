@@ -48,7 +48,7 @@ var defaults = strings.TrimSpace(`
 		{{ printf " %s" .E.Attrs }}
 	{{ end }}
 	{{ if not .E.Rank.Unranked }}
-		{{ printf " (rank: %d/100)" .E.Rank.Rank }}
+		{{ printf " (rank: %d/100, votes: %d)" .E.Rank.Rank .E.Rank.Votes }}
 	{{ end }}
 	{{ if .E.Credit.Valid }}
 		{{ if gt (len .E.Credit.Character) 0 }}
@@ -78,7 +78,14 @@ var defaults = strings.TrimSpace(`
 {{ end }}
 
 {{ define "rename_episode" }}
-	{{ printf "S%02dE%02d - %s%s" .E.Season .E.EpisodeNum .E.Title .A.Ext }}
+	{{ $nums := printf "S%02dE%02d" .E.Season .E.EpisodeNum }}
+	{{ $titleExt := printf "%s%s" .E.Title .A.Ext }}
+	{{ if .A.ShowTv }}
+		{{ $tv := tvshow .E }}
+		{{ printf "%s - %s - %s" $tv.Title $nums $titleExt }}
+	{{ else }}
+		{{ printf "%s - %s" $nums $titleExt }}
+	{{ end }}
 {{ end }}
 
 {{ define "short_movie" }}

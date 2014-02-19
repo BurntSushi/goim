@@ -194,7 +194,7 @@ func (c *command) oneResult(db *imdb.DB) (*search.Result, bool) {
 }
 
 func (c *command) results(db *imdb.DB, one bool) ([]search.Result, bool) {
-	searcher, err := search.New(db, strings.Join(c.flags.Args(), " "))
+	searcher, err := search.Query(db, strings.Join(c.flags.Args(), " "))
 	if err != nil {
 		pef("%s", err)
 		return nil, false

@@ -162,7 +162,7 @@ func init() {
 			"Only show search results for the year or years specified. " +
 				"e.g., {1990-1999} only shows movies in the 90s.",
 			func(s *Searcher, v string) error {
-				return addRange(v, maxYear, s.Years)
+				return addRange(v, MaxYear, s.Years)
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func init() {
 				"better. Ranks are on a scale of 0 to 100, where 100 is the " +
 				"best.",
 			func(s *Searcher, v string) error {
-				return addRange(v, maxRank, s.Ranks)
+				return addRange(v, MaxRank, s.Ranks)
 			},
 		},
 		{
@@ -181,7 +181,7 @@ func init() {
 				"specified. e.g., {10000-} only shows entities with a rank " +
 				"that has 10,000 or more votes.",
 			func(s *Searcher, v string) error {
-				return addRange(v, maxVotes, s.Votes)
+				return addRange(v, MaxVotes, s.Votes)
 			},
 		},
 		{
@@ -191,7 +191,7 @@ func init() {
 				"was in the top 5 billing order (or only shows actors of a " +
 				"movie in the top 5 billing positions).",
 			func(s *Searcher, v string) error {
-				return addRange(v, maxBilled, s.Billed)
+				return addRange(v, MaxBilled, s.Billed)
 			},
 		},
 		{
@@ -201,7 +201,7 @@ func init() {
 				"of a TV show. Note that this only filters episodes---movies " +
 				"and TV shows are still returned otherwise.",
 			func(s *Searcher, v string) error {
-				return addRange(v, maxSeason, s.Seasons)
+				return addRange(v, MaxSeason, s.Seasons)
 			},
 		},
 		{
@@ -211,7 +211,7 @@ func init() {
 				"a of a season. Note that this only filters " +
 				"episodes---movies and TV shows are still returned otherwise.",
 			func(s *Searcher, v string) error {
-				return addRange(v, maxEpisode, s.Episodes)
+				return addRange(v, MaxEpisode, s.Episodes)
 			},
 		},
 		{
