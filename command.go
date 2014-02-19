@@ -232,7 +232,7 @@ func (c *command) chooser(
 	pf("%s is ambiguous. Please choose one:\n", what)
 	template := c.tpl("search_result")
 	for i, result := range results {
-		c.tplExec(template, tpl.Args{result, tpl.Attrs{"Index": i + 1}})
+		c.tplExec(template, tpl.Args{E: result, A: tpl.Attrs{"Index": i + 1}})
 	}
 
 	var choice int

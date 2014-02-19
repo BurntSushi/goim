@@ -263,7 +263,7 @@ func renames(
 
 		buf := new(bytes.Buffer)
 		attrs := tpl.Attrs{"Ext": ext, "ShowTv": flagRenameTvshowName}
-		if err := t.Execute(buf, tpl.Args{ent, attrs}); err != nil {
+		if err := t.Execute(buf, tpl.Args{E: ent, A: attrs}); err != nil {
 			pef("%s", err)
 			return nil
 		}

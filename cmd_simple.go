@@ -180,7 +180,7 @@ func cmd_search(c *command) bool {
 	} else {
 		for i, result := range results {
 			attrs := tpl.Attrs{"Index": i + 1}
-			c.tplExec(template, tpl.Args{result, attrs})
+			c.tplExec(template, tpl.Args{E: result, A: attrs})
 		}
 	}
 	return true
@@ -237,7 +237,7 @@ func cmd_attr(name string) func(*command) bool {
 
 func (c *command) showAttr(db *imdb.DB, ent imdb.Entity, name string) bool {
 	tpl.SetDB(db)
-	c.tplExec(c.tpl(name), tpl.Args{ent, nil})
+	c.tplExec(c.tpl(name), tpl.Args{E: ent, A: nil})
 	return true
 }
 
@@ -297,6 +297,6 @@ func cmd_short(c *command) bool {
 
 	tplName := sf("short_%s", ent.Type().String())
 	tpl.SetDB(db)
-	c.tplExec(c.tpl(tplName), tpl.Args{ent, nil})
+	c.tplExec(c.tpl(tplName), tpl.Args{E: ent, A: nil})
 	return true
 }
