@@ -99,8 +99,8 @@ by adding a title to an episode). This results in stale rows in the 'atom' and
 		c.flags.BoolVar(&flagWarnings, "warn", flagWarnings,
 			"When set, warnings messages about the data will be shown.\n"+
 				"When enabled, this can produce a lot of output saying that\n"+
-				"an could not be found for some entries. This is (likely) a\n"+
-				"result of inconsistent data in IMDb's text files.")
+				"an identifier could not be found for some entries. This is\n"+
+				"(likely) a result of inconsistent data in IMDb's text files.")
 	},
 }
 

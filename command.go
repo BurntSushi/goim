@@ -95,7 +95,7 @@ func (c *command) setCommonFlags() {
 	c.flags.StringVar(&flagDb, "db", flagDb,
 		"Overrides the database to be used. It should be a string of the "+
 			"form 'driver:dsn'.\n"+
-			"It may also be a 'sqlite3' file or a 'toml' file containing\n"+
+			"It may also be a 'sqlite3' file or a 'toml' file containing "+
 			"a Goim configuration.")
 	c.flags.StringVar(&flagCpuProfile, "cpu-prof", flagCpuProfile,
 		"When set, a CPU profile will be written to the file path provided.")
