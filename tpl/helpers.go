@@ -21,12 +21,34 @@ var (
 
 // Functions corresponds to a map of functions that is available in every
 // Goim template.
+//
+// The "lines" function takes a string and returns a list of strings
+// corresponding to each line.
+//
+// The "wrap" function takes a column limit and a string and wraps the string
+// to the given number of columns.
+//
+// The "underlined" function takes a string to repeat and a string to
+// underline, and returns the string to underline, followed by a new line,
+// followed by the string to repeat N times, where N is the length of the
+// string to underline.
+//
+// The "count_seasons" function takes one parameter that is a TV show and
+// returns the number of seasons that have aired.
+//
+// The "count_episodes" function takes one parameter that is a TV show and
+// returns the number of episodes that have aired.
+//
+// The "tvshow" function takes one parameter that is an episode and returns
+// its corresponding TV show.
+//
+// The list of functions starting with "running_times" retrieve attribute
+// values given an entity. All functions accept one argument that must satisfy
+// the imdb.Entity interface and return a list of attribute values.
 var Functions = template.FuncMap{
-	"combine":    combine,
 	"lines":      lines,
 	"wrap":       wrap,
 	"underlined": underlined,
-	"sort":       sorted,
 
 	"count_seasons":  countSeasons,
 	"count_episodes": countEpisodes,
@@ -67,7 +89,7 @@ func assertDB() {
 	}
 }
 
-// Combine provides a way to compose values during template execution.
+// combine provides a way to compose values during template execution.
 // This is particularly useful when executing sub-templates. For example,
 // say you've defined two variables `$a` and `$b` that you want to pass to
 // a sub-template. But templates can only take a single pipeline. Combine will
@@ -123,6 +145,7 @@ func attrGetter(attrs imdb.Attributer) interface{} {
 	// So we can make new attrs values.
 	// Note that this is the *underlying* type of the imdb.Attributer.
 	tattrs := reflect.TypeOf(attrs).Elem()
+
 	return func(e imdb.Entity) interface{} {
 		assertDB()
 		vattrs := reflect.New(tattrs).Interface().(imdb.Attributer)

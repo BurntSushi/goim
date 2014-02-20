@@ -32,7 +32,9 @@ type Args struct {
 	A Attrs
 }
 
-var Defaults = defaults
+// Defaults is a string containing the default templates. It corresponds
+// precisely to the content in command.tpl.
+var Defaults string = defaults
 
 var defaults = strings.TrimSpace(`
 {{/*

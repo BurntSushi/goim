@@ -1,12 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -246,41 +243,21 @@ func areYouSure(yesno string) bool {
 	return false
 }
 
-func (c *command) tplExec(template *template.Template, data interface{}) {
-	buf := new(bytes.Buffer)
-	if err := template.Execute(buf, data); err != nil {
+func (c *command) tplExec(t *template.Template, data interface{}) {
+	if err := tpl.ExecText(t, os.Stdout, data); err != nil {
 		fatalf(err.Error())
 	}
-	s := stripTooManyLines.ReplaceAllString(buf.String(), "\n\n")
-	fmt.Fprint(os.Stdout, s)
 }
 
 func (c *command) tpl(name string) *template.Template {
 	if c.tpls == nil {
-		var tplText string
 		fpath, err := xdgPaths.ConfigFile("command.tpl")
-		if err == nil {
-			tplBytes, err := ioutil.ReadFile(fpath)
-			if err != nil {
-				fatalf("Problem reading template 'command.tpl': %s", err)
-			}
-			tplText = string(tplBytes)
-		} else {
-			tplText = tpl.Defaults
-		}
-
-		// Try to parse the templates before mangling them, so that error
-		// messages retain meaningful line numbers.
-		_, err = template.New("command.tpl").Funcs(tpl.Functions).Parse(tplText)
 		if err != nil {
-			fatalf("Problem parsing template: %s", err)
+			fpath = ""
 		}
-
-		// Okay, now do it for real.
-		c.tpls = template.New("command.tpl")
-		c.tpls.Funcs(tpl.Functions)
-		if _, err := c.tpls.Parse(trimTemplate(tplText)); err != nil {
-			fatalf("BUG: Problem parsing template: %s", err)
+		c.tpls, err = tpl.ParseText(fpath)
+		if err != nil {
+			fatalf(err.Error())
 		}
 	}
 	t := c.tpls.Lookup(name)
@@ -288,20 +265,6 @@ func (c *command) tpl(name string) *template.Template {
 		fatalf("Could not find template with name '%s'.", name)
 	}
 	return t
-}
-
-var (
-	stripNewLines     = regexp.MustCompile("}}\n")
-	stripLeadingSpace = regexp.MustCompile("(?m)^(\t| )+")
-	stripTooManyLines = regexp.MustCompile("\n\n\n+")
-)
-
-func trimTemplate(s string) string {
-	// Order is important here.
-	s = stripLeadingSpace.ReplaceAllString(s, "")
-	s = stripNewLines.ReplaceAllString(s, "}}")
-	s = strings.Replace(s, "}}\\", "}}", -1)
-	return s
 }
 
 func (c *command) assertNArg(n int) {
