@@ -765,16 +765,25 @@ func (s *Searcher) orderby() string {
 		if len(qualed) == 0 {
 			continue
 		}
-		q += sf("%s%s %s NULLS LAST", prefix, qualed, ord.order)
+		q += s.orderbyColumn(prefix+qualed, ord.order)
 		prefix = ", "
 	}
 	if s.fuzzy && len(s.name) > 0 {
-		return sf("ORDER BY similarity DESC NULLS LAST %s %s", prefix, q)
+		return sf("ORDER BY %s %s %s",
+			s.orderbyColumn("similarity", "DESC"), prefix, q)
 	}
 	if len(q) == 0 {
 		return ""
 	}
 	return sf("ORDER BY %s", q)
+}
+
+func (s *Searcher) orderbyColumn(column, order string) string {
+	if s.db.Driver == "postgres" {
+		return sf("%s %s NULLS LAST", column, order)
+	} else {
+		return sf("%s %s", column, order)
+	}
 }
 
 func (s *Searcher) entityColumn() string {
