@@ -6,8 +6,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/BurntSushi/ty/fun"
-
 	"github.com/BurntSushi/csql"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -235,7 +233,9 @@ func (s *Searcher) Results() (rs []Result, err error) {
 	defer csql.Safe(&err)
 
 	// Set the similarity threshold first.
-	csql.Exec(s.db, "SELECT set_limit($1)", s.similarThreshold)
+	if s.db.IsFuzzyEnabled() {
+		csql.Exec(s.db, "SELECT set_limit($1)", s.similarThreshold)
+	}
 
 	if s.subTvshow != nil {
 		if err := s.subTvshow.choose(s, s.chooser); err != nil {
@@ -731,17 +731,10 @@ func (s *Searcher) where() string {
 		if s.fuzzy {
 			conj = append(conj, "name.name % $1")
 		} else {
-			hasWildcard := func(s string) bool {
-				return strings.ContainsAny(s, "%_")
-			}
-			if fun.Exists(hasWildcard, s.name) {
-				if s.db.Driver == "postgres" {
-					conj = append(conj, sf("name.name ILIKE $1"))
-				} else {
-					conj = append(conj, sf("name.name LIKE $1"))
-				}
+			if s.db.Driver == "postgres" {
+				conj = append(conj, sf("name.name ILIKE $1"))
 			} else {
-				conj = append(conj, sf("name.name = $1"))
+				conj = append(conj, sf("name.name LIKE $1"))
 			}
 		}
 	}

@@ -43,7 +43,7 @@ This command will ALWAYS prompt you before renaming your files.
 
 The rename command renames files to names found in IMDb's database. The naming
 scheme is specified in templates with the "rename_" prefix found in your
-format.tpl file. 
+command.tpl file. 
 
 The most general operation is to provide an arbitrary search query as the first
 argument (so it must be in quotes, unlike with 'goim search') and a set of

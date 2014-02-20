@@ -45,33 +45,35 @@ data_source = "goim.sqlite"
 
 var xdgPaths = xdg.Paths{XDGSuffix: "goim"}
 
-var cmdWriteConfig = &command{
-	name:            "write-config",
-	positionalUsage: "[ dir ]",
-	shortHelp:       "write a default configuration",
+var cmdWrite = &command{
+	name:            "write",
+	positionalUsage: "(config | templates) [ dir ]",
+	shortHelp:       "write default configuration or templates",
 	help: `
-Writes the default configuration to $XDG_CONFIG_HOME/goim or to
+Writes the default configuration/templates to $XDG_CONFIG_HOME/goim or to
 the directory argument given.
 
 If no argument is given and $XDG_CONFIG_HOME is not set, then the configuration
 is written to $HOME/.config/goim/.
 
-The configuration includes a TOML file for specifying database connection
-parameters, along with a set of template files used to control the various
-output formats of Goim.
+The configuration is a TOML file for specifying database connection
+parameters, and the templates control the output formats of Goim on the command
+line.
 `,
-	flags: flag.NewFlagSet("write-config", flag.ExitOnError),
-	run:   cmd_writeConfig,
+	flags: flag.NewFlagSet("write", flag.ExitOnError),
+	run:   cmd_write,
 	addFlags: func(c *command) {
 		c.flags.BoolVar(&flagConfigOverwrite, "overwrite", flagConfigOverwrite,
-			"When set, the config file will be written regardless of\n"+
-				"whether one exists or not.")
+			"When set, the config/template file will be written regardless\n"+
+				"of whether one exists or not.")
 	},
 }
 
-func cmd_writeConfig(c *command) bool {
+func cmd_write(c *command) bool {
+	c.assertLeastNArg(1)
+
 	var dir string
-	if arg := strings.TrimSpace(c.flags.Arg(0)); len(arg) > 0 {
+	if arg := strings.TrimSpace(c.flags.Arg(1)); len(arg) > 0 {
 		dir = arg
 	} else {
 		dir = strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME"))
@@ -84,35 +86,30 @@ func cmd_writeConfig(c *command) bool {
 			return false
 		}
 	}
-
-	confPath := path.Join(dir, "config.toml")
-	tplPath := path.Join(dir, "format.tpl")
-
-	// Don't clobber the user's config unexpectedly!
-	if !flagConfigOverwrite {
-		_, err := os.Stat(confPath)
-		if !os.IsNotExist(err) {
-			pef("Config file at '%s' already exists. Remove or use "+
-				"-overwrite.", confPath)
-			return false
-		}
-		_, err = os.Stat(tplPath)
-		if !os.IsNotExist(err) {
-			pef("Template file at '%s' already exists. Remove or use "+
-				"-overwrite.", tplPath)
-			return false
-		}
-	}
-
-	conf := []byte(strings.TrimSpace(defaultConfig) + "\n")
-	if err := ioutil.WriteFile(confPath, conf, 0666); err != nil {
-		pef("Could not write '%s': %s", confPath, err)
+	switch c.flags.Arg(0) {
+	case "config":
+		conf := []byte(strings.TrimSpace(defaultConfig) + "\n")
+		return writeFile(c, path.Join(dir, "config.toml"), conf)
+	case "templates":
+		tpls := []byte(strings.TrimSpace(tpl.Defaults) + "\n")
+		return writeFile(c, path.Join(dir, "command.tpl"), tpls)
+	default:
+		pef("Unknown command '%s'.", c.flags.Arg(0))
 		return false
 	}
+}
 
-	tplText := []byte(strings.TrimSpace(tpl.Defaults) + "\n")
-	if err := ioutil.WriteFile(tplPath, tplText, 0666); err != nil {
-		pef("Could not write '%s': %s", tplPath, err)
+func writeFile(c *command, fpath string, contents []byte) bool {
+	if !flagConfigOverwrite {
+		_, err := os.Stat(fpath)
+		if !os.IsNotExist(err) {
+			pef("File at '%s' already exists. Remove or use "+
+				"-overwrite.", fpath)
+			return false
+		}
+	}
+	if err := ioutil.WriteFile(fpath, contents, 0666); err != nil {
+		pef("Could not write '%s': %s", fpath, err)
 		return false
 	}
 	return true

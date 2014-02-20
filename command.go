@@ -11,6 +11,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/BurntSushi/ty/fun"
+
 	"github.com/BurntSushi/toml"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -23,7 +25,6 @@ var (
 	flagCpu        = runtime.NumCPU()
 	flagQuiet      = false
 	flagDb         = ""
-	flagConfig     = ""
 )
 
 var (
@@ -76,8 +77,9 @@ func (c *command) showHelp() {
 }
 
 func (c *command) showFlags() {
+	hide := []string{"cpu-prof", "quiet", "cpu"}
 	c.flags.VisitAll(func(fl *flag.Flag) {
-		if fl.Name == "cpu-prof" { // don't show this to users
+		if fun.In(fl.Name, hide) {
 			return
 		}
 		var def string
@@ -95,9 +97,9 @@ func (c *command) showFlags() {
 func (c *command) setCommonFlags() {
 	c.flags.StringVar(&flagDb, "db", flagDb,
 		"Overrides the database to be used. It should be a string of the "+
-			"form 'driver:dsn'.\nSee the config file for more details.")
-	c.flags.StringVar(&flagConfig, "config", flagConfig,
-		"If set, the configuration is loaded from the file given.")
+			"form 'driver:dsn'.\n"+
+			"It may also be a 'sqlite3' file or a 'toml' file containing\n"+
+			"a Goim configuration.")
 	c.flags.StringVar(&flagCpuProfile, "cpu-prof", flagCpuProfile,
 		"When set, a CPU profile will be written to the file path provided.")
 	c.flags.IntVar(&flagCpu, "cpu", flagCpu,
@@ -114,6 +116,12 @@ func (c *command) dbinfo() (driver, dsn string) {
 				strings.HasSuffix(flagDb, "sqlite3") {
 				driver = "sqlite3"
 				dsn = flagDb
+			} else if strings.HasSuffix(flagDb, "toml") {
+				conf, err := c.config(flagDb)
+				if err != nil {
+					fatalf("Error loading '%s' as config file: %s", flagDb, err)
+				}
+				driver, dsn = conf.Driver, conf.DataSource
 			} else {
 				fatalf("Database must be of the form 'dirver:dsn'.")
 			}
@@ -122,11 +130,10 @@ func (c *command) dbinfo() (driver, dsn string) {
 			driver, dsn = dbInfo[0], dbInfo[1]
 		}
 	} else {
-		conf, err := c.config()
+		conf, err := c.config("")
 		if err != nil {
 			fatalf("If '-db' is not specified, then a configuration file\n"+
-				"must exist in $XDG_CONFIG_HOME/goim/config.toml or be\n"+
-				"specified with '-config'.\n\n"+
+				"must exist in $XDG_CONFIG_HOME/goim/config.toml\n\n"+
 				"Got this error when trying to read config: %s", err)
 		}
 		driver, dsn = conf.Driver, conf.DataSource
@@ -134,11 +141,10 @@ func (c *command) dbinfo() (driver, dsn string) {
 	return
 }
 
-func (c *command) config() (conf config, err error) {
-	var fpath string
-	if len(flagConfig) > 0 {
-		fpath = flagConfig
-	} else {
+// config loads the configuration from the file path given. If fpath has length
+// 0, then it will try to load the config from $XDG_CONFIG_HOME.
+func (c *command) config(fpath string) (conf config, err error) {
+	if len(fpath) == 0 {
 		fpath, err = xdgPaths.ConfigFile("config.toml")
 	}
 	_, err = toml.DecodeFile(fpath, &conf)
@@ -147,29 +153,6 @@ func (c *command) config() (conf config, err error) {
 			conf.Driver, conf.DataSource)
 	}
 	return
-}
-
-func (c *command) entAttrs(
-	db *imdb.DB,
-	entity *imdb.Entity,
-	attrs imdb.Attributer,
-	pluralWhat string,
-) bool {
-	ent, ok := c.oneEntity(db)
-	if !ok {
-		return false
-	}
-	*entity = ent
-
-	if err := attrs.ForEntity(db, ent); err != nil {
-		pef("Error loading %s: %s", pluralWhat, err)
-		return false
-	}
-	if attrs.Len() == 0 {
-		pef("No %s found.", pluralWhat)
-		return false
-	}
-	return true
 }
 
 func (c *command) oneEntity(db *imdb.DB) (imdb.Entity, bool) {
@@ -275,11 +258,11 @@ func (c *command) tplExec(template *template.Template, data interface{}) {
 func (c *command) tpl(name string) *template.Template {
 	if c.tpls == nil {
 		var tplText string
-		fpath, err := xdgPaths.ConfigFile("format.tpl")
+		fpath, err := xdgPaths.ConfigFile("command.tpl")
 		if err == nil {
 			tplBytes, err := ioutil.ReadFile(fpath)
 			if err != nil {
-				fatalf("Problem reading template 'format.tpl': %s", err)
+				fatalf("Problem reading template 'command.tpl': %s", err)
 			}
 			tplText = string(tplBytes)
 		} else {
@@ -288,13 +271,13 @@ func (c *command) tpl(name string) *template.Template {
 
 		// Try to parse the templates before mangling them, so that error
 		// messages retain meaningful line numbers.
-		_, err = template.New("format.tpl").Funcs(tpl.Functions).Parse(tplText)
+		_, err = template.New("command.tpl").Funcs(tpl.Functions).Parse(tplText)
 		if err != nil {
 			fatalf("Problem parsing template: %s", err)
 		}
 
 		// Okay, now do it for real.
-		c.tpls = template.New("format.tpl")
+		c.tpls = template.New("command.tpl")
 		c.tpls.Funcs(tpl.Functions)
 		if _, err := c.tpls.Parse(trimTemplate(tplText)); err != nil {
 			fatalf("BUG: Problem parsing template: %s", err)

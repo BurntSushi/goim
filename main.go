@@ -17,7 +17,7 @@ var commands = []*command{
 	cmdLoad,
 	cmdSearch,
 	cmdSize,
-	cmdWriteConfig,
+	cmdWrite,
 	cmdRename,
 	cmdFtp,
 }

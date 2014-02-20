@@ -130,7 +130,7 @@ type Movie struct {
 }
 
 // Tvshow represents a single TV show in IMDb. Typically TV shows lack
-// attribute data in lieu of individual episodes containing the data, and are 
+// attribute data in lieu of individual episodes containing the data, and are
 // instead a way of connecting episodes together.
 type Tvshow struct {
 	Id        Atom
@@ -155,7 +155,7 @@ type Episode struct {
 type Actor struct {
 	Id       Atom
 	FullName string
-	Sequence  string // Non-data. Used by IMDb for unique entity strings.
+	Sequence string // Non-data. Used by IMDb for unique entity strings.
 }
 
 func entityString(title string, year int) string {

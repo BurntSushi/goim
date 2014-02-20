@@ -35,6 +35,18 @@ type Args struct {
 var Defaults = defaults
 
 var defaults = strings.TrimSpace(`
+{{/*
+The templates below are Go templates from the standard library text/template
+package. Documentation is here: http://golang.org/pkg/text/template/
+
+Documentation specific to the data available in each template for Goim is
+at http://godoc.burntsushi.net/pkg/github.com/BurntSushi/goim/tpl/
+
+Note that in an effort to control whitespace, lines ending with '}}' are
+completely ignored. Lines ending with '}}\' are not ignored. Three or more
+successive new lines (LF) are replaced with two new lines (LF).
+*/}}
+
 {{ define "search_result" }}
 	{{ printf "%3d. %-8s" .A.Index .E.Entity }}
 	{{ if gt .E.Similarity -1.0 }}
