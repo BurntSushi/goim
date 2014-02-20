@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/md5"
 	"database/sql"
 
@@ -157,7 +156,14 @@ func (az *atomizer) Close() error {
 // hashKey returns a byte array corresponding to the md5 hash of the key
 // string given.
 func hashKey(s []byte) [md5.Size]byte {
-	sum := md5.Sum(bytes.TrimSpace(s))
+	h := md5.New()
+	h.Write(s)
+	slice := h.Sum(nil)
+
+	var sum [md5.Size]byte
+	for i := 0; i < md5.Size; i++ {
+		sum[i] = slice[i]
+	}
 	return sum
 }
 
