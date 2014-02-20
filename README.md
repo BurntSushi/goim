@@ -14,6 +14,59 @@ PostgreSQL is the lack of fuzzy searching with trigrams in SQLite.
 (SQLite still supports wild card searching.)
 
 
+### Quickstart with SQLite
+
+If you want to give Goim a quick spin, it's easy to create a SQLite database 
+with a subset of IMDb's data:
+
+    goim load -db goim.sqlite
+
+This command downloads a list of all movies, TV shows and episodes and creates 
+a new SQLite database in goim.sqlite.  Depending on your system, this might 
+take anywhere from 1 minute to 5 minutes (including building indices).
+
+Now you can find all episodes of The Simpsons that have "maggie" in the title:
+
+    # goim search -db goim.sqlite '%maggie%' {show:the simpsons}
+      1. episode  And Maggie Makes Three (1995) (TV show: The Simpsons, #6.13)
+      2. episode  Gone Maggie Gone (2009) (TV show: The Simpsons, #20.13)
+
+If you add IMDb user rankings (should take less than a minute):
+
+    goim load -db goim.sqlite -lists ratings
+
+Then you can find the top ten ranked Simpsons episodes with at least 500 votes:
+
+    # time goim search -db goim.sqlite {show:the simpsons} {votes:500-} {sort:rank desc} {limit:10}
+      1. episode  Homer the Smithers (1996) (TV show: The Simpsons, #7.17) (rank: 90/100, votes: 840)
+      2. episode  Homer's Enemy (1997) (TV show: The Simpsons, #8.23) (rank: 89/100, votes: 1217)
+      3. episode  The City of New York vs. Homer Simpson (1997) (TV show: The Simpsons, #9.1) (rank: 89/100, votes: 1160)
+      4. episode  Boy Scoutz 'n the Hood (1993) (TV show: The Simpsons, #5.8) (rank: 88/100, votes: 874)
+      5. episode  Homer Badman (1994) (TV show: The Simpsons, #6.9) (rank: 88/100, votes: 960)
+      6. episode  Homer the Heretic (1992) (TV show: The Simpsons, #4.3) (rank: 88/100, votes: 1090)
+      7. episode  Homer's Phobia (1997) (TV show: The Simpsons, #8.15) (rank: 88/100, votes: 1031)
+      8. episode  Homer's Triple Bypass (1992) (TV show: The Simpsons, #4.11) (rank: 88/100, votes: 895)
+      9. episode  Hurricane Neddy (1996) (TV show: The Simpsons, #8.8) (rank: 88/100, votes: 855)
+     10. episode  King Size Homer (1995) (TV show: The Simpsons, #7.7) (rank: 88/100, votes: 997)
+
+Dig deeper by adding plot information to your database (takes minutes):
+
+    goim load -db goim.sqlite -lists plot
+
+And check out the plot for King Size Homer:
+
+    # goim plots -db goim.sqlite king size homer
+    
+    Plot summaries for King Size Homer (1995)
+    =========================================
+    Mr. Burns institutes a new calisthenics program at work. Most employees enjoy
+    the morning workout, except Homer, who is too lazy. He finds out that if he
+    goes in disability, he will be exempt from the exercises. He finds hyper-obesity
+    among the list of disability, so he gorges himself on food to balloon up to 300
+    pounds.
+    -- Anonymous
+
+
 ### Database loading time and size
 
 The following benchmarks were measured with data downloaded from IMDb on 
