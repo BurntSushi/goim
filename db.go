@@ -164,7 +164,8 @@ func hashKey(s []byte) [md5.Size]byte {
 // listTables itemizes the tables that are updated for each list name.
 var listTables = map[string][]string{
 	"movies": []string{
-		"atom", "name", "movie", "tvshow", "episode"},
+		"atom", "name", "movie", "tvshow", "episode",
+	},
 	"actors":               []string{"atom", "name", "actor", "credit"},
 	"sound-mix":            []string{"sound_mix"},
 	"genres":               []string{"genre"},
