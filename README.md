@@ -75,15 +75,15 @@ February 3, 2014 (872MB compressed). The specs of my machine: Intel i7 3930K
 databases were stored on a Crucial M4 128GB solid state drive (CT128M4SSD2).
 
 A complete database (with indices) for SQLite uses approximately 3GB 
-of space on disk. A complete load (with all IMDb downloaded first) took about 
-12 minutes. Note that since this is SQLite, this did not use any concurrent 
-updating. After completion, a search query of `%Matrix%` takes approximate 0.5 
-seconds.
+of space on disk. A complete load (with all IMDb data downloaded first) took 
+about 12 minutes. Note that since this is SQLite, this did not use any 
+concurrent updating. After completion, a search query of `%Matrix%` takes 
+approximate 0.5 seconds.
 
 A complete database (with indices) for PostgreSQL 9.3 (using a default 
 configuration) uses approximately 5.5GB of space on disk. A complete load (with 
-all IMDb downloaded first) took about 7.5 minutes. There is a significant speed 
-boost from parallel table updates, although about half the time is spent 
+all IMDb data downloaded first) took about 7.5 minutes. There is a significant 
+speed boost from parallel table updates, although about half the time is spent 
 building indices (the trigram indices take especially long). After completion, 
 a search query of `%Matrix%` takes approximately 0.18 seconds. A search query 
 of `matrix` (using the trigram indices) takes approximately 1 second. (Searches 
