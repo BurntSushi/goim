@@ -790,7 +790,7 @@ func (s *Searcher) entityColumn() string {
 
 func (s *Searcher) similarColumn(col string) string {
 	if len(s.name) > 0 && s.fuzzy {
-		return sf("similarity(%s, $1) AS similarity", col)
+		return sf("COALESCE(similarity(%s, $1), 0) AS similarity", col)
 	} else {
 		return "-1 AS similarity"
 	}
