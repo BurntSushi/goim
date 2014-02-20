@@ -51,7 +51,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 
 {{ define "search_result" }}
 	{{ printf "%3d. %-8s" .A.Index .E.Entity }}
-	{{ if gt .E.Similarity -1.0 }}
+	{{ if gtf .E.Similarity -1.0 }}
 		{{ printf " (%0.2f) " .E.Similarity }}
 	{{ end }}
 	{{ printf " %s" .E.Name }}
@@ -204,7 +204,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Running times for %s" .E | underlined "=" }}
 
 	{{ $runtimes := running_times .E }}
-	{{ if eq 0 (len $runtimes) }}
+	{{ if not (len $runtimes) }}
 		None found.
 
 	{{ else }}
@@ -221,7 +221,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Release dates for %s" .E | underlined "=" }}
 
 	{{ $dates := release_dates .E }}
-	{{ if eq 0 (len $dates) }}
+	{{ if not (len $dates) }}
 		None found.
 
 	{{ else }}
@@ -238,7 +238,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "AKA titles for %s" .E | underlined "=" }}
 
 	{{ $akas := aka_titles .E }}
-	{{ if eq 0 (len $akas) }}
+	{{ if not (len $akas) }}
 		None found.
 
 	{{ else }}
@@ -255,7 +255,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Alternate versions for %s" .E | underlined "=" }}
 
 	{{ $alts := alternate_versions .E }}
-	{{ if eq 0 (len $alts) }}
+	{{ if not (len $alts) }}
 		None found.
 
 	{{ else }}
@@ -272,7 +272,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Color information for %s" .E | underlined "=" }}
 
 	{{ $colors := color_info .E }}
-	{{ if eq 0 (len $colors) }}
+	{{ if not (len $colors) }}
 		None found.
 
 	{{ else }}
@@ -304,7 +304,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Sound mixes for %s" .E | underlined "=" }}
 
 	{{ $mixs := sound_mixes .E }}
-	{{ if eq 0 (len $mixs) }}
+	{{ if not (len $mixs) }}
 		None found.
 
 	{{ else }}
@@ -321,7 +321,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Taglines for %s" .E | underlined "=" }}
 
 	{{ $tags := taglines .E }}
-	{{ if eq 0 (len $tags) }}
+	{{ if not (len $tags) }}
 		None found.
 
 	{{ else }}
@@ -338,7 +338,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Trivia for %s" .E | underlined "=" }}
 
 	{{ $trivias := trivia .E }}
-	{{ if eq 0 (len $trivias) }}
+	{{ if not (len $trivias) }}
 		None found.
 
 	{{ else }}
@@ -355,7 +355,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Genre tags for %s" .E | underlined "=" }}
 
 	{{ $genres := genres .E }}
-	{{ if eq 0 (len $genres) }}
+	{{ if not (len $genres) }}
 		None found.
 
 	{{ else }}
@@ -372,7 +372,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Goofs for %s" .E | underlined "=" }}
 
 	{{ $goofs := goofs .E }}
-	{{ if eq 0 (len $goofs) }}
+	{{ if not (len $goofs) }}
 		None found.
 
 	{{ else }}
@@ -389,7 +389,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Languages for %s" .E | underlined "=" }}
 
 	{{ $langs := languages .E }}
-	{{ if eq 0 (len $langs) }}
+	{{ if not (len $langs) }}
 		None found.
 
 	{{ else }}
@@ -406,7 +406,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Literature references for %s" .E | underlined "=" }}
 
 	{{ $lits := literature .E }}
-	{{ if eq 0 (len $lits) }}
+	{{ if not (len $lits) }}
 		None found.
 
 	{{ else }}
@@ -423,7 +423,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Locations for %s" .E | underlined "=" }}
 
 	{{ $locs := locations .E }}
-	{{ if eq 0 (len $locs) }}
+	{{ if not (len $locs) }}
 		None found.
 
 	{{ else }}
@@ -440,7 +440,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Links for %s" .E | underlined "=" }}
 
 	{{ $links := links .E }}
-	{{ if eq 0 (len $links) }}
+	{{ if not (len $links) }}
 		None found.
 
 	{{ else }}
@@ -462,7 +462,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Plot summaries for %s" .E | underlined "=" }}
 
 	{{ $plots := plots .E }}
-	{{ if eq 0 (len $plots) }}
+	{{ if not (len $plots) }}
 		None found.
 
 	{{ else }}
@@ -481,7 +481,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Quotes for %s" .E | underlined "=" }}
 
 	{{ $quotes := quotes .E }}
-	{{ if eq 0 (len $quotes) }}
+	{{ if not (len $quotes) }}
 		None found.
 
 	{{ else }}
@@ -515,7 +515,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ printf "Credits for %s" .E | underlined "=" }}
 
 	{{ $credits := credits .E }}
-	{{ if eq 0 (len $credits) }}
+	{{ if not (len $credits) }}
 		None found.
 
 	{{ else }}

@@ -73,6 +73,19 @@ var Functions = template.FuncMap{
 	"quotes":             attrGetter(new(imdb.Quotes)),
 	"rank":               attrGetter(new(imdb.UserRank)),
 	"credits":            attrGetter(new(imdb.Credits)),
+
+	"eq": func(a, b interface{}) bool { return a == b },
+	"ne": func(a, b interface{}) bool { return a != b },
+
+	"lt": func(a, b int) bool { return a < b },
+	"le": func(a, b int) bool { return a <= b },
+	"gt": func(a, b int) bool { return a > b },
+	"ge": func(a, b int) bool { return a >= b },
+
+	"ltf": func(a, b float64) bool { return a < b },
+	"lef": func(a, b float64) bool { return a <= b },
+	"gtf": func(a, b float64) bool { return a > b },
+	"gef": func(a, b float64) bool { return a >= b },
 }
 
 // assert will quit Goim with the specified error if it is not nil.
