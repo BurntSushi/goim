@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"strconv"
 
 	"github.com/BurntSushi/csql"
 	"github.com/BurntSushi/goim/imdb"
@@ -80,7 +81,7 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 			return
 		}
 		item, value := fields[0], fields[1]
-		switch ent := entityType("media", item); ent {
+		switch ent := mediaType(item); ent {
 		case imdb.EntityMovie:
 			m := imdb.Movie{}
 			if !parseMovie(item, &m) {
@@ -291,4 +292,55 @@ func parseMovie(movie []byte, m *imdb.Movie) bool {
 
 func parseTvshowTitle(quoted []byte) string {
 	return unicode(bytes.Trim(bytes.TrimSpace(quoted), "\""))
+}
+
+func parseEntryYear(inParens []byte, store *int, sequence *string) error {
+	if inParens[0] == '(' && inParens[len(inParens)-1] == ')' {
+		inParens = inParens[1 : len(inParens)-1]
+	}
+	if !bytes.Equal(inParens[0:4], attrUnknownYear) {
+		n, err := strconv.Atoi(string(inParens[0:4]))
+		if err != nil {
+			return err
+		}
+		*store = int(n)
+	}
+	if sequence != nil && len(inParens) > 4 && inParens[4] == '/' {
+		*sequence = unicode(inParens[5:])
+	}
+	return nil
+}
+
+// hasEntryYear returns true if and only if
+// 'f' is of the form '(YYYY[/RomanNumeral])'.
+func hasEntryYear(f []byte) bool {
+	if f[0] != '(' || f[len(f)-1] != ')' {
+		return false
+	}
+	if len(f) < 6 {
+		return false
+	}
+	for _, b := range f[1 : len(f)-1] {
+		if b >= '0' && b <= '9' {
+			continue
+		}
+		if b == '?' || b == '/' || b == 'I' || b == 'V' || b == 'X' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func mediaType(item []byte) imdb.EntityKind {
+	switch {
+	case item[0] == '"':
+		if item[len(item)-1] == '}' {
+			return imdb.EntityEpisode
+		} else {
+			return imdb.EntityTvshow
+		}
+	default:
+		return imdb.EntityMovie
+	}
 }

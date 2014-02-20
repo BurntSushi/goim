@@ -274,7 +274,7 @@ func splitListLine(line []byte) [][]byte {
 // The 'Id' field of the returned entity is always zero. Also, if the entity
 // is an episode, the TV show ID will be zero too.
 func parseMediaEntity(entity []byte) (imdb.Entity, bool) {
-	switch ent := entityType("media", entity); ent {
+	switch ent := mediaType(entity); ent {
 	case imdb.EntityMovie:
 		var e imdb.Movie
 		if !parseMovie(entity, &e) {
@@ -344,23 +344,6 @@ func parseId(az *atomizer, idStr []byte, id *imdb.Atom) (bool, error) {
 	return existed, nil
 }
 
-func parseEntryYear(inParens []byte, store *int, sequence *string) error {
-	if inParens[0] == '(' && inParens[len(inParens)-1] == ')' {
-		inParens = inParens[1 : len(inParens)-1]
-	}
-	if !bytes.Equal(inParens[0:4], attrUnknownYear) {
-		n, err := strconv.Atoi(string(inParens[0:4]))
-		if err != nil {
-			return err
-		}
-		*store = int(n)
-	}
-	if sequence != nil && len(inParens) > 4 && inParens[4] == '/' {
-		*sequence = unicode(inParens[5:])
-	}
-	return nil
-}
-
 func parseInt(bs []byte, store *int) error {
 	n, err := strconv.Atoi(string(bs))
 	if err != nil {
@@ -379,48 +362,14 @@ func parseFloat(bs []byte, store *float64) error {
 	return nil
 }
 
+// unicode converts text in a latin1 encoding to unicode.
+// Basically, it's just making sure that each character is a valid rune.
+// (There are some latin1 characters which, when represented as a single byte,
+// are invalid UTF. I think.)
 func unicode(latin1 []byte) string {
 	runes := make([]rune, len(latin1))
 	for i := range latin1 {
 		runes[i] = rune(latin1[i])
 	}
 	return string(runes)
-}
-
-// hasEntryYear returns true if and only if
-// 'f' is of the form '(YYYY[/RomanNumeral])'.
-func hasEntryYear(f []byte) bool {
-	if f[0] != '(' || f[len(f)-1] != ')' {
-		return false
-	}
-	if len(f) < 6 {
-		return false
-	}
-	for _, b := range f[1 : len(f)-1] {
-		if b >= '0' && b <= '9' {
-			continue
-		}
-		if b == '?' || b == '/' || b == 'I' || b == 'V' || b == 'X' {
-			continue
-		}
-		return false
-	}
-	return true
-}
-
-func entityType(listName string, item []byte) imdb.EntityKind {
-	switch listName {
-	case "media":
-		switch {
-		case item[0] == '"':
-			if item[len(item)-1] == '}' {
-				return imdb.EntityEpisode
-			} else {
-				return imdb.EntityTvshow
-			}
-		default:
-			return imdb.EntityMovie
-		}
-	}
-	panic("BUG: unrecognized list name " + listName)
 }
