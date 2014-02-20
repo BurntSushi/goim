@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"database/sql"
 
@@ -157,7 +158,7 @@ func (az *atomizer) Close() error {
 // string given.
 func hashKey(s []byte) [md5.Size]byte {
 	h := md5.New()
-	h.Write(s)
+	h.Write(bytes.TrimSpace(s))
 	slice := h.Sum(nil)
 
 	var sum [md5.Size]byte
