@@ -240,7 +240,7 @@ A complete database (with indices) for SQLite uses approximately 3GB
 of space on disk. A complete load (with all IMDb data downloaded first) took 
 about 12 minutes. Note that since this is SQLite, this did not use any 
 concurrent updating. After completion, a search query of `%Matrix%` takes 
-approximate 0.5 seconds.
+approximately 0.5 seconds.
 
 A complete database (with indices) for PostgreSQL 9.3 (using a default 
 configuration) uses approximately 5.5GB of space on disk. A complete load (with 
