@@ -112,5 +112,6 @@ func writeFile(c *command, fpath string, contents []byte) bool {
 		pef("Could not write '%s': %s", fpath, err)
 		return false
 	}
+	logf("Wrote %s successfully.", fpath)
 	return true
 }
