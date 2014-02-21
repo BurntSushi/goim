@@ -267,6 +267,54 @@ The point of these benchmarks is not to be rigorous, but to give you a general
 ballpark of the sorts of resources used to load the database.
 
 
+### TODO
+
+* Goim doesn't currently support all available lists. Notable absences are 
+  biographies, soundtracks, directors, writers, producers (and other crew 
+  members).
+* I am pleased with the search infrastructure, but there needs to be more
+  options. For example, to search movie links, running times, release dates, 
+  genres, etc.
+* Look into searching plots/quotes. (Concern: how long will a fulltext index 
+  take to build on these tables?)
+* Expand the clever logic in the `rename` command to general searching.
+  (Maybe. Not sure if I want to complicate the search too much more, but it
+  would be nice to give a file name and, e.g., get back a plot.)
+* With Goim's data and searching, can we easily connect it to other data 
+  sources? (Schedules? Subtitles?)
+
+
+### Motivation and comparison with similar tools
+
+I tend to acquire a lot of media and it's a pain to keep up with correctly 
+naming it. Many years ago, I spent a weekend hacking together a Python script 
+to parse the `movies` IMDb list into a MySQL database and used that to rename 
+files. But it was slow and the renaming script was terribly inflexible.
+I wanted to make it better, so I embarked on a more disciplined approach to 
+storing IMDb's data. I also find it incredibly useful to access most of IMDb 
+instantly from the command line.
+
+To the best of my knowledge, there are only two tools that claim to load a 
+substantial fraction of IMDb's data into a relational database:
+[IMDbPY](http://imdbpy.sourceforge.net) and
+[JMDB](http://www.jmdb.de).
+The source code of JMDB doesn't appear to ever have been released, and it looks 
+like some sort of GUI tool. Truthfully, I haven't tried it.
+
+IMDbPY has been around for a long time and is pretty similar to Goim. However, 
+I found its loading procedure to be a bit awkward (a fast load seems to require 
+some mangling with CSV files), and generally slower than Goim although I 
+haven't done any rigorous benchmarks. (And I don't know enough about IMDbPY to 
+know if the comparison would be fair.)
+
+IMDbPY also seems to support MySQL. Goim does not. (And I don't have any 
+particular plans to support it, but I'm not against it.)
+
+It is entirely possible that I could have used IMDbPY to load a database and 
+then built tools on top of it to do searching and renaming, but I'm much 
+happier with a smaller and simpler piece of software to do the work for me.
+Also, it's a lot more fun to design your own database.
+
 ### Licensing minutia
 
 While IMDb is generous enough to provide an easily parseable dump of a subset 
