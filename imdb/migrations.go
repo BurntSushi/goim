@@ -175,7 +175,8 @@ var migrations = map[string][]migration.Migrator{
 				);
 				CREATE TABLE name (
 					atom_id INTEGER NOT NULL,
-					name TEXT NOT NULL
+					name TEXT NOT NULL,
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE actor (
 					atom_id INTEGER NOT NULL,
@@ -297,7 +298,8 @@ var migrations = map[string][]migration.Migrator{
 				CREATE TABLE rating (
 					atom_id INTEGER NOT NULL,
 					votes INTEGER NOT NULL,
-					rank INTEGER NOT NULL
+					rank INTEGER NOT NULL,
+					PRIMARY KEY (atom_id)
 				);
 				CREATE TABLE mpaa_rating (
 					atom_id INTEGER NOT NULL,
@@ -341,7 +343,6 @@ var indices = []index{
 	{false, "plot", "", "", []string{"atom_id"}},
 	{false, "quote", "", "", []string{"atom_id"}},
 	{false, "rating", "", "", []string{"atom_id"}},
-	{false, "name", "", "", []string{"atom_id"}},
 	{false, "credit", "", "", []string{"actor_atom_id"}},
 	{false, "credit", "", "", []string{"media_atom_id"}},
 
