@@ -215,6 +215,15 @@ Saturday morning, so there's no need to have Goim update your database more
 frequently than once a week.
 
 
+### Entity-Relationship diagram
+
+The schema of the database is very simple, but I've made an
+[ER diagram](http://burntsushi.net/stuff/goim/goim.pdf).
+It was automatically generated with [erd](https://github.com/BurntSushi/erd)
+and
+[goim-write-erd](https://github.com/BurntSushi/goim/blob/master/scripts/goim-write-erd.go).
+
+
 ### Database loading time and size
 
 The following benchmarks were measured with data downloaded from IMDb on 
