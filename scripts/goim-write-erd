@@ -1,0 +1,124 @@
+#!/usr/bin/env python2
+
+# This script generates an er file, which in turn generates a graphical
+# ER diagram using my `erd` program. The columns and types of each table
+# are written by querying goim's information schema. Relationships between
+# entities are written out manually.
+
+from __future__ import absolute_import, division, print_function
+import os
+
+import toml
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+template_erd = '''
+title {{label: "Goim Entity-Relationship diagram", size: "20"}}
+
+# Entities
+{entities}
+
+# Relationships
+{relationships}
+'''
+
+template_entity = '''
+[{name}] {{bgcolor: "{color}"}}
+{columns}
+'''
+
+template_column = '  {pk}{fk}{column} {{label: "{type}"}}'
+
+colors = {
+    'movie': '#fcecec', 'tvshow': '#fcecec', 'episode': '#fcecec',
+    'actor': '#fcecec',
+    'name': '#eee0a0', 'atom': '#eee0a0',
+}
+
+
+def mk_type(row):
+    if row['domain_name']:
+        type = row['domain_name']
+    elif row['data_type'] == 'USER-DEFINED' and row['udt_name']:
+        type = row['udt_name']
+    else:
+        type = row['data_type']
+
+    if type == 'character varying':
+        type = 'varchar'
+
+    if row['is_nullable'] == 'YES':
+        type += ', null'
+    else:
+        type += ', not null'
+    return '%s' % type
+
+
+def is_pk(table, col):
+    if table == 'atom' and col == 'id':
+        return True
+    if col == 'atom_id':
+        pktables = ['actor', 'movie', 'tvshow', 'episode', 'rating']
+        return table in pktables
+    return False
+
+
+def is_fk(table, col):
+    return col.endswith('atom_id')
+
+
+def mk_column(row):
+    col = row['column_name']
+    table = row['table_name']
+    pk = '*' if is_pk(table, col) else ''
+    fk = '+' if is_fk(table, col) else ''
+    return template_column.format(pk=pk, fk=fk, column=col, type=mk_type(row))
+
+
+home = os.getenv('HOME')
+config = toml.load(open('%s/.config/goim/config.toml' % home))
+db = psycopg2.connect(config['data_source'], cursor_factory=RealDictCursor)
+cursor = db.cursor()
+
+tables = []
+cursor.execute('''
+    SELECT tablename FROM pg_tables
+    WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+    ORDER BY tablename ASC
+''')
+for row in cursor.fetchall():
+    tables.append(row['tablename'])
+
+entities = []
+for table in tables:
+    cursor.execute('''
+        SELECT
+            table_name, column_name, udt_name, data_type, domain_name,
+            is_nullable
+        FROM information_schema.columns
+        WHERE table_name = %s
+    ''', (table,))
+    columns = []
+    for row in cursor.fetchall():
+        columns.append(mk_column(row))
+
+    entity = template_entity.format(name=table, columns='\n'.join(columns),
+                                    color=colors.get(table, '#ececfc'))
+    entities.append(entity)
+
+atomone = ['name', 'actor', 'movie', 'tvshow', 'episode', 'rating']
+rels = [
+    'atom 1--* credit {label: "actor"}',
+    'atom 1--* credit {label: "media"}',
+    'atom 1--* link {label: "link"}',
+]
+for table in tables:
+    if table in ('atom', 'migration_version', 'credit'):
+        continue
+    if table in atomone:
+        rels.append('atom 1--1 %s' % table)
+    else:
+        rels.append('atom 1--* %s' % table)
+
+print(template_erd.format(entities='\n'.join(entities),
+                          relationships='\n'.join(rels)))
