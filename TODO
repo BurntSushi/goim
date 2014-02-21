@@ -1,26 +1,16 @@
 Ideas for search
 ================
 - Add "connected" option. (To search links.)
-- Combine the 'movie:...' and 'episode:...' options to a more appropriately
-  named 'credits' option. This should also include TV shows.
 
 
 Soon
 ====
 - Add running time to search interfaces.
   (Requires table joins in imdb/search.go.)
-- Tons of documentation and refactoring left to do.
 
 
 Utilities
 =========
-- Rename TV series episodes.
-- Get information about movie/tvshow/episode from file name.
-  (Probably just a regular search query, but maybe we can be clever.
-   For example, many file names include the year, which could really help
-   narrow down the search. Or episode names usually have a string that looks
-   like "S01E01" in it. That would allow us to restrict searching to episode
-   names with season/episode numbers.)
 - TV show schedules? I don't think IMDb has this information, but maybe we
   can look at another place.
 - Subtitles? I don't think IMDb has this information, but maybe we can
