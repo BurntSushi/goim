@@ -51,7 +51,7 @@ a limit on the number of results returned.
 
 The search query is composed of whitespace delimited tokens. Each token that 
 starts and ends with a '{' and '}' is a directive. All other tokens are used as 
-test to search the names of entities.
+text to search the names of entities.
 
 If you're using PostgreSQL with the 'pg_trgm' extension enabled, then text 
 searching is fuzzy. Otherwise, text may contain the wildcard '%%' which matches 
@@ -116,7 +116,7 @@ the title:
 
 Note the changes here: we removed the restriction on the first season, added
 a limit of 1000 (since the default limit is 30, but there may be more than 30 
-episodes with 'bart' in the title) and added an additional sorting criteria.
+episodes with 'bart' in the title) and added an additional sorting criterion.
 In this case, we want to sort by season first and then by episode. (The order
 in which they appear in the query matters.)
 

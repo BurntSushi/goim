@@ -89,7 +89,8 @@ And check out the plot for King Size Homer:
     -- Anonymous
 
 You can read more examples and see a complete list of search options by running
-`goim help search`.
+`goim help search`. For example, if you load the `actors` list, you can search 
+the credits of movies and episodes.
 
 Also, see `goim help` for a list of all commands, which includes a command for
 each type of information available.
