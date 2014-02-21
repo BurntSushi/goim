@@ -197,8 +197,9 @@ quotes:
 Since plots and quotes are completely independent, this load will be done in 
 parallel if you're using PostgreSQL.
 
-If you want to add all attribute information, then you can use the special 
-`attr` list:
+If you want to add all attribute information (i.e., plots, quotes, trivia,
+goofs, etc.), then you can use the special `attr` list (make sure `movies` has
+already been loaded):
 
     goim load -lists attr
 
