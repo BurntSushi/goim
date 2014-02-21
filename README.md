@@ -96,7 +96,7 @@ You can read more examples and see a complete list of search options by running
 
 You will need to install a PostgreSQL server and have it running on your 
 machine. This can be done for Windows, Mac or Linux. [Start 
-here.](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+here](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
 
 Once you're all set up, create a database and enable the `pg_trgm` extension 
 (which is what provides fuzzy searching):
