@@ -133,7 +133,7 @@ episodes of The Simpsons with "maggie" in the title.
 
 ### Renaming media files
 
-I just copied the first season of The Simpsons off my DVD, but I have a 
+I just copied the first season of The Simpsons off my DVD box set, but I have a 
 problem. All of my files look like this:
 
     S01E01.mkv  S01E04.mkv  S01E07.mkv  S01E10.mkv  S01E13.mkv
