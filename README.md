@@ -88,6 +88,9 @@ And check out the plot for King Size Homer:
     pounds.
     -- Anonymous
 
+You can read more examples and see a complete list of search options by running
+`goim help search`.
+
 
 ### Upping the ante with PostgreSQL
 
