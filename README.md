@@ -221,7 +221,7 @@ The schema of the database is very simple, but I've made an
 [ER diagram](http://burntsushi.net/stuff/goim/goim.pdf).
 It was automatically generated with [erd](https://github.com/BurntSushi/erd)
 and
-[goim-write-erd](https://github.com/BurntSushi/goim/blob/master/scripts/goim-write-erd.go).
+[goim-write-erd](https://github.com/BurntSushi/goim/blob/master/scripts/goim-write-erd).
 
 
 ### Database loading time and size
