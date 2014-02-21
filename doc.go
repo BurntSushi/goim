@@ -1,7 +1,7 @@
 /*
-Command goim is a command line program that can load the Internet Movie
-DataBase (IMDb) in a local database, conveniently and quickly search it and
-help you rename your media files easily.
+Command goim is a program that can load the Internet Movie DataBase (IMDb) in a
+local database, conveniently and quickly search it and help you rename your
+media files easily.
 
 Usage:
 
