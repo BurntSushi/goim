@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	_ "code.google.com/p/go-sqlite/go1/sqlite3"
 	_ "github.com/lib/pq"
 
 	"github.com/BurntSushi/csql"
