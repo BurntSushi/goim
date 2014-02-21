@@ -194,8 +194,8 @@ quotes:
 
     goim load -lists plot,quotes
 
-Since plots and quotes are completely independent, then this update will be 
-done in parallel if you're using PostgreSQL.
+Since plots and quotes are completely independent, this load will be done in 
+parallel if you're using PostgreSQL.
 
 If you want to add all attribute information, then you can use the special 
 'attr' list:
