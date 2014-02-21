@@ -18,7 +18,7 @@ https://github.com/BurntSushi/csql. Mostly, these types are interfaces that
 types in the 'database/sql' package already satisfy. For example, a
 csql.Queryer can be a *imdb.DB, *sql.DB, *sql.Stmt or a *sql.Tx, etc.
 
-The central types of this package are DB, Entity, Movie, Tvshow, Episode and 
+The central types of this package are DB, Entity, Movie, Tvshow, Episode and
 Actor. Most of the other types correspond to attributes of entities.
 */
 package imdb
