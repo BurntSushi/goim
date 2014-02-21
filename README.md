@@ -1,17 +1,38 @@
-goim is a command line utility for maintaining and querying the [Internet Movie 
+Goim is a command line utility for maintaining and querying the [Internet Movie 
 Database (IMDb)](http://www.imdb.com). Goim automatically downloads IMDb's data 
 [in plain text format](http://www.imdb.com/interfaces) and loads it into a 
 relational database. Goim can then interact with the data in the database in 
-various ways, fuzzy (with trigrams) searching, naming TV series episode files, 
-etc.
+various ways: fuzzy (with trigrams) searching, simple renaming of media files 
+(including TV episodes), view information like plots, credits, goofs, quotes, 
+IMDb rankings, trivia, release dates, film locations, prequels/sequels, etc.
 
-Goim currently supports both SQLite and PostgreSQL. By default, it uses SQLite. 
-For Goim, SQLite is slower and smaller while PostgreSQL is faster and larger.
-SQLite is intended to be a convenience for those that do not want to run a
-database server, whereas usage with PostgreSQL should be fast.
-In the author's opinion, the biggest difference between using SQLite and
-PostgreSQL is the lack of fuzzy searching with trigrams in SQLite.
-(SQLite still supports wild card searching.)
+Goim currently supports both SQLite and PostgreSQL. By default, Goim uses 
+SQLite---which is more of a convenience for users that don't want to run a 
+database server. Using PostgreSQL should be faster, and more importantly, will 
+give you insanely fast fuzzy searching.
+
+For Go programmers, the 
+[`imdb`](http://godoc.org/github.com/BurntSushi/goim/imdb)
+sub-package contains types and functions for handling data in the database. The
+[`imdb/search`](http://godoc.org/github.com/BurntSushi/goim/imdb/search)
+sub-package exposes the full power and flexibility of Goim's searching via an 
+API.
+
+
+### Installation
+
+Goim depends on Go and is go-gettable. Assuming you have Go installed and your 
+[GOPATH](http://golang.org/doc/code.html#GOPATH) is set, then the following 
+will install Goim into `$GOPATH/bin`:
+
+    go get github.com/BurntSushi/goim
+
+By default, this will attempt to install SQLite. If you don't want SQLite or 
+can't install it easily, then install Goim with CGO disabled:
+
+    CGO_ENABLED=0 go get github.com/BurntSushi/goim
+
+When CGO is disabled, Goim will only work with PostgreSQL.
 
 
 ### Quickstart with SQLite
@@ -22,8 +43,9 @@ with a subset of IMDb's data:
     goim load -db goim.sqlite
 
 This command downloads a list of all movies, TV shows and episodes and creates 
-a new SQLite database in goim.sqlite.  Depending on your system, this might 
-take anywhere from 1 minute to 5 minutes (including building indices).
+a new SQLite database in goim.sqlite. Depending on your system and internet 
+connection, this might take anywhere from 1 minute to 5 minutes (including 
+building indices).
 
 Now you can find all episodes of The Simpsons that have "maggie" in the title:
 
@@ -65,6 +87,132 @@ And check out the plot for King Size Homer:
     among the list of disability, so he gorges himself on food to balloon up to 300
     pounds.
     -- Anonymous
+
+
+### Upping the ante with PostgreSQL
+
+You will need to install a PostgreSQL server and have it running on your 
+machine. This can be done for Windows, Mac or Linux. [Start 
+here.](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+
+Once you're all set up, create a database and enable the `pg_trgm` extension 
+(which is what provides fuzzy searching):
+
+    createdb imdb
+    psql -U postgres imdb -c 'CREATE EXTENSION pg_trgm;'
+
+Note that enabling an extension can only be done by a PostgreSQL superuser, 
+which is what the '-U postgres' is for (you may use any user here that has 
+superuser privileges).
+
+Technically, you can use Goim with PostgreSQL without enabling the `pg_trgm` 
+extension, but it isn't recommended (and Goim will yell at you).
+
+Now all you need to do is fill in your connection information. You can use the 
+`-db` flag, but typing in all your connection details every time is painful. 
+Instead, tell Goim to write a default config file:
+
+    goim write config
+
+Now edit and fill in your details (the comments in the config file should 
+help):
+
+    $EDITOR ~/.config/goim/config.toml
+
+Note that the config file can specify a SQLite database too.
+
+With all of that out of the way, you can now follow the steps above for loading 
+and searching with SQLite. (Leave out the `-db ...` flag.) Also, with fuzzy 
+searching, you don't need to use the '%' wildcard any more (although you can).
+For example, you can use `goim search maggie {show:simpsons}` to find all 
+episodes of The Simpsons with "maggie" in the title.
+
+
+### Renaming media files
+
+I just copied the first season of The Simpsons off my DVD, but I have a 
+problem. All of my files look like this:
+
+    S01E01.mkv  S01E04.mkv  S01E07.mkv  S01E10.mkv  S01E13.mkv
+    S01E02.mkv  S01E05.mkv  S01E08.mkv  S01E11.mkv
+    S01E03.mkv  S01E06.mkv  S01E09.mkv  S01E12.mkv
+
+No problem. Goim can rename these easily with the `rename` command:
+
+    # goim rename -tv 'the simpsons' *.mkv
+    Rename 'S01E01.mkv' to 'S01E01 - Simpsons Roasting on an Open F
+    Rename 'S01E02.mkv' to 'S01E02 - Bart the Genius.mkv'
+    Rename 'S01E03.mkv' to 'S01E03 - Homer's Odyssey.mkv'
+    Rename 'S01E04.mkv' to 'S01E04 - There's No Disgrace Like Home.
+    Rename 'S01E05.mkv' to 'S01E05 - Bart the General.mkv'
+    Rename 'S01E06.mkv' to 'S01E06 - Moaning Lisa.mkv'
+    Rename 'S01E07.mkv' to 'S01E07 - The Call of the Simpsons.mkv'
+    Rename 'S01E08.mkv' to 'S01E08 - The Telltale Head.mkv'
+    Rename 'S01E09.mkv' to 'S01E09 - Life on the Fast Lane.mkv'
+    Rename 'S01E10.mkv' to 'S01E10 - Homer's Night Out.mkv'
+    Rename 'S01E11.mkv' to 'S01E11 - The Crepes of Wrath.mkv'
+    Rename 'S01E12.mkv' to 'S01E12 - Krusty Gets Busted.mkv'
+    Rename 'S01E13.mkv' to 'S01E13 - Some Enchanted Evening.mkv'
+    Are you sure you want to rename these files? [y/n]: y
+
+And now my files look like this:
+
+    S01E01 - Simpsons Roasting on an Open Fire.mkv                 
+    S01E02 - Bart the Genius.mkv                                   
+    S01E03 - Homer's Odyssey.mkv
+    S01E04 - There's No Disgrace Like Home.mkv
+    S01E05 - Bart the General.mkv
+    S01E06 - Moaning Lisa.mkv
+    S01E07 - The Call of the Simpsons.mkv
+    S01E08 - The Telltale Head.mkv
+    S01E09 - Life on the Fast Lane.mkv
+    S01E10 - Homer's Night Out.mkv
+    S01E11 - The Crepes of Wrath.mkv
+    S01E12 - Krusty Gets Busted.mkv
+    S01E13 - Some Enchanted Evening.mkv
+
+The above command executes in less than a second on my machine. The exact same 
+command could be used to *rename an entire series at once*.
+
+The rename command is very flexible, and it can also rename movies and work 
+with different file name formats. Read more about it with `goim help rename`.
+
+
+### Updating the database
+
+Whether you're loading data for the first time or updating an existing 
+database, you'll want to use Goim's `load` command. By default, data is 
+downloaded from one of IMDb's FTP mirrors, but it also supports HTTP 
+downloading or reading from the local file system.
+
+The `load` command lets you pick and choose which lists you want. By default, 
+it *only* loads the `movies` list. But let's say you also want plots and 
+quotes:
+
+    goim load -lists plot,quotes
+
+Since plots and quotes are completely indenpendent, then this update will be 
+done in parallel if you're using PostgreSQL.
+
+If you want to add all attribute information, then you can use the special 
+'attr' list:
+
+    goim load -lists attr
+
+Or you can load all information available with the `all` list. (Warning: 
+loading actors can take a while!)
+
+I haven't been clever enough to come up with a good way for updating the 
+database in place, so every update will truncate the corresponding table and 
+rebuild it from scratch. (This is done inside a transaction, so if something 
+bad happens, your old data should be preserved.) The **only exceptions** to 
+this are the `atom` and `name` table. The short story here is that this will 
+allow primary (surrogate) keys to persist across updates. Under this scheme, 
+you should never have to worry about stale data cluterring search results.
+
+Typically, IMDb updates its plain text data sets some time between Friday and 
+Saturday morning, so there's no need to have Goim update your database more 
+frequently than once a week.
 
 
 ### Database loading time and size
