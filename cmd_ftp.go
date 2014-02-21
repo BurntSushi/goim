@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	ftp "github.com/jlaffaye/goftp"
+	"github.com/jlaffaye/ftp"
 )
 
 var cmdFtp = &command{
