@@ -210,9 +210,10 @@ I haven't been clever enough to come up with a good way for updating the
 database in place, so every update will truncate the corresponding table and 
 rebuild it from scratch. (This is done inside a transaction, so if something 
 bad happens, your old data should be preserved.) The **only exceptions** to 
-this are the `atom` and `name` table. The short story here is that this will 
-allow primary (surrogate) keys to persist across updates. Under this scheme, 
-you should never have to worry about stale data cluterring search results.
+the truncating scheme are the `atom` and `name` table. The short story here is 
+that this will allow primary (surrogate) keys to persist across updates. Under 
+this scheme, you should never have to worry about stale data cluterring search 
+results.
 
 Typically, IMDb updates its plain text data sets some time between Friday and 
 Saturday morning, so there's no need to have Goim update your database more 
