@@ -91,6 +91,9 @@ And check out the plot for King Size Homer:
 You can read more examples and see a complete list of search options by running
 `goim help search`.
 
+Also, see `goim help` for a list of all commands, which includes a command for
+each type of information available.
+
 
 ### Upping the ante with PostgreSQL
 
