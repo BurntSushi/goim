@@ -18,6 +18,8 @@ sub-package contains types and functions for handling data in the database. The
 sub-package exposes the full power and flexibility of Goim's searching via an 
 API.
 
+Goim is relased under the [UNLICENSE](http://unlicense.org).
+
 
 ### Installation
 
