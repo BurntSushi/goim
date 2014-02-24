@@ -48,7 +48,7 @@ Instead, there appears to be an undocumented guarantee that the name of an
 entity, combined with some miscellaneous attributes, will be unique. For 
 example, the full unique string for The Matrix is:
 
-  The Matrix (1999)
+    The Matrix (1999)
 
 This string is then used in other list files to identify this movie uniquely. 
 The string may include attributes like "(TV)" or "(V)" for "made for TV" and 
@@ -57,14 +57,14 @@ The string may include attributes like "(TV)" or "(V)" for "made for TV" and
 In the rare case where two movies share the same name and were released in the 
 same year, a roman numeral indicates uniqueness:
 
-  The Maury Island Incident (2014/I)
-  The Maury Island Incident (2014/II)
+    The Maury Island Incident (2014/I)
+    The Maury Island Incident (2014/II)
 
 These unique strings also apply to TV shows, episodes, actors, etc. For 
 example, the full unique string for The Simpsons episode "Lisa the Iconoclast" 
 is:
 
-  "The Simpsons" (1989) {Lisa the Iconoclast (#7.16)}
+    "The Simpsons" (1989) {Lisa the Iconoclast (#7.16)}
 
 Since these strings seem to be guaranteed to be unique in the source data set, 
 Goim also uses these as the ultimate source of a primary key in the database. 
