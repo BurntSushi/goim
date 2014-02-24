@@ -258,6 +258,10 @@ of `matrix` (using the trigram indices) takes approximately 1 second. (Searches
 were done only when the Postgres autovacuum appeared to be idling. On my 
 system, it tends to run for a few minutes after a full load of the database.)
 
+Goim is smart about updating and will avoid rebuilding indices where 
+appropriate. For example, while the initial load took 7.5 minutes, updating the 
+database with new data took only 5.5 minutes on my machine.
+
 A PostgreSQL database with just movies/TV shows/episodes takes about 1.5 
 minutes to load completely, including indices.
 
