@@ -76,10 +76,10 @@ This design decision has several effects:
 
   - There is a possibility of a collision, which will violate a key invariant
     assumed by Goim. (See issue #1.)
-  - Mapping each md5 hash to a unique 32 bit integer means that we drastically
+  - Mapping each md5 hash to a unique 32-bit integer means that we drastically
     decrease storage requirements, since each row in each attribute table
     requires a uniquely identifying key for an entity.
-  - The mapping between md5 hash and 32 bit integer can be reasonably stored in 
+  - The mapping between md5 hash and 32-bit integer can be reasonably stored in 
     main memory of most systems (requires at least 100MB for 5,000,000 
     entities). This mapping is a crucial piece of inserting data quickly, as it 
     eliminates the need for round-tripping to the database for each attribute 
