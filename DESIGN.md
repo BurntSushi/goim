@@ -2,8 +2,8 @@ This document describes the architecture of Goim and some key design decisions
 for the database.
 
 
-Overview
-========
+### Overview
+
 The purpose of the main `goim` command (the `main` package) is to provide a 
 command line interface for managing a Goim database. This includes searching 
 and updating. It also provides some convenience commands like `rename` that use 
@@ -21,8 +21,8 @@ and PostgreSQL. Opening a Goim databse through the `imdb` package automatically
 makes sure the schema is up-to-date with the package version.
 
 
-Database
-========
+### Database
+
 The design of the database is very simple. In general, there are three types of 
 tables:
 
@@ -37,8 +37,8 @@ the atom and name tables.)
 All rows in all tables (sans migration meta data) are immutable.
 
 
-Unique identifiers
-==================
+### Unique identifiers
+
 The data from IMDb does not include any numeric unique identifiers for each 
 movie, TV show, episode, actor, etc. While such identifiers clearly exist on 
 their web site, this data is explicitly not included in the "alternative 
@@ -100,8 +100,8 @@ table cannot be considered as an oracle of the data in the database (a select
 from atom/name MUST join with an entity table).
 
 
-Why is there both an atom and name table? Why not merge them?
-=============================================================
+### Why is there both an atom and name table? Why not merge them?
+
 Given the current schema, the atom and name tables must be in precise 
 correspondence. Given that correspondence, it might make sense to merge them 
 together.
