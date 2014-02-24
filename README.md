@@ -284,6 +284,7 @@ ballpark of the sorts of resources used to load the database.
   would be nice to give a file name and, e.g., get back a plot.)
 * With Goim's data and searching, can we easily connect it to other data 
   sources? (Schedules? Subtitles?)
+* Investigate adding foreign key constraints to the schema.
 
 
 ### Motivation and comparison with similar tools
