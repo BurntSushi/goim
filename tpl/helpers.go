@@ -172,9 +172,12 @@ func countSeasons(e imdb.Entity) int {
 	assertDB()
 	q := `
 		SELECT COUNT(*)
-		FROM episode
-		WHERE tvshow_atom_id = $1 AND season > 0 AND episode_num > 0
-		GROUP BY season
+		FROM (
+			SELECT season
+			FROM episode
+			WHERE tvshow_atom_id = $1 AND season > 0 AND episode_num > 0
+			GROUP BY season
+		) AS sub
 	`
 	return csql.Count(tplDB, q, e.Ident())
 }
