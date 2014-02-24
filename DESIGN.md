@@ -42,7 +42,8 @@ All rows in all tables (sans migration meta data) are immutable.
 The data from IMDb does not include any numeric unique identifiers for each 
 movie, TV show, episode, actor, etc. While such identifiers clearly exist on 
 their web site, this data is explicitly not included in the "alternative 
-interfaces" plain text data dump.
+interfaces" plain text data dump. Moreover, IMDb's terms of use explicitly
+forbids trying to recover this data.
 
 Instead, there appears to be an undocumented guarantee that the name of an 
 entity, combined with some miscellaneous attributes, will be unique. For 
