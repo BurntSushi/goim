@@ -344,7 +344,7 @@ func tablesFromLists(db *imdb.DB, lists []string) (tables []string, err error) {
 		if !ok {
 			return nil, ef("BUG: Could not find tables for list %s", name)
 		}
-		pre = append(tables, tablesForList...)
+		pre = append(pre, tablesForList...)
 	}
 	pre = fun.Keys(fun.Set(pre)).([]string)
 
