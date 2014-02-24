@@ -31,8 +31,8 @@ tables:
   - Tables for storing attributes about entities (e.g., plot, goof)
 
 All entity and attribute tables are completely wiped whenever they are updated. 
-The atom and name tables are not. (This can result in stale but benign rows in 
-the atom and name tables.)
+The atom and name tables are not. This can result in stale but benign rows in 
+the atom and name tables, but it preserves primary keys across updates.
 
 All rows in all tables (sans migration meta data) are immutable.
 
