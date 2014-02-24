@@ -69,7 +69,7 @@ is:
 
 Since these strings seem to be guaranteed to be unique in the source data set, 
 Goim also uses these as the ultimate source of a primary key in the database. 
-The key is stored as a md5 (binary) hash of the string, which uses 16 bytes. 
+The key is stored as an md5 (binary) hash of the string, which uses 16 bytes. 
 This key is then mapped to a unique 32-bit monotonically increasing integer.
 
 This design decision has several effects:
