@@ -128,7 +128,7 @@ func (az *atomizer) atomOnlyIfExist(key []byte) (imdb.Atom, bool) {
 }
 
 // add always adds the given hash to the database with a fresh and unique
-// atom identifier.
+// atom identifier. Will panic if this is called on a read-only atomizer.
 func (az *atomizer) add(hash [md5.Size]byte) (imdb.Atom, error) {
 	if az.ins == nil {
 		panic("cannot add atoms when opened read-only")
@@ -192,4 +192,10 @@ var listTables = map[string][]string{
 	"release-dates":        []string{"release_date"},
 	"quotes":               []string{"quote"},
 	"plot":                 []string{"plot"},
+}
+
+// Returns the number of rows in the table given. This will panic with a
+// csql.Panic error if the query fails.
+func rowCount(db *imdb.DB, table string) int {
+	return csql.Count(db, sf("SELECT COUNT(*) FROM %s", table))
 }

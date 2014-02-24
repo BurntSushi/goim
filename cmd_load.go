@@ -183,19 +183,12 @@ func cmd_load(c *command) bool {
 		return false
 	}
 
-	// Figure out which tables we'll be modifying and drop the indices for
-	// those tables.
-	var tables []string
-	for _, name := range userLoadLists {
-		tablesForList, ok := listTables[name]
-		if !ok {
-			pef("BUG: Could not find tables to modify for list %s", name)
-			return false
-		}
-		tables = append(tables, tablesForList...)
+	// Get the tables with indices corresponding to the lists we're updating.
+	tables, err := tablesFromLists(db, userLoadLists)
+	if err != nil {
+		pef("%s", err)
+		return false
 	}
-	tables = fun.Keys(fun.Set(tables)).([]string)
-
 	logf("Dropping indices for: %s", strings.Join(tables, ", "))
 	if err := db.DropIndices(tables...); err != nil {
 		pef("Could not drop indices: %s", err)
@@ -335,4 +328,44 @@ func loaderIndex(name string, userList []string) int {
 		}
 	}
 	return -1
+}
+
+// Returns a list of tables that have indices which are modified by updating
+// the lists given.
+// Each table name will only appear once.
+//
+// If the name/atom table has more than 0 rows, then it will not be included
+// in the list returned. This prevents rebuilding the indices on each update,
+// which usually contains nominal additions to the name/atom table.
+func tablesFromLists(db *imdb.DB, lists []string) (tables []string, err error) {
+	var pre []string
+	for _, name := range lists {
+		tablesForList, ok := listTables[name]
+		if !ok {
+			return nil, ef("BUG: Could not find tables for list %s", name)
+		}
+		pre = append(tables, tablesForList...)
+	}
+	pre = fun.Keys(fun.Set(pre)).([]string)
+
+	updatingEmpty := func(table string) bool {
+		return rowCount(db, table) == 0 && fun.In(table, pre)
+	}
+	for _, table := range pre {
+		switch table {
+		case "atom", "name":
+			// This is a little complex. Basically, we want to avoid rebuilding
+			// indices for incremental updates. So we only let it happen when
+			// we're updating the actor or movie lists from scratch.
+			// (In general, this should apply to any table that is updated
+			// concurrently with name/atom. We exclude tvshow and episode since
+			// they are only updated when movie is updated.)
+			if updatingEmpty("actor") || updatingEmpty("movie") {
+				tables = append(tables, table)
+			}
+		default:
+			tables = append(tables, table)
+		}
+	}
+	return
 }
