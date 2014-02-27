@@ -20,5 +20,11 @@ csql.Queryer can be a *imdb.DB, *sql.DB, *sql.Stmt or a *sql.Tx, etc.
 
 The central types of this package are DB, Entity, Movie, Tvshow, Episode and
 Actor. Most of the other types correspond to attributes of entities.
+
+Beta
+
+Please consider this package as beta material. I've already refactored it a few
+times, but it's possible it could still undergo another major refactoring.
+(In particular, I am still contemplating my use of the csql package.)
 */
 package imdb

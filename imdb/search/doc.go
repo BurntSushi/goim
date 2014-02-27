@@ -19,5 +19,11 @@ with names similar to "the matrix", released in the years 1999-2003 where Keanu
 Reeves was on the cast.) There are more elaborate examples included in this
 package. There are even more examples in Goim, which can be seen in the usage
 information for the search command.  See 'goim help search'.
+
+Beta
+
+Please consider this package as beta material. I am reasonably happy with what
+is here so far and I don't expect to change it. But it hasn't been used much,
+so I'd like to wait before declaring it stable.
 */
 package search

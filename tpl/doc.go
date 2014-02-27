@@ -12,5 +12,11 @@ This package also uses global state to set the database to use in some of the
 helper functions defined. This is unfortunate but convenient. If SetDB is not
 called and a helper function is used that requires it, executing the template
 will return an error.
+
+Beta
+
+Please consider this package as beta material. I am reasonably happy with what
+is here so far and I don't expect to change it. But it hasn't been used much,
+so I'd like to wait before declaring it stable.
 */
 package tpl
