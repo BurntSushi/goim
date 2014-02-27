@@ -174,6 +174,8 @@ func New(db *imdb.DB) *Searcher {
 // equality is used.
 //
 // Query is the equivalent of calling New(db).Query(query).
+//
+// It is safe to give untrusted input as a query.
 func Query(db *imdb.DB, query string) (*Searcher, error) {
 	s := New(db)
 	err := s.Query(query)
@@ -183,6 +185,8 @@ func Query(db *imdb.DB, query string) (*Searcher, error) {
 // Query appends the search query string to the current searcher. See the
 // package level Query function for details on the format of the search query
 // string.
+//
+// It is safe to give untrusted input as a query.
 func (s *Searcher) Query(query string) error {
 	for _, arg := range queryTokens(query) {
 		if err := s.addToken(arg); err != nil {
