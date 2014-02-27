@@ -323,6 +323,7 @@ total                5737 MB
 * Investigate adding foreign key constraints to the schema.
 * SQLite is a second class citizen. There are definitely more places where
   indices would be good.
+* Add more tests. (See `cmd_load_test.go`.)
 
 
 ### Motivation and comparison with similar tools
