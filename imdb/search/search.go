@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/BurntSushi/ty/fun"
+
 	"github.com/BurntSushi/csql"
 
 	"github.com/BurntSushi/goim/imdb"
@@ -81,6 +83,8 @@ type Searcher struct {
 	debug                           bool     // whether to output SQL query
 	atom                            imdb.Atom
 	entities                        []imdb.EntityKind
+	genres                          []string
+	mpaas                           []string
 	order                           []searchOrder
 	limit                           int
 	goodThreshold, similarThreshold float64
@@ -363,6 +367,32 @@ func (s *Searcher) Entity(e imdb.EntityKind) *Searcher {
 	return s
 }
 
+// Genre adds the named genre to the search. Results only belonging to the
+// genre given are returned. If multiple genres are specified in the search,
+// then they are combined disjunctively.
+// The genre name must correspond to one of the names in imdb.EnumGenres (case
+// insensitive). Otherwise, it will be silently ignored.
+func (s *Searcher) Genre(name string) *Searcher {
+	name = strings.ToLower(name)
+	if fun.In(name, imdb.EnumGenres) {
+		s.genres = append(s.genres, name)
+	}
+	return s
+}
+
+// MPAA adds the MPAA rating to the search. Only results with the given MPAA
+// rating are returned. If multiple MPAA ratings are specified in the search,
+// then they are combined disjunctively.
+// The MPAA rating must correspond to one of the ratings in imdb.EnumMPAA (case
+// insensitive). Otherwise, it will be silently ignored.
+func (s *Searcher) MPAA(name string) *Searcher {
+	name = strings.ToUpper(name)
+	if fun.In(name, imdb.EnumMPAA) {
+		s.mpaas = append(s.mpaas, name)
+	}
+	return s
+}
+
 // Atom specifies that the result returned must have the atom identifier
 // given. Note that this guarantees that the number of results will either
 // be 0 or 1.
@@ -604,6 +634,7 @@ func (s *Searcher) sql() string {
 		LEFT JOIN name AS et ON e.tvshow_atom_id = et.atom_id
 		LEFT JOIN actor AS a ON name.atom_id = a.atom_id
 		LEFT JOIN rating ON name.atom_id = rating.atom_id
+		LEFT JOIN mpaa_rating ON name.atom_id = mpaa_rating.atom_id
 		%s
 		WHERE
 			COALESCE(m.atom_id, t.atom_id, e.atom_id, a.atom_id) IS NOT NULL
@@ -689,14 +720,14 @@ func (s *Searcher) creditAttrs() string {
 func (s *Searcher) where() string {
 	var conj []string
 	conj = append(conj, s.whereCredits()...)
-	if len(s.entities) > 0 {
-		var entsIn []string
-		for _, e := range s.entities {
-			entsIn = append(entsIn, sf("'%s'", e.String()))
-		}
-		in := sf("%s IN(%s)", s.entityColumn(), strings.Join(entsIn, ", "))
-		conj = append(conj, in)
-	}
+
+	entString := func(e imdb.EntityKind) string { return e.String() }
+	ents := fun.Map(entString, s.entities).([]string)
+	conj = append(conj, s.inStrs(s.entityColumn(), ents))
+
+	conj = append(conj, s.inStrs("mpaa_rating.rating", s.mpaas))
+	conj = append(conj, s.inSubquery("genre", "name", s.genres))
+
 	if !s.subTvshow.empty() {
 		conj = append(conj, sf("e.tvshow_atom_id = %d", s.subTvshow.id))
 	}
@@ -739,6 +770,36 @@ func (s *Searcher) where() string {
 		}
 	}
 	return strings.Join(conj, " AND ")
+}
+
+// assumes that the strings in vals are safe for SQL.
+func (s *Searcher) inStrs(col string, vals []string) string {
+	if len(vals) == 0 {
+		return "1 = 1"
+	}
+	var elems []string
+	for _, v := range vals {
+		elems = append(elems, sf("'%s'", v))
+	}
+	return sf("%s IN(%s)", col, strings.Join(elems, ", "))
+}
+
+// assumes that the strings in vals are safe for SQL.
+func (s *Searcher) inSubquery(table, col string, vals []string) string {
+	if len(vals) == 0 {
+		return "1 = 1"
+	}
+
+	var unions []string
+	for _, v := range vals {
+		unions = append(unions, sf("SELECT '%s'", v))
+	}
+	return sf(`
+		EXISTS (
+			%s
+			INTERSECT
+			SELECT %s FROM %s WHERE atom_id = name.atom_id
+		)`, strings.Join(unions, " UNION "), col, table)
 }
 
 func (s *Searcher) whereCredits() []string {

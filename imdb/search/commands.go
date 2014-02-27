@@ -77,6 +77,8 @@ func init() {
 	less := func(f1, f2 string) bool { return f1 < f2 }
 	fields := fun.QuickSort(less, fun.Keys(qualifiedColumns)).([]string)
 	sortFields := strings.Join(fields, ", ")
+	genres := strings.Join(imdb.EnumGenres, ", ")
+	mpaas := strings.Join(imdb.EnumMPAA, ", ")
 
 	commands = []command{
 		{
@@ -112,6 +114,26 @@ func init() {
 				"be combined with other entity types to form a disjunction.",
 			func(s *Searcher, v string) error {
 				s.Entity(imdb.EntityActor)
+				return nil
+			},
+		},
+		{
+			"genre", nil, true,
+			"Restricts results to only include entities matching the genre " +
+				"given. Multiple genres will be combined disjunctively. " +
+				"Available genres: " + genres,
+			func(s *Searcher, v string) error {
+				s.Genre(v)
+				return nil
+			},
+		},
+		{
+			"mpaa", nil, true,
+			"Restricts results to only include entities with the MPAA rating " +
+				"given. Multiple MPAA ratings will be combined " +
+				"disjunctively. Available MPAA ratings: " + mpaas,
+			func(s *Searcher, v string) error {
+				s.MPAA(v)
 				return nil
 			},
 		},
