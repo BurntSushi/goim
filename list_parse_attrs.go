@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/ty/fun"
@@ -83,7 +84,7 @@ func listGenres(db *imdb.DB, atoms *atomizer, r io.ReadCloser) (err error) {
 		if len(fields) == 0 {
 			return
 		}
-		table.add(line, id, unicode(fields[0]))
+		table.add(line, id, strings.ToLower(unicode(fields[0])))
 	})
 	return
 }
