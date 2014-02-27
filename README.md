@@ -272,6 +272,38 @@ indices.
 The point of these benchmarks is not to be rigorous, but to give you a general 
 ballpark of the sorts of resources used to load the database.
 
+For reference, here is the output of `goim size` on a full database as of
+February 26, 2014:
+
+```
+actor                2944464 rows (102 MB)
+aka_title            364286 rows (28 MB)
+alternate_version    18052 rows (5728 kB)
+atom                 5736653 rows (285 MB)
+color_info           1382568 rows (49 MB)
+credit               21316676 rows (1248 MB)
+episode              1723386 rows (73 MB)
+genre                1687771 rows (71 MB)
+goof                 189835 rows (46 MB)
+language             1396121 rows (59 MB)
+link                 909486 rows (49 MB)
+literature           123700 rows (18 MB)
+location             716354 rows (54 MB)
+movie                957817 rows (40 MB)
+mpaa_rating          14884 rows (1256 kB)
+name                 5736653 rows (282 MB)
+plot                 387030 rows (227 MB)
+quote                613856 rows (169 MB)
+rating               517401 rows (22 MB)
+release_date         3339695 rows (169 MB)
+running_time         878488 rows (39 MB)
+sound_mix            506885 rows (23 MB)
+tagline              147611 rows (13 MB)
+trivia               401191 rows (89 MB)
+tvshow               99905 rows (4328 kB)
+total                5737 MB
+```
+
 
 ### TODO
 
