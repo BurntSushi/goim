@@ -148,7 +148,7 @@ func New(db *imdb.DB) *Searcher {
 		fuzzy:            db.IsFuzzyEnabled(),
 		limit:            30,
 		goodThreshold:    0.25,
-		similarThreshold: 0.3,
+		similarThreshold: 0.4,
 		what:             "entity",
 	}
 }
@@ -353,7 +353,7 @@ func (s *Searcher) GoodThreshold(diff float64) *Searcher {
 // SimilarThreshold sets the similarity threshold at which results from a fuzzy
 // text search are cutoff. Results with a similarity threshold lower than
 // what's given won't be returned. The value should be in the inclusive inteval
-// [0, 1.0]. By default, the threshold is set to 0.3.
+// [0, 1.0]. By default, the threshold is set to 0.4.
 func (s *Searcher) SimilarThreshold(t float64) *Searcher {
 	s.similarThreshold = t
 	return s
