@@ -289,6 +289,8 @@ ballpark of the sorts of resources used to load the database.
 * With Goim's data and searching, can we easily connect it to other data 
   sources? (Schedules? Subtitles?)
 * Investigate adding foreign key constraints to the schema.
+* SQLite is a second class citizen. There are definitely more places where
+  indices would be good.
 
 
 ### Motivation and comparison with similar tools
