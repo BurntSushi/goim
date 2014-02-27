@@ -44,8 +44,12 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	atoms, err := newAtomizer(db, txatom.Tx)
 	csql.Panic(err)
 
-	nacts1, ncreds1 := listActs(db, ractress, atoms, actIns, credIns, nameIns)
-	nacts2, ncreds2 := listActs(db, ractor, atoms, actIns, credIns, nameIns)
+	// Unfortunately, it looks like credits for an actor can appear in
+	// multiple locations. (Or there are different actors that erroneously
+	// have the same name.)
+	added := make(map[imdb.Atom]struct{}, 3000000)
+	n1, nc1 := listActs(db, ractress, atoms, added, actIns, credIns, nameIns)
+	n2, nc2 := listActs(db, ractor, atoms, added, actIns, credIns, nameIns)
 
 	csql.Panic(actIns.Exec())
 	csql.Panic(credIns.Exec())
@@ -57,8 +61,7 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	csql.Panic(txname.Commit())
 	csql.Panic(txatom.Commit())
 
-	logf("Done. Added %d actors/actresses and %d credits.",
-		nacts1+nacts2, ncreds1+ncreds2)
+	logf("Done. Added %d actors/actresses and %d credits.", n1+n2, nc1+nc2)
 	return
 }
 
@@ -74,12 +77,12 @@ func listActs(
 	db *imdb.DB,
 	r io.ReadCloser,
 	atoms *atomizer,
+	added map[imdb.Atom]struct{},
 	actIns, credIns, nameIns *csql.Inserter,
 ) (addedActors, addedCredits int) {
 	bunkName, bunkTitles := []byte("Name"), []byte("Titles")
 	bunkLines1, bunkLines2 := []byte("----"), []byte("------")
 
-	lastActorId := imdb.Atom(0)
 	listAttrRows(r, atoms, func(line, idstr, row []byte) {
 		if bytes.Equal(idstr, bunkName) && bytes.Equal(row, bunkTitles) {
 			return
@@ -107,8 +110,7 @@ func listActs(
 		}
 
 		// If we haven't seen this actor before, then insert into actor table.
-		if a.Id > lastActorId {
-			lastActorId = a.Id
+		if _, ok := added[a.Id]; !ok {
 			if len(a.FullName) == 0 {
 				if !parseActorName(idstr, &a) {
 					logf("Could not get actor name '%s' in '%s'.", idstr, line)
@@ -119,6 +121,7 @@ func listActs(
 				csql.Panic(ef("Could not add actor info '%#v' from '%s': %s",
 					a, line, err))
 			}
+			added[a.Id] = struct{}{}
 			addedActors++
 		}
 
