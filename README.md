@@ -220,6 +220,8 @@ the truncating scheme are the `atom` and `name` table. The short story here is
 that this will allow primary (surrogate) keys to persist across updates. Under 
 this scheme, you should never have to worry about stale data cluterring search 
 results.
+(See [DESIGN.md](https://github.com/BurntSushi/goim/blob/master/DESIGN.md)
+for some elaboration on this point.)
 
 Typically, IMDb updates its plain text data sets some time between Friday and 
 Saturday morning, so there's no need to have Goim update your database more 
