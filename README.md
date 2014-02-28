@@ -357,7 +357,9 @@ particular plans to support it, but I'm not against it.)
 It is entirely possible that I could have used IMDbPY to load a database and 
 then built tools on top of it to do searching and renaming, but I'm much 
 happier with a smaller and simpler piece of software to do the work for me.
-Also, it's a lot more fun to design your own database.
+Also, it's a lot more fun to design your own database. Plus, controlling the
+schema gives me the freedom to experiment with other neat ideas, like storing
+temporal data based on the diffs that IMDb provides for its plain text data.
 
 ### Licensing minutia
 
