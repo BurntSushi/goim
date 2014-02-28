@@ -314,7 +314,7 @@ total                5737 MB
   members).
 * I am pleased with the search infrastructure, but there needs to be more
   options. For example, to search movie links, running times, release dates, 
-  genres, etc.
+  etc.
 * Look into searching plots/quotes. (Concern: how long will a fulltext index 
   take to build on these tables?)
 * Expand the clever logic in the `rename` command to general searching.
