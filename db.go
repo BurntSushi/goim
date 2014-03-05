@@ -86,7 +86,7 @@ func newAtomizer(db *imdb.DB, tx *sql.Tx) (az *atomizer, err error) {
 	}
 
 	rs := csql.Query(db, "SELECT id, hash FROM atom ORDER BY id ASC")
-	csql.Panic(csql.ForRow(rs, az.readRow))
+	csql.ForRow(rs, az.readRow)
 	az.nextId++
 	return
 }

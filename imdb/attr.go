@@ -57,7 +57,7 @@ func attrs(
 	q := sf("SELECT %s FROM %s WHERE %s = $1 %s",
 		strings.Join(columns, ", "), tableName, idColumn, extra)
 	rs := csql.Query(db, q, e.Ident())
-	csql.Panic(csql.ForRow(rs, func(s csql.RowScanner) {
+	csql.ForRow(rs, func(s csql.RowScanner) {
 		loadCols := make([]interface{}, nfields)
 		for i := 0; i < nfields; i++ {
 			loadCols[i] = reflect.New(tz.Field(i).Type).Interface()
@@ -69,7 +69,7 @@ func attrs(
 			row.Field(i).Set(reflect.ValueOf(loadCols[i]).Elem())
 		}
 		vattrs = reflect.Append(vattrs, row)
-	}))
+	})
 	v = vattrs.Interface() // not sure if this is necessary.
 	return
 }

@@ -38,9 +38,9 @@ func listMovies(db *imdb.DB, movies io.ReadCloser) (err error) {
 	// they will contain stale data. But the only side effect, I think, is
 	// taking up space.
 	// (Stale data can be removed with 'goim clean'.)
-	csql.Panic(csql.Truncate(txmovie, db.Driver, "movie"))
-	csql.Panic(csql.Truncate(txtv, db.Driver, "tvshow"))
-	csql.Panic(csql.Truncate(txepisode, db.Driver, "episode"))
+	csql.Truncate(txmovie, db.Driver, "movie")
+	csql.Truncate(txtv, db.Driver, "tvshow")
+	csql.Truncate(txepisode, db.Driver, "episode")
 
 	mvIns, err := csql.NewInserter(txmovie.Tx, db.Driver, "movie",
 		"atom_id", "year", "sequence", "tv", "video")

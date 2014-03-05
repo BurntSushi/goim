@@ -79,13 +79,13 @@ func (db *DB) Tables() (tables []string, err error) {
 		return nil, ef("Unrecognized database driver: %s", db.Driver)
 	}
 	rows := csql.Query(db, q)
-	csql.Panic(csql.ForRow(rows, func(rs csql.RowScanner) {
+	csql.ForRow(rows, func(rs csql.RowScanner) {
 		var table string
 		csql.Scan(rs, &table)
 		if table != "migration_version" {
 			tables = append(tables, table)
 		}
-	}))
+	})
 	return
 }
 

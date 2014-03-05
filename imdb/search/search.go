@@ -267,7 +267,7 @@ func (s *Searcher) Results() (rs []Result, err error) {
 	} else {
 		rows = csql.Query(s.db, s.sql(), strings.Join(s.name, " "))
 	}
-	csql.Panic(csql.ForRow(rows, func(scanner csql.RowScanner) {
+	csql.ForRow(rows, func(scanner csql.RowScanner) {
 		var r Result
 		var ent string
 		csql.Scan(scanner, &ent, &r.Id, &r.Name, &r.Year,
@@ -277,7 +277,7 @@ func (s *Searcher) Results() (rs []Result, err error) {
 			&r.Credit.Position, &r.Credit.Attrs)
 		r.Entity = imdb.Entities[ent]
 		rs = append(rs, r)
-	}))
+	})
 	return
 }
 

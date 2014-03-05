@@ -29,8 +29,8 @@ func listActors(db *imdb.DB, ractor, ractress io.ReadCloser) (err error) {
 	// they will contain stale data. But the only side effect, I think, is
 	// taking up space.
 	// (Stale data can be removed with 'goim clean'.)
-	csql.Panic(csql.Truncate(txactor, db.Driver, "actor"))
-	csql.Panic(csql.Truncate(txcredit.Tx, db.Driver, "credit"))
+	csql.Truncate(txactor, db.Driver, "actor")
+	csql.Truncate(txcredit.Tx, db.Driver, "credit")
 
 	actIns, err := csql.NewInserter(txactor.Tx, db.Driver, "actor",
 		"atom_id", "sequence")

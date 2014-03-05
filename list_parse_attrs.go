@@ -29,7 +29,7 @@ func startSimpleLoad(db *imdb.DB, table string, columns ...string) *simpleLoad {
 
 	tx, err := db.Begin()
 	csql.Panic(err)
-	csql.Panic(csql.Truncate(tx, db.Driver, table))
+	csql.Truncate(tx, db.Driver, table)
 	ins, err := csql.NewInserter(tx, db.Driver, table, columns...)
 	csql.Panic(err)
 	atoms, err := newAtomizer(db, nil) // read only
