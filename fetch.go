@@ -106,7 +106,7 @@ func (r *ftpReadCloser) Close() error {
 		return nil
 	}
 	if err := r.cmd.Wait(); err != nil {
-		return ef("Could not close FTP download: %s", err)
+		logf("Could not close FTP download: %s", err)
 	}
 	return nil
 }
@@ -182,12 +182,11 @@ func (gc *gzipCloser) Close() error {
 		return nil
 	}
 
-	var err error
-	if err = gc.Reader.Close(); err != nil {
+	if err := gc.Reader.Close(); err != nil {
 		pef("Error closing gzip reader: %s", err)
 	}
-	if err = gc.underlying.Close(); err != nil {
+	if err := gc.underlying.Close(); err != nil {
 		pef("Error closing initial source: %s", err)
 	}
-	return err
+	return nil
 }

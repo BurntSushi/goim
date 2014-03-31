@@ -10,6 +10,8 @@ import (
 	"github.com/jlaffaye/ftp"
 )
 
+const maxFtpConns = 5
+
 var cmdFtp = &command{
 	name: "ftp",
 	positionalUsage: "list-name ( berlin | digital | funet | uiuc | " +

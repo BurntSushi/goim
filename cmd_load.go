@@ -172,8 +172,7 @@ func cmd_load(c *command) bool {
 			}
 			return struct{}{}
 		}
-		// Limit the download to 3 simultaneous connections.
-		fun.ParMapN(download, userLoadLists, 3)
+		fun.ParMapN(download, userLoadLists, maxFtpConns)
 		return true
 	}
 
@@ -249,10 +248,16 @@ func cmd_load(c *command) bool {
 		}
 
 		// SQLite doesn't handle concurrent writes very well, so force it
-		// to be single-threaded.
+		// to be single-threaded. Also, we've got to limit connections if
+		// we're fetching from FTP too.
 		maxConcurrent := flagCpu
 		if db.Driver == "sqlite3" {
 			maxConcurrent = 1
+		} else {
+			switch fetch.(gzipFetcher).fetcher.(type) {
+			case ftpFetcher:
+				maxConcurrent = maxFtpConns
+			}
 		}
 		fun.ParMapN(simpleLoad, userLoadLists, maxConcurrent)
 	}
