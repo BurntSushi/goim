@@ -172,7 +172,11 @@ func cmd_load(c *command) bool {
 			}
 			return struct{}{}
 		}
-		fun.ParMapN(download, userLoadLists, maxFtpConns)
+		conns := maxFtpConns
+		if flagCpu < conns {
+			conns = flagCpu
+		}
+		fun.ParMapN(download, userLoadLists, conns)
 		return true
 	}
 
