@@ -471,7 +471,7 @@ func listMPAARatings(
 		curAtom, curRating, curReason = 0, "", nil
 	}
 	add := func(line []byte) {
-		if len(curReason) > 0 {
+		if len(curReason) > 0 && len(curRating) > 0 {
 			curReason = bytes.TrimSpace(curReason)
 			table.add(line, curAtom, curRating, unicode(curReason))
 			reset()
@@ -507,12 +507,18 @@ func listMPAARatings(
 					return
 				}
 				line = bytes.TrimSpace(line[5:])
-				nextSpace := bytes.IndexByte(line, ' ')
-				if nextSpace == -1 {
-					curRating = unicode(line)
+				if bytes.HasPrefix(line, []byte("PG- 13")) {
+					// Special case for malformed rating for
+					// X-Men: Days of Future Past
+					curRating = "PG-13"
 				} else {
-					curRating = unicode(line[:nextSpace])
-					line = line[nextSpace+1:]
+					nextSpace := bytes.IndexByte(line, ' ')
+					if nextSpace == -1 {
+						curRating = unicode(line)
+					} else {
+						curRating = unicode(line[:nextSpace])
+						line = line[nextSpace+1:]
+					}
 				}
 			}
 			switch curRating {
