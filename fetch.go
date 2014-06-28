@@ -17,6 +17,7 @@ import (
 // FTP, etc.
 type fetcher interface {
 	list(name string) (io.ReadCloser, error)
+	location(name string) string
 }
 
 // newGzipFetcher is just like newFetcher, except it's wrapped in a gzip
@@ -62,12 +63,15 @@ func newFetcher(uri string) fetcher {
 type dirFetcher string
 
 func (df dirFetcher) list(name string) (io.ReadCloser, error) {
-	fpath := path.Join(string(df), sf("%s.list.gz", name))
-	f, err := os.Open(fpath)
+	f, err := os.Open(df.location(name))
 	if err != nil {
 		return nil, err
 	}
 	return f, nil
+}
+
+func (df dirFetcher) location(name string) string {
+	return path.Join(string(df), sf("%s.list.gz", name))
 }
 
 // httpFetcher satisfies the fetcher interface by reading from an HTTP URL.
@@ -76,12 +80,16 @@ type httpFetcher struct {
 }
 
 func (hf httpFetcher) list(name string) (io.ReadCloser, error) {
-	uri := sf("%s/%s.list.gz", hf.String(), name)
+	uri := hf.location(name)
 	resp, err := http.Get(uri)
 	if err != nil {
 		return nil, ef("Could not download '%s': %s", uri, err)
 	}
 	return resp.Body, nil
+}
+
+func (hf httpFetcher) location(name string) string {
+	return sf("%s/%s.list.gz", hf.String(), name)
 }
 
 type ftpReadCloser struct {
@@ -145,6 +153,10 @@ func (ff ftpFetcher) list(name string) (io.ReadCloser, error) {
 	return &ftpReadCloser{c, stdout, stderr}, nil
 }
 
+func (ff ftpFetcher) location(name string) string {
+	return ftpUrl(ff.URL.String(), name)
+}
+
 // gzipFetcher wraps a value satisfying the fetcher interface with a gzip
 // reader. It also couples the closing of a gzip reader with closing the
 // underlying reader.
@@ -163,6 +175,10 @@ func (gf gzipFetcher) list(name string) (io.ReadCloser, error) {
 		return nil, ef("Could not create gzip reader for '%s': %s", name, err)
 	}
 	return &gzipCloser{gzlist, plain}, nil
+}
+
+func (gf gzipFetcher) location(name string) string {
+	return gf.fetcher.location(name)
 }
 
 type gzipCloser struct {

@@ -15,6 +15,7 @@ import (
 
 var (
 	flagLoadDownload = ""
+	flagLoadUrls     = false
 	flagLoadLists    = "movies"
 	flagWarnings     = false
 )
@@ -88,6 +89,10 @@ by adding a title to an episode). This results in stale rows in the 'atom' and
 		c.flags.StringVar(&flagLoadDownload, "download", flagLoadDownload,
 			"When set, the data retrieved will be stored in the directory\n"+
 				"specified. Then goim will quit.")
+		c.flags.BoolVar(&flagLoadUrls, "urls", flagLoadUrls,
+			"When set, the URLs for downloading the lists specified will\n"+
+				"be printed to stdout, each on their own line. Then goim\n"+
+				"will quit.")
 		lists := text.Wrap(strings.Join(loadLists, ", "), 80)
 		c.flags.StringVar(&flagLoadLists, "lists", flagLoadLists,
 			"Set to a comma separated list of IMDB movie lists to load, with\n"+
@@ -150,6 +155,21 @@ func cmd_load(c *command) bool {
 	getFrom := c.flags.Arg(0)
 	if len(getFrom) == 0 {
 		getFrom = "berlin"
+	}
+
+	// Just print the URLs to download.
+	if flagLoadUrls {
+		fetch := newFetcher(getFrom)
+		if fetch == nil {
+			return false
+		}
+		for _, list := range userLoadLists {
+			pf("%s\n", fetch.location(list))
+			if list == "actors" {
+				pf("%s\n", fetch.location("actresses"))
+			}
+		}
+		return true
 	}
 
 	// If we're downloading, then just do that and quit.

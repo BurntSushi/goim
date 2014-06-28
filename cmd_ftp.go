@@ -39,6 +39,13 @@ var namedFtp = map[string]string{
 	"uiuc":    "ftp://uiarchive.cso.uiuc.edu/pub/info/imdb",
 }
 
+func ftpUrl(baseUri string, listName string) string {
+	if v, ok := namedFtp[baseUri]; ok {
+		baseUri = v
+	}
+	return sf("%s/%s.list.gz", baseUri, listName)
+}
+
 func cmd_ftp(c *command) bool {
 	c.assertLeastNArg(2)
 
