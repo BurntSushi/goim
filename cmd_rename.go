@@ -29,6 +29,7 @@ var (
 	flagRenameRegexEpisode = `\b[Ss]([0-9]+)[Ee]([0-9]+)\b`
 	flagRenameRegexYear    = `\b([0-9]{4})\b`
 	flagRenameTvshowName   = false
+	flagVotes              = 10000
 )
 
 var cmdRename = &command{
@@ -91,6 +92,10 @@ with the 'match-episode' flag.
 			"An RE2 regular expression for matching the year in a file name.\n"+
 				"The regex MUST contain one capturing group for the year\n"+
 				"as an integer.")
+		c.flags.IntVar(&flagVotes, "votes", flagVotes,
+			"The minimum number of votes required for results. For episodes,\n"+
+				"this applies to the TV show. This is not used when the\n"+
+				"query is fully specified.")
 	},
 }
 
@@ -281,6 +286,7 @@ func searchTvshow(c *command, db *imdb.DB, query string) (*imdb.Tvshow, error) {
 	}
 	tvsearch.Chooser(c.chooser)
 	tvsearch.Entity(imdb.EntityTvshow)
+	tvsearch.Votes(flagVotes, -1)
 
 	results, err := tvsearch.Results()
 	if err != nil {
@@ -369,6 +375,7 @@ func guessEpisode(
 		return nil, err
 	}
 	tvsub.Entity(imdb.EntityTvshow)
+	tvsub.Votes(flagVotes, -1)
 
 	esearch := search.New(db)
 	esearch.Tvshow(tvsub)
@@ -417,6 +424,7 @@ func guessMovie(c *command, db *imdb.DB, fname string) (*imdb.Movie, error) {
 	msearch.Entity(imdb.EntityMovie)
 	msearch.Years(year-1, year+1)
 	msearch.Chooser(c.chooser)
+	msearch.Votes(flagVotes, -1)
 
 	results, err := msearch.Results()
 	if err != nil {
