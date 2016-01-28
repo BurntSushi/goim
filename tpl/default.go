@@ -96,7 +96,7 @@ successive new lines (LF) are replaced with two new lines (LF).
 	{{ if .E.Title }}
 		{{ if .A.ShowTv }}
 			{{ $tv := tvshow .E }}
-			{{ printf "%s - %s - %s" $tv.Title .E.Title .A.Ext }}
+			{{ printf "%s - %s - %s%s" $tv.Title $nums .E.Title .A.Ext }}
 		{{ else }}
 			{{ printf "%s - %s%s" $nums .E.Title .A.Ext }}
 		{{ end }}
