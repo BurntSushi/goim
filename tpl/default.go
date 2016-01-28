@@ -93,12 +93,20 @@ successive new lines (LF) are replaced with two new lines (LF).
 
 {{ define "rename_episode" }}
 	{{ $nums := printf "S%02dE%02d" .E.Season .E.EpisodeNum }}
-	{{ $titleExt := printf "%s%s" .E.Title .A.Ext }}
-	{{ if .A.ShowTv }}
-		{{ $tv := tvshow .E }}
-		{{ printf "%s - %s - %s" $tv.Title $nums $titleExt }}
+	{{ if .E.Title }}
+		{{ if .A.ShowTv }}
+			{{ $tv := tvshow .E }}
+			{{ printf "%s - %s - %s" $tv.Title .E.Title .A.Ext }}
+		{{ else }}
+			{{ printf "%s - %s%s" $nums .E.Title .A.Ext }}
+		{{ end }}
 	{{ else }}
-		{{ printf "%s - %s" $nums $titleExt }}
+		{{ if .A.ShowTv }}
+			{{ $tv := tvshow .E }}
+			{{ printf "%s - %s%s" $tv.Title $nums .A.Ext }}
+		{{ else }}
+			{{ printf "%s%s" $nums .A.Ext }}
+		{{ end }}
 	{{ end }}
 {{ end }}
 
