@@ -44,7 +44,7 @@ This command will ALWAYS prompt you before renaming your files.
 
 The rename command renames files to names found in IMDb's database. The naming
 scheme is specified in templates with the "rename_" prefix found in your
-command.tpl file. 
+command.tpl file.
 
 The most general operation is to provide an arbitrary search query as the first
 argument (so it must be in quotes, unlike with 'goim search') and a set of
@@ -63,10 +63,10 @@ or year information. This only works with movies or episodes. For movies, a
 big piece of distinguishing information is the year, which is extracted with
 the regular expression in the 'match-year' flag.
 
-If you're renaming multiple episodes, use the '-tv' flag to specify the TV show 
+If you're renaming multiple episodes, use the '-tv' flag to specify the TV show
 and omit the query. This will also be significantly faster, since only one
-search will be performed instead of a search for each file. Goim will try to 
-extract episode numbers from the file names. This extraction can be controlled 
+search will be performed instead of a search for each file. Goim will try to
+extract episode numbers from the file names. This extraction can be controlled
 with the 'match-episode' flag.
 `,
 	flags: flag.NewFlagSet("rename", flag.ExitOnError),
@@ -273,6 +273,7 @@ func renames(
 			return nil
 		}
 		name := strings.TrimSpace(buf.String())
+		name = strings.Replace(name, "/", "_", -1)
 		name = path.Join(path.Dir(file), name)
 		names = append(names, name)
 	}
