@@ -7,8 +7,7 @@ https://getsatisfaction.com/imdb/topics/imdb-data-now-available-in-amazon-s3
 
 The existing FTP sites have already gone offline, but they've put up new
 temporary FTP sites that will go offline **September 10, 2017**. Until then,
-you can still update goim with using one of the tempoary FTP sites. For
-example:
+you can still update goim using one of the tempoary FTP sites. For example:
 
     goim load ftp://ftp.funet.fi/pub/mirrors/ftp.imdb.com/pub/temporaryaccess/
 
